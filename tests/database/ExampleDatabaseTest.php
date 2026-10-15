@@ -1,7 +1,10 @@
 <?php
 
+namespace Tests\Database;
+
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
+use stdClass;
 use Tests\Support\Database\Seeds\ExampleSeeder;
 use Tests\Support\Models\ExampleModel;
 
