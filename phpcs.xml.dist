@@ -4,7 +4,7 @@
     Baseado na configuração do próprio DevCore.
     O Quality Gate do DevCore só executa o PSR-12 se este arquivo existir na raiz do repositório.
     Uso local: vendor/bin/phpcs  |  correção automática: vendor/bin/phpcbf
-    Requer: composer require --dev squizlabs/php_codesniffer
+    Dependência de desenvolvimento: squizlabs/php_codesniffer.
 -->
 <ruleset name="CalamaDevs">
     <description>Padrão de código do Calama Devs: PSR-12.</description>
