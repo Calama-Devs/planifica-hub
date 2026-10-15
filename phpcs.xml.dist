@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<!--
+    Padrão de código do Calama Devs (manual, item 10.2): PSR-12.
+    Baseado na configuração do próprio DevCore.
+    O Quality Gate do DevCore só executa o PSR-12 se este arquivo existir na raiz do repositório.
+    Uso local: vendor/bin/phpcs  |  correção automática: vendor/bin/phpcbf
+    Requer: composer require --dev squizlabs/php_codesniffer
+-->
+<ruleset name="CalamaDevs">
+    <description>Padrão de código do Calama Devs: PSR-12.</description>
+
+    <file>app</file>
+    <file>tests</file>
+
+    <!-- Views misturam HTML e PHP; Config e Common.php seguem o formato do framework. -->
+    <exclude-pattern>app/Views/*</exclude-pattern>
+    <exclude-pattern>app/Config/*</exclude-pattern>
+    <exclude-pattern>app/Common.php</exclude-pattern>
+    <exclude-pattern>app/ThirdParty/*</exclude-pattern>
+
+    <arg name="colors"/>
+    <arg name="extensions" value="php"/>
+    <arg name="parallel" value="8"/>
+    <arg value="p"/>
+
+    <!-- Avisos aparecem, mas não reprovam o Quality Gate. -->
+    <config name="ignore_warnings_on_exit" value="1"/>
+
+    <rule ref="PSR12"/>
+</ruleset>
