@@ -1,5 +1,7 @@
 <?php
 
+namespace Tests\Unit;
+
 use CodeIgniter\Test\CIUnitTestCase;
 use Config\App;
 use Tests\Support\Libraries\ConfigReader;
@@ -9,9 +11,9 @@ use Tests\Support\Libraries\ConfigReader;
  */
 final class HealthTest extends CIUnitTestCase
 {
-    public function testIsDefinedAppPath(): void
+    public function testCaminhoDaAplicacaoExiste(): void
     {
-        $this->assertTrue(defined('APPPATH'));
+        $this->assertDirectoryExists(APPPATH);
     }
 
     public function testBaseUrlHasBeenSet(): void
