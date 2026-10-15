@@ -1,0 +1,31 @@
+# Análise estática do Calama Devs (manual, item 10.2). Baseado na configuração do próprio DevCore.
+# O Quality Gate do DevCore só executa o PHPStan se este arquivo existir na raiz do repositório.
+# Uso local: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+# Requer: composer require --dev phpstan/phpstan codeigniter/phpstan-codeigniter
+# A inferência de tipos das Models (codeigniter/phpstan-codeigniter) usa a extensão sqlite3 do PHP.
+
+includes:
+    - vendor/codeigniter/phpstan-codeigniter/extension.neon
+
+parameters:
+    # Nível 5, o mesmo do DevCore. Projetos novos e estáveis podem subir para 6.
+    level: 5
+    tmpDir: writable/cache/phpstan
+    bootstrapFiles:
+        - vendor/codeigniter4/framework/system/Test/bootstrap.php
+    paths:
+        - app
+        - tests
+    excludePaths:
+        - app/Views/*
+        - app/ThirdParty/*
+    scanDirectories:
+        - vendor/codeigniter4/framework/system/Helpers
+    dynamicConstantNames:
+        - APP_NAMESPACE
+        - CI_DEBUG
+        - ENVIRONMENT
+    codeigniter:
+        schemaCacheDirectory: %currentWorkingDirectory%/writable/cache/phpstan
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false
