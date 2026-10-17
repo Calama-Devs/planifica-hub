@@ -34,7 +34,7 @@ incluindo suas tabelas, entidades e configurações.
   com `csrf_field()`; `GET /logout` não é permitido.
 
 O CSRF é global e utiliza sessão (manual 11.3). As telas e os Controllers são
-fornecidos pelo próprio Shield. A página inicial permanece pública;
+fornecidos pelo próprio Shield. A página inicial exige autenticação pelo filtro `session`;
 futuras rotas restritas devem utilizar os Filters de autenticação e autorização.
 Links mágicos e outros fluxos por e-mail exigem configurar o remetente e o
 transporte de e-mail no `.env` antes de utilizá-los.
