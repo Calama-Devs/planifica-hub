@@ -26,6 +26,9 @@ parameters:
         - CI_DEBUG
         - ENVIRONMENT
     codeigniter:
+        additionalServices:
+            - CodeIgniter\Shield\Config\Services
+            - CodeIgniter\Settings\Config\Services
         schemaCacheDirectory: %currentWorkingDirectory%/writable/cache/phpstan
     treatPhpDocTypesAsCertain: false
     reportUnmatchedIgnoredErrors: false
