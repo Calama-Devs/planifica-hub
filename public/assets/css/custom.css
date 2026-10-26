@@ -1,0 +1,30 @@
+/* Estilos customizados do PlanIFica Hub */
+
+html, body {
+    height: 100%;
+}
+
+.container-scroller {
+    min-height: 100%;
+}
+
+.sidebar .nav .nav-item .nav-link .menu-title {
+    font-size: 13px;
+}
+
+.sidebar .nav.sub-menu .nav-item .nav-link {
+    font-size: 12px;
+}
+
+.marca-sistema {
+    color: #ffffff;
+    font-size: 1.25rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.marca-sistema:hover,
+.marca-sistema:focus {
+    color: #ffffff;
+    text-decoration: none;
+}

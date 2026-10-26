@@ -6,6 +6,11 @@ class Home extends BaseController
 {
     public function index(): string
     {
-        return view('welcome_message');
+        $data = [
+            'title' => 'Início | PlanIFica Hub',
+        ];
+        $data['content'] = view('home', $data);
+
+        return view('dashboard', $data);
     }
 }
