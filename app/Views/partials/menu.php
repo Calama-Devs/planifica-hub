@@ -19,5 +19,14 @@
                 <span class="menu-title">Dashboard</span>
             </a>
         </li>
+
+        <li class="nav-item menu-items <?= url_is('sobre*') ? 'active' : '' ?>">
+            <a class="nav-link" href="<?= site_url('sobre') ?>">
+                <span class="menu-icon">
+                    <i class="mdi mdi-information-outline text-info" aria-hidden="true"></i>
+                </span>
+                <span class="menu-title">Sobre</span>
+            </a>
+        </li>
     </ul>
 </nav>

@@ -18,7 +18,8 @@ app/Views/
     mensagens.php       # Alertas de sessão (sucesso, erro, aviso, info)
     rodape.php          # Rodapé institucional oficial e ano dinâmico
   home/
-    index.php           # View do método index() do HomeController
+    index.php           # View do método index() (Dashboard/Início) estendendo o layout
+    sobre.php           # View do método sobre() (Segunda tela de demonstração do reuso)
   <controller>/
     <metodo>.php        # Telas dos futuros controllers do sistema
 ```
@@ -97,8 +98,9 @@ Quando uma nova rota autenticada for criada:
 
 ## 4. Regras do Manual
 
-- **Sem rotas fictícias (manual 19):** Não cadastrar links no menu para páginas inexistentes.
-- **CSRF obrigatório (manual 11.3):** Formulários POST devem conter `<?= csrf_field() ?>`. Chamadas AJAX enviam o token configurado globalmente em `public/assets/js/custom.js`.
+- **Sem rotas fictícias (manual 19):** Não cadastrar links no menu para páginas inexistentes (o menu possui apenas as rotas reais ativas `/` e `/sobre`).
+- **CSRF obrigatório (manual 11.3):** Formulários POST contêm `<?= csrf_field() ?>`. Chamadas AJAX enviam o token configurado globalmente em `public/assets/js/custom.js`, que valida a presença do meta tag `X-CSRF-TOKEN` e possui fallback para o cookie `csrf_cookie_name` do CodeIgniter 4, impedindo envio de headers com valores indefinidos.
+- **Proteção de Rotas Internas:** As páginas que utilizam `layouts/principal` são protegidas pelo filtro de autenticação `session` em `app/Config/Routes.php`, impedindo acesso indevido por usuários não autenticados.
 - **Prevenção de XSS (manual 11.6):** Toda informação dinâmica impressa em HTML deve usar `esc()`.
 - **Mensagens de Sessão:** O partial `partials/mensagens.php` aceita as chaves padrão do CodeIgniter 4 (`success`, `error`, `errors`, `warning`, `info`) passadas via `return redirect()->to(...)->with('success', 'Mensagem');`.
 - **CSS e JS em arquivos externos (manual 9.4):** Não utilizar tags `<style>` ou eventos inline nas views; estilos ficam em `public/assets/css/custom.css`.
@@ -107,7 +109,7 @@ Quando uma nova rota autenticada for criada:
 
 ## 5. Seleção Mínima de Assets (Manual 15.4 e 25.4)
 
-A entrega foi reduzida ao conjunto estritamente essencial para o funcionamento do layout base compartilhado, garantindo ausência de erros 404 em ambiente limpo:
+A entrega foi reduzida ao conjunto estritamente essencial para o funcionamento do layout base compartilhado, garantindo ausência de erros 404 e sem dependências órfãs de plugins ausentes em runtime:
 
 | Tipo | Caminho do Arquivo | Justificativa de Uso Estrito |
 | :--- | :--- | :--- |
@@ -121,8 +123,7 @@ A entrega foi reduzida ao conjunto estritamente essencial para o funcionamento d
 | **JS** | `public/assets/vendors/js/vendor.bundle.base.js` | jQuery e Bootstrap bundle necessários para o funcionamento de dropdowns e collapse do menu. |
 | **JS** | `public/assets/js/off-canvas.js` | Controle de abertura/fechamento do menu lateral em telas móveis. |
 | **JS** | `public/assets/js/hoverable-collapse.js` | Expansão de submenus ao passar o mouse com a barra minimizada. |
-| **JS** | `public/assets/js/misc.js` | Inicialização dos comportamentos visuais de navegação. |
-| **JS** | `public/assets/js/custom.js` | Configuração global de CSRF token e scripts personalizados. |
+| **JS** | `public/assets/js/misc.js` | Inicialização dos comportamentos visuais de navegação (sem dependência de plugins órfãos como PerfectScrollbar). |
+| **JS** | `public/assets/js/custom.js` | Configuração global e resiliente de CSRF token e scripts personalizados. |
 
-> **Nota de Exclusão de Excedentes:** Arquivos desnecessários como `vendor.bundle.base.css` (estilos legados de PerfectScrollbar) e plugins pesados de terceiros (gráficos, datatables) foram excluídos da entrega desta etapa para manter acoplamento mínimo e conformidade com o escopo de layout compartilhado.
-
+> **Nota de Exclusão de Excedentes:** Arquivos desnecessários como `vendor.bundle.base.css` (estilos legados de PerfectScrollbar) e plugins pesados de terceiros (gráficos, datatables) foram excluídos da entrega desta etapa para manter acoplamento mínimo e conformidade com o escopo de layout compartilhado. Qualquer chamada ao `PerfectScrollbar` em `misc.js` foi eliminada, preservando a estabilidade da interface.
