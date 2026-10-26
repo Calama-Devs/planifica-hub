@@ -101,3 +101,27 @@ Quando uma nova rota autenticada for criada:
 - **CSRF obrigatório (manual 11.3):** Formulários POST devem conter `<?= csrf_field() ?>`. Chamadas AJAX enviam o token configurado globalmente em `public/assets/js/custom.js`.
 - **Prevenção de XSS (manual 11.6):** Toda informação dinâmica impressa em HTML deve usar `esc()`.
 - **CSS e JS em arquivos externos (manual 9.4):** Não utilizar tags `<style>` ou eventos inline nas views; estilos ficam em `public/assets/css/custom.css`.
+
+---
+
+## 5. Seleção Mínima de Assets (Manual 15.4 e 25.4)
+
+A entrega foi reduzida ao conjunto estritamente essencial para o funcionamento do layout base compartilhado, garantindo ausência de erros 404 em ambiente limpo:
+
+| Tipo | Caminho do Arquivo | Justificativa de Uso Estrito |
+| :--- | :--- | :--- |
+| **CSS** | `public/assets/vendors/mdi/css/materialdesignicons.min.css` | Ícones oficiais da barra de navegação, menu lateral e botões de ação. |
+| **Fontes** | `public/assets/vendors/mdi/fonts/*` | Arquivos de fonte web (`.woff2`, `.woff`, `.ttf`, `.eot`) para renderizar os ícones MDI sem 404. |
+| **CSS** | `public/assets/css/modern-vertical/style.css` | Framework visual Corona (Bootstrap e grid responsivo do layout). |
+| **Fontes** | `public/assets/fonts/Rubik/*` | Tipografia institucional consumida diretamente pelo `style.css`. |
+| **CSS** | `public/assets/css/custom.css` | Adaptações institucionais do IFRO, tamanho da logo e regras globais do projeto. |
+| **Imagens**| `public/assets/images/logo-ifro.png` | Logomarca oficial IFRO (menu expandido). |
+| **Imagens**| `public/assets/images/logo-ifro-mini.png` | Logomarca reduzida IFRO (menu recolhido) e favicon. |
+| **JS** | `public/assets/vendors/js/vendor.bundle.base.js` | jQuery e Bootstrap bundle necessários para o funcionamento de dropdowns e collapse do menu. |
+| **JS** | `public/assets/js/off-canvas.js` | Controle de abertura/fechamento do menu lateral em telas móveis. |
+| **JS** | `public/assets/js/hoverable-collapse.js` | Expansão de submenus ao passar o mouse com a barra minimizada. |
+| **JS** | `public/assets/js/misc.js` | Inicialização dos comportamentos visuais de navegação. |
+| **JS** | `public/assets/js/custom.js` | Configuração global de CSRF token e scripts personalizados. |
+
+> **Nota de Exclusão de Excedentes:** Arquivos desnecessários como `vendor.bundle.base.css` (estilos legados de PerfectScrollbar) e plugins pesados de terceiros (gráficos, datatables) foram excluídos da entrega desta etapa para manter acoplamento mínimo e conformidade com o escopo de layout compartilhado.
+

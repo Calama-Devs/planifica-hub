@@ -7,7 +7,6 @@
     <title><?= $this->renderSection('titulo') ?> | PlanIFica Hub</title>
 
     <link rel="stylesheet" href="<?= base_url('assets/vendors/mdi/css/materialdesignicons.min.css') ?>">
-    <link rel="stylesheet" href="<?= base_url('assets/vendors/css/vendor.bundle.base.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/modern-vertical/style.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/custom.css') ?>">
     <?= $this->renderSection('estilos') ?>
