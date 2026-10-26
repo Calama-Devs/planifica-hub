@@ -21,15 +21,6 @@
         .container-scroller {
             min-height: 100%;
         }
-        .sidebar .sidebar-brand-wrapper .brand-logo {
-            width: auto;
-            height: 38px;
-            max-width: 190px;
-        }
-        .sidebar .sidebar-brand-wrapper .brand-logo-mini {
-            width: auto;
-            height: 34px;
-        }
         .sidebar .nav .nav-item .nav-link .menu-title {
             font-size: 12px;
         }
@@ -41,7 +32,7 @@
 <body>
     <div class="container-scroller">
         <!-- Sidebar / Menu de Navegação -->
-        <nav class="sidebar sidebar-offcanvas" id="sidebar" aria-label="Menu principal de navegação">
+        <nav class="sidebar sidebar-offcanvas" id="sidebar">
             <div class="sidebar-brand-wrapper d-none d-lg-flex align-items-center justify-content-center fixed-top">
                 <a href="<?= base_url('/') ?>">
                     <img src="<?= base_url('assets/images/logo-ifro.png') ?>" class="sidebar-brand brand-logo" alt="logo" />
@@ -68,7 +59,7 @@
 
         <div class="container-fluid page-body-wrapper">
             <!-- Navbar / Cabeçalho Superior -->
-            <nav class="navbar p-0 fixed-top d-flex flex-row" aria-label="Barra superior">
+            <nav class="navbar p-0 fixed-top d-flex flex-row">
                 <div class="navbar-brand-wrapper d-flex d-lg-none align-items-center justify-content-center">
                     <a class="navbar-brand brand-logo-mini" href="<?= site_url('/') ?>">
                         <img src="<?= base_url('assets/images/logo-ifro-mini.png') ?>" alt="logo" />
