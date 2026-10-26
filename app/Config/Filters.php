@@ -76,7 +76,6 @@ class Filters extends BaseFilters
         'before' => [
             // 'honeypot',
             'csrf',
-            'redefinicaoSenha',
             // 'invalidchars',
         ],
         'after' => [
@@ -109,5 +108,12 @@ class Filters extends BaseFilters
      *
      * @var array<string, array<string, list<string>>>
      */
-    public array $filters = [];
+    public array $filters = [
+        'redefinicaoSenha' => [
+            'before' => [
+                'login/magic-link',
+                'login/verify-magic-link',
+            ],
+        ],
+    ];
 }
