@@ -99,7 +99,7 @@ Quando uma nova rota autenticada for criada:
 ## 4. Regras do Manual
 
 - **Sem rotas fictícias (manual 19):** Não cadastrar links no menu para páginas inexistentes (o menu possui apenas as rotas reais ativas `/` e `/sobre`).
-- **CSRF obrigatório (manual 11.3):** Formulários POST contêm `<?= csrf_field() ?>`. Chamadas AJAX enviam o token configurado globalmente em `public/assets/js/custom.js`, que valida a presença do meta tag `X-CSRF-TOKEN` e possui fallback para o cookie `csrf_cookie_name` do CodeIgniter 4, impedindo envio de headers com valores indefinidos.
+- **CSRF obrigatório (manual 11.3):** Formulários POST contêm `<?= csrf_field() ?>`. Chamadas AJAX enviam o token configurado em `public/assets/js/custom.js`, que lê e valida o meta tag `X-CSRF-TOKEN` gerado por `<?= csrf_meta() ?>` no layout base e o mantém atualizado em cada requisição (`ajaxSend`), sem nomes de cookie hardcoded e impedindo envio de headers com valores indefinidos.
 - **Proteção de Rotas Internas:** As páginas que utilizam `layouts/principal` são protegidas pelo filtro de autenticação `session` em `app/Config/Routes.php`, impedindo acesso indevido por usuários não autenticados.
 - **Prevenção de XSS (manual 11.6):** Toda informação dinâmica impressa em HTML deve usar `esc()`.
 - **Mensagens de Sessão:** O partial `partials/mensagens.php` aceita as chaves padrão do CodeIgniter 4 (`success`, `error`, `errors`, `warning`, `info`) passadas via `return redirect()->to(...)->with('success', 'Mensagem');`.
