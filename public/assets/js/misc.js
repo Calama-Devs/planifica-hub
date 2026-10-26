@@ -57,8 +57,8 @@
     applyStyles();
 
     function applyStyles() {
-      //Applying perfect scrollbar
-      if (!body.hasClass("rtl")) {
+      //Applying perfect scrollbar safely
+      if (typeof PerfectScrollbar !== 'undefined' && !body.hasClass("rtl")) {
         if ($('.settings-panel .tab-content .tab-pane.scroll-wrapper').length) {
           const settingsPanelScroll = new PerfectScrollbar('.settings-panel .tab-content .tab-pane.scroll-wrapper');
         }

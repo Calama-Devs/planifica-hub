@@ -1,3 +1,8 @@
+<?= $this->extend('layouts/principal') ?>
+
+<?= $this->section('titulo') ?>Início<?= $this->endSection() ?>
+
+<?= $this->section('conteudo') ?>
 <div class="row">
     <div class="col-12 grid-margin stretch-card">
         <div class="card">
@@ -8,3 +13,4 @@
         </div>
     </div>
 </div>
+<?= $this->endSection() ?>
