@@ -1,0 +1,115 @@
+/* Estilos customizados globais do layout - PlanIFica Hub */
+
+html, body {
+    height: 100%;
+    background-color: #000;
+}
+
+.container-scroller {
+    min-height: 100%;
+}
+
+.sidebar .nav .nav-item .nav-link .menu-title {
+    font-size: 12px;
+}
+
+.sidebar .nav.sub-menu .nav-item .nav-link {
+    font-size: 11px;
+}
+
+/* Customização dos botões translúcidos (padrão Calama Devs) */
+.button-trans-success {
+    background-color: rgba(0, 210, 91, 0.2);
+    transition: background-color 0.3s;
+}
+
+.button-trans-success:hover {
+    background-color: rgba(0, 210, 91, 1);
+}
+
+.button-trans-success > i {
+    color: #00d25b;
+    transition: color 0.3s;
+}
+
+.button-trans-success:hover > i {
+    color: #ffffff;
+}
+
+.button-trans-info {
+    background-color: rgba(143, 95, 232, 0.2);
+    transition: background-color 0.3s;
+}
+
+.button-trans-info:hover {
+    background-color: rgba(143, 95, 232, 1);
+}
+
+.button-trans-info > i {
+    color: #8f5fe8;
+    transition: color 0.3s;
+}
+
+.button-trans-info:hover > i {
+    color: #ffffff;
+}
+
+.button-trans-danger {
+    background-color: rgba(252, 66, 74, 0.2);
+    transition: background-color 0.3s;
+}
+
+.button-trans-danger:hover {
+    background-color: rgba(252, 66, 74, 1);
+}
+
+.button-trans-danger > i {
+    color: #fc424a;
+    transition: color 0.3s;
+}
+
+.button-trans-danger:hover > i {
+    color: #ffffff;
+}
+
+.button-trans-primary {
+    background-color: rgba(0, 136, 204, 0.2);
+    transition: background-color 0.3s;
+}
+
+.button-trans-primary:hover {
+    background-color: rgba(0, 136, 204, 1);
+}
+
+.button-trans-primary > i {
+    color: #0088cc;
+    transition: color 0.3s;
+}
+
+.button-trans-primary:hover > i {
+    color: #ffffff;
+}
+
+.button-trans-warning {
+    background-color: rgba(255, 193, 7, 0.2);
+    transition: background-color 0.3s;
+}
+
+.button-trans-warning:hover {
+    background-color: rgba(255, 193, 7, 1);
+}
+
+.button-trans-warning > i {
+    color: #ffc107;
+    transition: color 0.3s;
+}
+
+.button-trans-warning:hover > i {
+    color: #ffffff;
+}
+
+.d-flex .btn-icon {
+    margin-right: 0.3rem;
+    width: 2rem;
+    height: 2rem;
+}
