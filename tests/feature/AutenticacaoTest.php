@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use CodeIgniter\Exceptions\PageNotFoundException;
+use CodeIgniter\Security\Exceptions\SecurityException;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
@@ -47,14 +48,9 @@ final class AutenticacaoTest extends CIUnitTestCase
 
     public function testRecusaLoginSemTokenCsrf(): void
     {
-        $resposta = $this->post('login', [
-            'email' => 'teste@example.com',
-            'password' => $this->senha,
-        ]);
+        $this->expectException(SecurityException::class);
 
-        $resposta->assertRedirect();
-        $resposta->assertSessionHas('error');
-        $this->assertFalse(auth()->loggedIn());
+        $this->post('login', ['email' => 'teste@example.com', 'password' => $this->senha]);
     }
 
     public function testCadastraUsuarioComSenhaProtegida(): void
@@ -126,12 +122,9 @@ final class AutenticacaoTest extends CIUnitTestCase
     public function testRecusaLogoutSemTokenCsrf(): void
     {
         $this->cadastrarUsuario();
+        $this->expectException(SecurityException::class);
 
-        $resposta = $this->withSession($_SESSION)->post('logout');
-
-        $resposta->assertRedirect();
-        $resposta->assertSessionHas('error');
-        $this->assertTrue(auth()->loggedIn());
+        $this->withSession($_SESSION)->post('logout');
     }
 
     public function testNaoPermiteLogoutPorGet(): void
@@ -307,16 +300,12 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->cadastrarUsuario();
         $this->ativarUsuarioAutenticado();
         session()->setTempdata('magicLogin', true);
-        $hashAnterior = $this->buscarHashDaSenha();
+        $this->expectException(SecurityException::class);
 
-        $resposta = $this->withSession($_SESSION)->post('reset-password', [
+        $this->withSession($_SESSION)->post('reset-password', [
             'senha-nova' => 'NovaSenha@123',
             'confirmar-senha-nova' => 'NovaSenha@123',
         ]);
-
-        $resposta->assertRedirect();
-        $resposta->assertSessionHas('error');
-        $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
     }
 
     public function testImpedeSolicitarMagicLinkComSessaoAutenticada(): void
