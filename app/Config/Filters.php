@@ -2,6 +2,7 @@
 
 namespace Config;
 
+use App\Filters\RedefinicaoSenhaFilter;
 use CodeIgniter\Config\Filters as BaseFilters;
 use CodeIgniter\Filters\Cors;
 use CodeIgniter\Filters\CSRF;
@@ -34,6 +35,7 @@ class Filters extends BaseFilters
         'forcehttps'    => ForceHTTPS::class,
         'pagecache'     => PageCache::class,
         'performance'   => PerformanceMetrics::class,
+        'redefinicaoSenha' => RedefinicaoSenhaFilter::class,
     ];
 
     /**
@@ -74,6 +76,7 @@ class Filters extends BaseFilters
         'before' => [
             // 'honeypot',
             'csrf',
+            'redefinicaoSenha',
             // 'invalidchars',
         ],
         'after' => [
