@@ -80,10 +80,10 @@ class ExemploController extends BaseController
 Quando uma nova rota autenticada for criada:
 
 1. Abra o arquivo `app/Views/partials/menu.php`.
-2. Adicione o item dentro da lista `<ul class="nav">`, indicando o caminho da rota e a verificação ativa com `uri_string()`:
+2. Adicione o item dentro da lista `<ul class="nav">`, indicando o caminho da rota e a verificação ativa com a função `url_is()`:
 
 ```php
-<li class="nav-item menu-items <?= (uri_string() === 'exemplo') ? 'active' : '' ?>">
+<li class="nav-item menu-items <?= url_is('exemplo*') ? 'active' : '' ?>">
     <a class="nav-link" href="<?= site_url('exemplo') ?>">
         <span class="menu-icon">
             <i class="mdi mdi-view-dashboard text-primary" aria-hidden="true"></i>
@@ -100,6 +100,7 @@ Quando uma nova rota autenticada for criada:
 - **Sem rotas fictícias (manual 19):** Não cadastrar links no menu para páginas inexistentes.
 - **CSRF obrigatório (manual 11.3):** Formulários POST devem conter `<?= csrf_field() ?>`. Chamadas AJAX enviam o token configurado globalmente em `public/assets/js/custom.js`.
 - **Prevenção de XSS (manual 11.6):** Toda informação dinâmica impressa em HTML deve usar `esc()`.
+- **Mensagens de Sessão:** O partial `partials/mensagens.php` aceita as chaves padrão do CodeIgniter 4 (`success`, `error`, `errors`, `warning`, `info`) passadas via `return redirect()->to(...)->with('success', 'Mensagem');`.
 - **CSS e JS em arquivos externos (manual 9.4):** Não utilizar tags `<style>` ou eventos inline nas views; estilos ficam em `public/assets/css/custom.css`.
 
 ---

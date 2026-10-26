@@ -7,12 +7,11 @@
     </div>
 
     <ul class="nav">
-        <?php $uri = uri_string(); ?>
         <li class="nav-item nav-category">
             <span class="nav-link">Menu</span>
         </li>
 
-        <li class="nav-item menu-items <?= ($uri === '' || $uri === '/') ? 'active' : '' ?>">
+        <li class="nav-item menu-items <?= url_is('/') ? 'active' : '' ?>">
             <a class="nav-link" href="<?= site_url('/') ?>">
                 <span class="menu-icon">
                     <i class="mdi mdi-home text-primary" aria-hidden="true"></i>
