@@ -118,6 +118,20 @@ containers Linux e Docker Compose; os comandos abaixo também funcionam no Power
    `php spark serve`; não inicie os dois na mesma porta. O Compose define
    `CI_ENVIRONMENT=development` e `app.baseURL=http://localhost:8080/` dentro do container.
 
+### Acesso ao phpMyAdmin
+
+O Compose também inicia o phpMyAdmin em `http://localhost:8082`, disponível somente
+no próprio computador. Ele é uma ferramenta complementar para consultar e administrar
+o MySQL local; a aplicação não depende dele para funcionar.
+
+Na tela de login, use o usuário definido em `DOCKER_BANCO_USUARIO` e a senha definida
+em `DOCKER_BANCO_SENHA` no seu `.env` local. A conexão com o serviço `banco`, na porta
+interna 3306, já está configurada. Não publique essas credenciais nem use `root`
+nas operações habituais (manual 10.5 e 11.8).
+
+Alterações na estrutura do banco devem continuar sendo feitas por migrations, não
+manualmente pelo phpMyAdmin (manual 8.5).
+
 ### Verificações dentro do container
 
 Confira primeiro o PHP, as extensões e os requisitos das dependências:
@@ -160,9 +174,9 @@ continua conseguindo entrar. Use somente dados fictícios nos testes locais.
 
 Para comprovar a configuração externa, mantenha o hostname local do `.env` como
 `127.0.0.1`: dentro do container a conexão deve usar `banco`, injetado pelo Compose,
-e as migrations devem funcionar. O teste `AmbienteDockerTest` cobre essa precedência
-sem acessar o `.env` local. As migrations já existentes preparam o banco; esta issue
-não adiciona alterações de estrutura nem modifica os fluxos de autenticação.
+e as migrations devem funcionar. Confirme também o cadastro e o login no navegador:
+essa precedência é validada pela execução local. As migrations já existentes preparam
+o banco; esta issue não adiciona alterações de estrutura nem modifica os fluxos de autenticação.
 
 ### Arquivos, volumes e manutenção
 
