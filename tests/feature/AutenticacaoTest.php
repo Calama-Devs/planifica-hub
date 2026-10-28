@@ -38,6 +38,22 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta->assertSeeElement('input[name=password]');
     }
 
+    public function testExibeTelaDeLoginComIdentidadeVisualELabels(): void
+    {
+        $resposta = $this->get('login');
+
+        $resposta->assertOK();
+        $resposta->assertSee('PlanIFica Hub');
+        $resposta->assertSee('Entrar');
+        $resposta->assertSeeElement('label[for=email]');
+        $resposta->assertSeeElement('label[for=password]');
+        $resposta->assertSeeElement('input[name=email]');
+        $resposta->assertSeeElement('input[name=password]');
+        $resposta->assertSee('assets/vendors/mdi/css/materialdesignicons.min.css');
+        $resposta->assertSee('assets/css/modern-vertical/style.css');
+        $resposta->assertSee('assets/css/custom.css');
+    }
+
     public function testExibeCadastroComTokenCsrf(): void
     {
         $resposta = $this->get('register');
