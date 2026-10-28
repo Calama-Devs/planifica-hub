@@ -27,19 +27,16 @@ COPY composer.json composer.lock ./
 RUN composer install --no-interaction --prefer-dist --no-progress --no-autoloader --no-scripts
 
 COPY docker/php/desenvolvimento.ini ${PHP_INI_DIR}/conf.d/zz-desenvolvimento.ini
-COPY docker/php/ambiente.php ${PHP_INI_DIR}/ambiente.php
 COPY . .
 
 RUN composer dump-autoload --optimize --no-interaction \
     && composer check-platform-reqs \
-    && php -l "${PHP_INI_DIR}/ambiente.php" \
     && mkdir -p build writable/cache writable/debugbar writable/logs writable/session writable/uploads \
     && chown -R www-data:www-data writable build \
     && chmod -R u+rwX writable build
 
 EXPOSE 80
 
-# Bash preserva os nomes com pontos usados nas configurações do CodeIgniter.
-ENTRYPOINT ["/bin/bash", "/usr/local/bin/docker-php-entrypoint"]
+ENTRYPOINT ["docker-php-entrypoint"]
 
 CMD ["apache2-foreground"]

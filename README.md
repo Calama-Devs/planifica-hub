@@ -77,17 +77,19 @@ containers Linux e Docker Compose; os comandos abaixo também funcionam no Power
    ```
 
    No Linux, use `cp .env.example .env`. Não sobrescreva um `.env` existente.
-   Se já tiver um, acrescente somente as variáveis `DOCKER_BANCO_*` presentes no exemplo.
+   Se já tiver um, acrescente as variáveis `DOCKER_BANCO_*` presentes no exemplo
+   e ajuste os nomes das configurações conforme a seção de migração abaixo,
+   preservando seus valores locais.
 
 2. No `.env` local, configure `DOCKER_BANCO_NOME` e `DOCKER_BANCO_USUARIO` e preencha
    `DOCKER_BANCO_SENHA` e `DOCKER_BANCO_SENHA_ROOT` com senhas locais distintas e não
    vazias. Não use `root` como usuário da aplicação. Para senhas com `$`, use aspas
    simples no `.env` para evitar interpolação pelo Compose. Não compartilhe esse arquivo.
 
-   O Compose configura a conexão `database.default.*` da aplicação com esses mesmos
-   valores e o hostname `banco`, pela rede interna. Essas variáveis de ambiente têm
-   precedência sobre os valores do `.env` lidos pelo CodeIgniter. Assim, a configuração
-   de banco usada fora do Docker pode ser mantida. O `.env` também é montado somente
+   O Compose configura a conexão `database_default_*` da aplicação com esses mesmos
+   valores e o hostname `banco`, pela rede interna. Com o `.env` usando os mesmos
+   nomes com underscores, as variáveis externas prevalecem e os valores de banco
+   usados fora do Docker podem ser mantidos. O `.env` também é montado somente
    para leitura, para outras configurações locais, como e-mail.
 
 3. Construa a imagem e inicie os serviços:
@@ -116,7 +118,29 @@ containers Linux e Docker Compose; os comandos abaixo também funcionam no Power
 
 5. Acesse `http://localhost:8080/index.php/login`. O Apache substitui
    `php spark serve`; não inicie os dois na mesma porta. O Compose define
-   `CI_ENVIRONMENT=development` e `app.baseURL=http://localhost:8080/` dentro do container.
+   `CI_ENVIRONMENT=development` e `app_baseURL=http://localhost:8080/` dentro do container.
+
+### Migração de um `.env` existente
+
+O CodeIgniter 4 aceita os nomes abaixo com underscores. Se seu `.env` ainda usa
+pontos nessas configurações, renomeie as chaves, preservando os valores:
+
+| Nome anterior | Nome atual |
+|---|---|
+| `app.baseURL` | `app_baseURL` |
+| `database.default.hostname` | `database_default_hostname` |
+| `database.default.database` | `database_default_database` |
+| `database.default.username` | `database_default_username` |
+| `database.default.password` | `database_default_password` |
+| `database.default.DBDriver` | `database_default_DBDriver` |
+| `database.default.port` | `database_default_port` |
+
+Não mantenha as duas formas dessas chaves: o CodeIgniter consulta a forma com pontos
+primeiro, o que pode fazer um valor antigo do arquivo prevalecer sobre a configuração
+externa do Docker. Preserve a capitalização de `baseURL` e `DBDriver`.
+As configurações de e-mail e as variáveis `DOCKER_BANCO_*` não precisam ser renomeadas.
+Essa nomenclatura também funciona na execução sem Docker, por meio das classes de
+configuração do CodeIgniter. Não compartilhe o `.env` nem seus valores.
 
 ### Acesso ao phpMyAdmin
 
@@ -172,8 +196,9 @@ logout por POST e bloqueio da página inicial após sair, como descrito acima.
 Reinicie os serviços com `docker compose restart` e confira se o usuário cadastrado
 continua conseguindo entrar. Use somente dados fictícios nos testes locais.
 
-Para comprovar a configuração externa, mantenha o hostname local do `.env` como
-`127.0.0.1`: dentro do container a conexão deve usar `banco`, injetado pelo Compose,
+Para comprovar a configuração externa, mantenha `database_default_hostname` do `.env`
+como `127.0.0.1`, sem a chave antiga com pontos: dentro do container a conexão deve
+usar `banco`, injetado pelo Compose,
 e as migrations devem funcionar. Confirme também o cadastro e o login no navegador:
 essa precedência é validada pela execução local. As migrations já existentes preparam
 o banco; esta issue não adiciona alterações de estrutura nem modifica os fluxos de autenticação.
@@ -183,10 +208,10 @@ o banco; esta issue não adiciona alterações de estrutura nem modifica os flux
 - `Dockerfile`: instala extensões, Composer e dependências; serve somente `public/`.
 - `.dockerignore`: impede que `.env`, dependências locais e dados de execução entrem
   na imagem (manual 10.5 e 11.8).
-- `docker/php/desenvolvimento.ini`: configura memória e cobertura com PCOV.
-- O entrypoint usa Bash e `docker/php/ambiente.php` importa somente as configurações
-  com pontos usadas pelo Compose em `$_ENV` e `$_SERVER`, antes da aplicação,
-  para dar precedência aos valores do container, tanto no Apache quanto na CLI.
+- `docker/php/desenvolvimento.ini`: configura memória, inicialização de `$_ENV`
+  e cobertura com PCOV.
+- O entrypoint é o oficial da imagem PHP. As configurações com underscores são
+  reconhecidas nativamente pelo CodeIgniter, sem script adicional de inicialização.
 - `compose.yaml`: conecta aplicação e banco, sem credenciais fixas no código.
 - O código é montado do computador: as edições aparecem sem reconstruir a imagem.
   Dependências, `writable/` e `build/` usam volumes próprios, sem reutilizar arquivos
