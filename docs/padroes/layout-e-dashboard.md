@@ -102,7 +102,7 @@ Quando uma nova rota autenticada for criada:
 - **CSRF obrigatório (manual 11.3):** Formulários POST contêm `<?= csrf_field() ?>`. Chamadas AJAX enviam o token configurado em `public/assets/js/custom.js`, que lê e valida o meta tag `X-CSRF-TOKEN` gerado por `<?= csrf_meta() ?>` no layout base e o mantém atualizado em cada requisição (`ajaxSend`), sem nomes de cookie hardcoded e impedindo envio de headers com valores indefinidos.
 - **Proteção de Rotas Internas:** As páginas que utilizam `layouts/principal` são protegidas pelo filtro de autenticação `session` em `app/Config/Routes.php`, impedindo acesso indevido por usuários não autenticados.
 - **Prevenção de XSS (manual 11.6):** Toda informação dinâmica impressa em HTML deve usar `esc()`.
-- **Mensagens de Sessão:** O partial `partials/mensagens.php` aceita as chaves padrão do CodeIgniter 4 (`success`, `error`, `errors`, `warning`, `info`) passadas via `return redirect()->to(...)->with('success', 'Mensagem');`.
+- **Mensagens de Sessão:** O partial `partials/mensagens.php` aceita as chaves padrão do CodeIgniter 4 (`success`, `error`, `errors`, `warning`, `info`, `message`) e equivalentes em português (`sucesso`, `erro`, `aviso`), com ícones MDI e atributos semânticos de acessibilidade.
 - **CSS e JS em arquivos externos (manual 9.4):** Não utilizar tags `<style>` ou eventos inline nas views; estilos ficam em `public/assets/css/custom.css`.
 
 ---
@@ -127,3 +127,66 @@ A entrega foi reduzida ao conjunto estritamente essencial para o funcionamento d
 | **JS** | `public/assets/js/custom.js` | Configuração global e resiliente de CSRF token e scripts personalizados. |
 
 > **Nota de Exclusão de Excedentes:** Arquivos desnecessários como `vendor.bundle.base.css` (estilos legados de PerfectScrollbar) e plugins pesados de terceiros (gráficos, datatables) foram excluídos da entrega desta etapa para manter acoplamento mínimo e conformidade com o escopo de layout compartilhado. Qualquer chamada ao `PerfectScrollbar` em `misc.js` foi eliminada, preservando a estabilidade da interface.
+
+---
+
+## 6. Mensagens de Sessão e Validação por Campo (Manual 9.9, 11.6.1 e 6.10.2)
+
+### 6.1 Como disparar mensagens no Controller
+
+No Controller, utilize o redirecionamento com flash data através de `with()`:
+
+```php
+// Mensagem de sucesso
+return redirect()->to('/dashboard')->with('success', 'Cadastro realizado com sucesso.');
+
+// Mensagem de erro simples
+return redirect()->back()->withInput()->with('error', 'Não foi possível concluir a ação.');
+
+// Mensagem de aviso / atenção
+return redirect()->back()->with('warning', 'Atenção aos prazos de entrega informados.');
+
+// Mensagem informativa
+return redirect()->to('/dashboard')->with('info', 'Os dados foram sincronizados.');
+
+// Erros múltiplos de validação
+if (! $this->validate($regras)) {
+    return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+}
+```
+
+O layout base (`layouts/principal.php`) já inclui automaticamente o partial `partials/mensagens.php` no topo de cada página interna, renderizando o alerta correspondente com ícone MDI e escape seguro de strings e listas.
+
+### 6.2 Como criar formulários com validação por campo
+
+Para dar feedback próximo a cada campo quando ocorrer erro de validação:
+
+1. Adicione a classe `<?= erro_campo('nome_campo') ?>` na tag do `<input>`, `<select>` ou `<textarea>`. O helper adiciona automaticamente `is-invalid` se o campo possuir erro registrado.
+2. Inclua o partial `partials/erros_validacao` logo abaixo do campo para exibir o feedback textual.
+3. Preserve os dados digitados usando `old('nome_campo')`.
+
+Exemplo de referência completo:
+
+```php
+<form action="<?= site_url('planejamento/salvar') ?>" method="post">
+    <?= csrf_field() ?>
+
+    <div class="mb-3">
+        <label for="campo-titulo" class="form-label">Título</label>
+        <input type="text" id="campo-titulo" name="titulo"
+               class="form-control <?= erro_campo('titulo') ?>"
+               maxlength="150" value="<?= old('titulo') ?>" required>
+        <?= $this->include('partials/erros_validacao', ['campo' => 'titulo']) ?>
+    </div>
+
+    <div class="mb-3">
+        <label for="campo-email" class="form-label">E-mail de Contato</label>
+        <input type="email" id="campo-email" name="email"
+               class="form-control <?= erro_campo('email') ?>"
+               maxlength="254" value="<?= old('email') ?>" required>
+        <?= $this->include('partials/erros_validacao', ['campo' => 'email']) ?>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Salvar</button>
+</form>
+```
