@@ -55,4 +55,3 @@ final class FormularioHelperTest extends CIUnitTestCase
         $this->assertSame('is-invalid', erro_campo('titulo'));
     }
 }
-
