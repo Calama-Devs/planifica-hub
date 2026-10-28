@@ -60,23 +60,23 @@ login com senha correta e incorreta, logout por formulário POST e nova tentativ
 de acesso após sair (manual 16.1). Ao criar páginas restritas, teste também o
 acesso direto sem autenticação e com perfis sem permissão.
 
-## Desenvolvimento local com Docker
+## Desenvolvimento local com Docker no Linux
 
 Este ambiente é exclusivo para desenvolvimento, não para homologação ou produção.
-Ele fornece PHP 8.3 com Apache, Composer, MySQL 8.4, SQLite e PCOV. No Linux, instale
-Docker Engine e o plugin Docker Compose e confirme que o daemon está acessível.
-Não é necessário instalar PHP, Composer ou MySQL no computador. No Windows, use Docker Desktop com
-containers Linux e Docker Compose; os comandos abaixo também funcionam no PowerShell.
+Ele fornece PHP 8.3 com Apache, Composer, MySQL 8.4, SQLite e PCOV. Instale Docker
+Engine e o plugin Docker Compose no Linux e confirme que o daemon está acessível.
+Não é necessário instalar PHP, Composer ou MySQL no computador. O fluxo principal
+abaixo é para Linux; a compatibilidade opcional com Windows está descrita ao final.
 
 ### Configuração e primeira execução
 
-1. Caso ainda não exista um `.env`, copie o exemplo. No PowerShell:
+1. Caso ainda não exista um `.env`, copie o exemplo:
 
-   ```powershell
-   Copy-Item .env.example .env
+   ```bash
+   cp .env.example .env
    ```
 
-   No Linux, use `cp .env.example .env`. Não sobrescreva um `.env` existente.
+   Não sobrescreva um `.env` existente.
    Se já tiver um, acrescente as variáveis `DOCKER_BANCO_*` presentes no exemplo
    e ajuste os nomes das configurações conforme a seção de migração abaixo,
    preservando seus valores locais.
@@ -94,7 +94,7 @@ containers Linux e Docker Compose; os comandos abaixo também funcionam no Power
 
 3. Construa a imagem e inicie os serviços:
 
-   ```powershell
+   ```bash
    docker compose config --quiet
    docker compose build app
    docker compose up -d --wait
@@ -106,7 +106,7 @@ containers Linux e Docker Compose; os comandos abaixo também funcionam no Power
 
 4. Prepare as dependências do volume e aplique as migrations no banco Docker local:
 
-   ```powershell
+   ```bash
    docker compose exec app composer install --no-interaction --prefer-dist
    docker compose exec --user www-data app php spark migrate --all
    ```
@@ -142,11 +142,20 @@ As configurações de e-mail e as variáveis `DOCKER_BANCO_*` não precisam ser 
 Essa nomenclatura também funciona na execução sem Docker, por meio das classes de
 configuração do CodeIgniter. Não compartilhe o `.env` nem seus valores.
 
-### Acesso ao phpMyAdmin
+### phpMyAdmin opcional
 
-O Compose também inicia o phpMyAdmin em `http://localhost:8082`, disponível somente
-no próprio computador. Ele é uma ferramenta complementar para consultar e administrar
-o MySQL local; a aplicação não depende dele para funcionar.
+Por padrão, `docker compose up` inicia somente a aplicação e o banco, sem publicar
+a interface administrativa. O phpMyAdmin é uma ferramenta complementar, desativada
+por padrão no perfil `ferramentas`; a aplicação não depende dele para funcionar.
+
+Para habilitá-lo explicitamente quando necessário:
+
+```bash
+docker compose --profile ferramentas up -d --wait phpmyadmin
+```
+
+Acesse `http://localhost:8082`, disponível somente no próprio computador. Não exponha
+essa porta por túneis ou redirecionamentos para outras máquinas.
 
 Na tela de login, use o usuário definido em `DOCKER_BANCO_USUARIO` e a senha definida
 em `DOCKER_BANCO_SENHA` no seu `.env` local. A conexão com o serviço `banco`, na porta
@@ -156,22 +165,30 @@ nas operações habituais (manual 10.5 e 11.8).
 Alterações na estrutura do banco devem continuar sendo feitas por migrations, não
 manualmente pelo phpMyAdmin (manual 8.5).
 
+Ao terminar, pare somente a ferramenta, mantendo aplicação e banco em execução:
+
+```bash
+docker compose --profile ferramentas stop phpmyadmin
+```
+
+Execute também esse comando se o phpMyAdmin já estava ativo antes da adoção do
+perfil: a mudança de configuração não encerra containers existentes automaticamente.
+
 ### Verificações dentro do container
 
 Confira primeiro o PHP, as extensões e os requisitos das dependências:
 
-```powershell
+```bash
 docker compose ps
 docker compose exec app php -v
 docker compose exec app php -m
 docker compose exec app composer check-platform-reqs
 ```
 
-Mesmo no PowerShell, os executáveis dentro do container são Linux: use `/` e não
-adicione `.bat`. Execute as verificações com o mesmo usuário do Apache, evitando
+Execute as verificações com o mesmo usuário do Apache, evitando
 arquivos de cache e log sem permissão de escrita para a aplicação:
 
-```powershell
+```bash
 docker compose exec --user www-data app vendor/bin/phpcs
 docker compose exec --user www-data app vendor/bin/phpstan analyse --no-progress --memory-limit=1G
 docker compose exec --user www-data app vendor/bin/phpunit
@@ -179,7 +196,7 @@ docker compose exec --user www-data app vendor/bin/phpunit
 
 O PCOV está habilitado para cobertura de `app/`. Para rodar a suíte sem cobertura:
 
-```powershell
+```bash
 docker compose exec --user www-data app composer test
 ```
 
@@ -187,7 +204,7 @@ Os testes continuam usando SQLite em memória, sem depender dos dados do MySQL.
 Os relatórios ficam em `/var/www/html/build/logs`, em um volume separado. Para
 copiá-los para o computador:
 
-```powershell
+```bash
 docker compose cp app:/var/www/html/build/. ./build
 ```
 
@@ -215,13 +232,14 @@ o banco; esta issue não adiciona alterações de estrutura nem modifica os flux
 - O entrypoint é o oficial da imagem PHP. As configurações com underscores são
   reconhecidas nativamente pelo CodeIgniter, sem script adicional de inicialização.
 - `compose.yaml`: conecta aplicação e banco, sem credenciais fixas no código.
+  O phpMyAdmin só é iniciado mediante ativação explícita do perfil `ferramentas`.
 - A imagem do MySQL está fixada por digest SHA-256 de um índice multi-arquitetura
   (Linux amd64 e arm64). O digest preserva a imagem validada mesmo se a tag `8.4`
   mudar. Para atualizar, valide a nova imagem em um banco local de teste e atualize
   o digest no Compose; não remova essa fixação nem apague volumes existentes.
 - O código é montado do computador: as edições aparecem sem reconstruir a imagem.
-  Dependências, `writable/` e `build/` usam volumes próprios, sem reutilizar arquivos
-  do Windows. Por isso, os logs e as sessões Docker não aparecem no `writable/` local.
+  Dependências, `writable/` e `build/` usam volumes próprios. Por isso, os logs e as
+  sessões Docker não aparecem no `writable/` local.
 - Se `composer.lock` mudar, execute novamente o `composer install` acima. Se o
   Dockerfile ou o INI mudar, execute novamente `docker compose up -d --build --wait`.
 - Alterar senhas ou o nome do banco no `.env` não reconfigura um volume MySQL já
@@ -231,10 +249,19 @@ o banco; esta issue não adiciona alterações de estrutura nem modifica os flux
 - O `.env` é montado apenas na execução: não entra na imagem nem deve ser copiado
   pelo Dockerfile. Nunca coloque credenciais em instruções `ARG`, `ENV` ou `RUN`.
 
-Para parar e remover os containers, preservando banco, sessões e dependências:
+Para parar e remover todos os containers do projeto, incluindo a ferramenta opcional,
+preservando banco, sessões e dependências:
 
-```powershell
-docker compose down
+```bash
+docker compose --profile ferramentas down
 ```
 
 **Não acrescente `--volumes` ou `-v`**: isso apagaria os volumes, incluindo o banco local.
+
+### Compatibilidade opcional com Windows
+
+O foco desta configuração e das verificações é Linux. Como alternativa, pode-se usar
+Docker Desktop com containers Linux e Docker Compose no Windows. Os comandos Docker
+acima também podem ser usados no PowerShell; somente a cópia inicial do exemplo muda
+para `Copy-Item .env.example .env`, caso o `.env` ainda não exista.
+Os executáveis dentro do container continuam sendo Linux: use `/` e não adicione `.bat`.
