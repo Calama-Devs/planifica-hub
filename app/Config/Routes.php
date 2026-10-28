@@ -8,6 +8,11 @@ use CodeIgniter\Router\RouteCollection;
 $routes->group('', ['filter' => ['session', 'redefinicaoSenha']], static function (RouteCollection $routes): void {
     $routes->get('/', 'Home::index', ['as' => 'dashboard']);
     $routes->get('sobre', 'Home::sobre', ['as' => 'sobre']);
+    $routes->post(
+        'perfil/alterar-senha',
+        'RedefinirSenhaController::iniciarPeloPerfil',
+        ['as' => 'alterar-senha-perfil']
+    );
 });
 
 service('auth')->routes($routes, ['except' => ['logout']]);
