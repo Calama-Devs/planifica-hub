@@ -16,7 +16,7 @@ class RedefinirSenhaController extends BaseController
 
     public function solicitar(): string|RedirectResponse
     {
-        return view('recuperacao-senha/solicitar');
+        return view('redefinir_senha/solicitar');
     }
 
     public function redefinir(): string|RedirectResponse
@@ -25,7 +25,7 @@ class RedefinirSenhaController extends BaseController
             return redirect()->route('magic-link');
         }
 
-        return view('recuperacao-senha/redefinir');
+        return view('redefinir_senha/redefinir');
     }
 
     public function atualizar(): RedirectResponse
