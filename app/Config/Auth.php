@@ -47,6 +47,7 @@ class Auth extends ShieldAuth
      */
     public array $views = [
         'login'                       => 'autenticacao/login',
+        'register'                    => '\CodeIgniter\Shield\Views\register',
         'layout'                      => 'layouts/autenticacao',
         'action_email_2fa'            => '\CodeIgniter\Shield\Views\email_2fa_show',
         'action_email_2fa_verify'     => '\CodeIgniter\Shield\Views\email_2fa_verify',
