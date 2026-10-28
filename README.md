@@ -64,26 +64,13 @@ acesso direto sem autenticação e com perfis sem permissão.
 
 Este ambiente é exclusivo para desenvolvimento, não para homologação ou produção.
 Ele fornece PHP 8.3 com Apache, Composer, MySQL 8.4, SQLite e PCOV. Instale Docker
-Engine e o plugin Docker Compose 2.24.0 ou superior no Linux; prefira uma versão
-atualizada. O comando legado `docker-compose` V1 não é suportado. Confira a versão
-do plugin e se o daemon está acessível:
-
-```bash
-docker compose version
-docker version
-```
-
+Engine e o plugin Docker Compose no Linux e confirme que o daemon está acessível.
 Não é necessário instalar PHP, Composer ou MySQL no computador. O fluxo principal
 abaixo é para Linux; a compatibilidade opcional com Windows está descrita ao final.
 
 ### Configuração e primeira execução
 
-1. Escolha como fornecer a configuração: arquivo `.env` **ou** variáveis exportadas.
-   Nos dois casos são obrigatórias `DOCKER_BANCO_NOME`, `DOCKER_BANCO_USUARIO`,
-   `DOCKER_BANCO_SENHA` e `DOCKER_BANCO_SENHA_ROOT`. Não use `root` como usuário da
-   aplicação e escolha senhas locais distintas e não vazias.
-
-   **Com arquivo `.env`:** caso ainda não exista, copie o exemplo:
+1. Caso ainda não exista um `.env`, copie o exemplo:
 
    ```bash
    cp .env.example .env
@@ -94,36 +81,18 @@ abaixo é para Linux; a compatibilidade opcional com Windows está descrita ao f
    e ajuste os nomes das configurações conforme a seção de migração abaixo,
    preservando seus valores locais.
 
-   Preencha essas quatro variáveis no `.env` local. Para senhas com `$`, use aspas
-   simples para evitar interpolação pelo Compose. Não compartilhe esse arquivo.
-
-   **Sem arquivo `.env`:** no Bash interativo, exporte as configurações. Os comandos
-   abaixo solicitam as senhas sem exibi-las nem gravar seus valores no histórico:
-
-   ```bash
-   export DOCKER_BANCO_NOME=planifica_hub
-   export DOCKER_BANCO_USUARIO=planifica
-   read -r -s -p 'Senha local do usuario MySQL: ' DOCKER_BANCO_SENHA
-   printf '\n'
-   read -r -s -p 'Senha local do root MySQL: ' DOCKER_BANCO_SENHA_ROOT
-   printf '\n'
-   export DOCKER_BANCO_SENHA DOCKER_BANCO_SENHA_ROOT
-   ```
-
-   Execute os comandos Compose no mesmo terminal, mantendo essas variáveis
-   disponíveis. Em automações locais, injete-as pelo mecanismo seguro do ambiente,
-   sem os prompts interativos e sem imprimir seus valores. Não é preciso criar um
-   arquivo `.env`, nem mesmo vazio.
+2. No `.env` local, configure `DOCKER_BANCO_NOME` e `DOCKER_BANCO_USUARIO` e preencha
+   `DOCKER_BANCO_SENHA` e `DOCKER_BANCO_SENHA_ROOT` com senhas locais distintas e não
+   vazias. Não use `root` como usuário da aplicação. Para senhas com `$`, use aspas
+   simples no `.env` para evitar interpolação pelo Compose. Não compartilhe esse arquivo.
 
    O Compose configura a conexão `database_default_*` da aplicação com esses mesmos
-   valores e o hostname `banco`, pela rede interna. Se existir um `.env`, ele fica
-   acessível pela montagem do projeto, somente para leitura. Usando os mesmos nomes
-   com underscores, as variáveis externas prevalecem e os valores de banco usados
-   fora do Docker podem ser mantidos. Configurações adicionais, como e-mail, podem
-   continuar nesse arquivo; variáveis do shell só chegam ao container quando
-   declaradas em `environment` no Compose ou em um override explícito.
+   valores e o hostname `banco`, pela rede interna. Com o `.env` usando os mesmos
+   nomes com underscores, as variáveis externas prevalecem e os valores de banco
+   usados fora do Docker podem ser mantidos. O `.env` também é montado somente
+   para leitura, para outras configurações locais, como e-mail.
 
-2. Construa a imagem e inicie os serviços:
+3. Construa a imagem e inicie os serviços:
 
    ```bash
    docker compose config --quiet
@@ -135,7 +104,7 @@ abaixo é para Linux; a compatibilidade opcional com Windows está descrita ao f
    de iniciar o Apache. O banco não publica uma porta no computador; a aplicação
    fica disponível apenas na interface local, na porta 8080.
 
-3. Prepare as dependências do volume e aplique as migrations no banco Docker local:
+4. Prepare as dependências do volume e aplique as migrations no banco Docker local:
 
    ```bash
    docker compose exec app composer install --no-interaction --prefer-dist
@@ -147,7 +116,7 @@ abaixo é para Linux; a compatibilidade opcional com Windows está descrita ao f
    ele já existe de uma execução anterior. Não execute `shield:setup` novamente.
    As migrations não são executadas automaticamente na construção ou inicialização.
 
-4. Acesse `http://localhost:8080/index.php/login`. O Apache substitui
+5. Acesse `http://localhost:8080/index.php/login`. O Apache substitui
    `php spark serve`; não inicie os dois na mesma porta. O Compose define
    `CI_ENVIRONMENT=development` e `app_baseURL=http://localhost:8080/` dentro do container.
 
@@ -189,8 +158,8 @@ Acesse `http://localhost:8082`, disponível somente no próprio computador. Não
 essa porta por túneis ou redirecionamentos para outras máquinas.
 
 Na tela de login, use o usuário definido em `DOCKER_BANCO_USUARIO` e a senha definida
-em `DOCKER_BANCO_SENHA`, fornecidos pelo `.env` ou pelo ambiente. A conexão com o
-serviço `banco`, na porta interna 3306, já está configurada. Não publique essas credenciais nem use `root`
+em `DOCKER_BANCO_SENHA` no seu `.env` local. A conexão com o serviço `banco`, na porta
+interna 3306, já está configurada. Não publique essas credenciais nem use `root`
 nas operações habituais (manual 10.5 e 11.8).
 
 Alterações na estrutura do banco devem continuar sendo feitas por migrations, não
@@ -244,11 +213,10 @@ logout por POST e bloqueio da página inicial após sair, como descrito acima.
 Reinicie os serviços com `docker compose restart` e confira se o usuário cadastrado
 continua conseguindo entrar. Use somente dados fictícios nos testes locais.
 
-Para comprovar a configuração externa com arquivo, mantenha `database_default_hostname`
-do `.env` como `127.0.0.1`, sem a chave antiga com pontos. Sem arquivo, use apenas
-as quatro variáveis `DOCKER_BANCO_*` exportadas. Nos dois casos a conexão dentro do
-container deve usar `banco`, injetado pelo Compose, e as migrations devem funcionar.
-Confirme também o cadastro e o login no navegador:
+Para comprovar a configuração externa, mantenha `database_default_hostname` do `.env`
+como `127.0.0.1`, sem a chave antiga com pontos: dentro do container a conexão deve
+usar `banco`, injetado pelo Compose,
+e as migrations devem funcionar. Confirme também o cadastro e o login no navegador:
 essa precedência é validada pela execução local. As migrations já existentes preparam
 o banco; esta issue não adiciona alterações de estrutura nem modifica os fluxos de autenticação.
 
@@ -269,22 +237,17 @@ o banco; esta issue não adiciona alterações de estrutura nem modifica os flux
   (Linux amd64 e arm64). O digest preserva a imagem validada mesmo se a tag `8.4`
   mudar. Para atualizar, valide a nova imagem em um banco local de teste e atualize
   o digest no Compose; não remova essa fixação nem apague volumes existentes.
-- O código é montado do computador somente para leitura: edições pelo editor no
-  host aparecem sem reconstruir a imagem, mas o container não altera o código nem
-  um eventual `.env`. Comandos que geram arquivos no repositório, como os geradores
-  do Spark, precisam ser executados no host ou em uma configuração específica com
-  escrita deliberadamente habilitada, fora do fluxo de execução descrito aqui.
+- O código é montado do computador: as edições aparecem sem reconstruir a imagem.
   Dependências, `writable/` e `build/` usam volumes próprios. Por isso, os logs e as
   sessões Docker não aparecem no `writable/` local.
 - Se `composer.lock` mudar, execute novamente o `composer install` acima. Se o
   Dockerfile ou o INI mudar, execute novamente `docker compose up -d --build --wait`.
-- Alterar senhas ou o nome do banco no `.env` ou no ambiente não reconfigura um
-  volume MySQL já inicializado. Mantenha os valores usados na criação ou faça uma alteração local
+- Alterar senhas ou o nome do banco no `.env` não reconfigura um volume MySQL já
+  inicializado. Mantenha os valores usados na criação ou faça uma alteração local
   controlada das credenciais; não apague volumes para tentar corrigir isso.
 - Não publique a saída completa de `docker compose config`, pois pode conter senhas.
-- O `.env` é opcional. Quando existe, só fica acessível em execução pela montagem
-  do projeto: não entra na imagem nem deve ser copiado pelo Dockerfile. Nunca coloque
-  credenciais em instruções `ARG`, `ENV` ou `RUN`.
+- O `.env` é montado apenas na execução: não entra na imagem nem deve ser copiado
+  pelo Dockerfile. Nunca coloque credenciais em instruções `ARG`, `ENV` ou `RUN`.
 
 Para parar e remover todos os containers do projeto, incluindo a ferramenta opcional,
 preservando banco, sessões e dependências:
