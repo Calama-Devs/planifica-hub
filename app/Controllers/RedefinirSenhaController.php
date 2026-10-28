@@ -11,7 +11,9 @@ class RedefinirSenhaController extends BaseController
 
     public function __construct()
     {
-        $this->redefinirSenhaService = new RedefinirSenhaService();
+        /** @var RedefinirSenhaService $redefinirSenhaService */
+        $redefinirSenhaService       = service('redefinirSenhaService');
+        $this->redefinirSenhaService = $redefinirSenhaService;
     }
 
     public function solicitar(): string|RedirectResponse

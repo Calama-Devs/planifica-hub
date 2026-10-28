@@ -14,6 +14,7 @@ A nova senha passa pelas validações do Shield e também deve conter letra mai�
 | --- | --- |
 | `app/Config/Routes.php` | Define as rotas do perfil, da solicitação e da redefinição de senha. |
 | `app/Config/Auth.php` | Configura o magic link, os redirecionamentos e as views utilizadas pelo Shield. |
+| `app/Config/Services.php` | Registra a factory compartilhada do serviço de redefinição de senha. |
 | `app/Filters/RedefinicaoSenhaFilter.php` | Restringe a navegação durante a sessão temporária. |
 | `app/Controllers/RedefinirSenhaController.php` | Inicia o fluxo pelo perfil, recebe a nova senha e coordena a redefinição. |
 | `app/Services/RedefinirSenhaService.php` | Valida a senha e atualiza o hash da conta. |
