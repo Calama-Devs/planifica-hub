@@ -28,6 +28,15 @@ class RedefinirSenhaController extends BaseController
         return view('redefinir_senha/redefinir');
     }
 
+    public function iniciarPeloPerfil(): RedirectResponse
+    {
+        session()->removeTempdata('magicLogin');
+        session()->removeTempdata('beforeLoginUrl');
+        auth()->logout();
+
+        return redirect()->to(site_url('forgot-password'));
+    }
+
     public function atualizar(): RedirectResponse
     {
         if (!$this->possuiAcessoTemporario()) {
