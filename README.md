@@ -206,6 +206,8 @@ o banco; esta issue não adiciona alterações de estrutura nem modifica os flux
 ### Arquivos, volumes e manutenção
 
 - `Dockerfile`: instala extensões, Composer e dependências; serve somente `public/`.
+  O build define a diretiva `DocumentRoot`, confere o vhost habilitado e valida a
+  sintaxe do Apache. Se a configuração esperada não estiver presente, a construção falha.
 - `.dockerignore`: impede que `.env`, dependências locais e dados de execução entrem
   na imagem (manual 10.5 e 11.8).
 - `docker/php/desenvolvimento.ini`: configura memória, inicialização de `$_ENV`
@@ -213,6 +215,10 @@ o banco; esta issue não adiciona alterações de estrutura nem modifica os flux
 - O entrypoint é o oficial da imagem PHP. As configurações com underscores são
   reconhecidas nativamente pelo CodeIgniter, sem script adicional de inicialização.
 - `compose.yaml`: conecta aplicação e banco, sem credenciais fixas no código.
+- A imagem do MySQL está fixada por digest SHA-256 de um índice multi-arquitetura
+  (Linux amd64 e arm64). O digest preserva a imagem validada mesmo se a tag `8.4`
+  mudar. Para atualizar, valide a nova imagem em um banco local de teste e atualize
+  o digest no Compose; não remova essa fixação nem apague volumes existentes.
 - O código é montado do computador: as edições aparecem sem reconstruir a imagem.
   Dependências, `writable/` e `build/` usam volumes próprios, sem reutilizar arquivos
   do Windows. Por isso, os logs e as sessões Docker não aparecem no `writable/` local.

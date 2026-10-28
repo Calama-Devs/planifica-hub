@@ -42,7 +42,7 @@ services:
         condition: service_healthy
 
   banco:
-    image: mysql:8.4
+    image: mysql:8.4@sha256:76f0358884cb92d9a086d24e5671c38048d3fef40f2588703d73eb55392d6b69
     environment:
       MYSQL_DATABASE: ${DOCKER_BANCO_NOME:?Defina DOCKER_BANCO_NOME no .env}
       MYSQL_USER: ${DOCKER_BANCO_USUARIO:?Defina DOCKER_BANCO_USUARIO no .env}

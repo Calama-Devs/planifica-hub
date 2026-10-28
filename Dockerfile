@@ -18,9 +18,14 @@ RUN apt-get update \
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 
+# Valida o vhost habilitado para não aceitar uma alteração silenciosa da imagem base.
 RUN a2enmod rewrite \
-    && sed -ri "s!/var/www/html!${APACHE_DOCUMENT_ROOT}!g" \
-        /etc/apache2/sites-available/000-default.conf
+    && sed -ri \
+        "s!^[[:space:]]*DocumentRoot[[:space:]]+.*!    DocumentRoot ${APACHE_DOCUMENT_ROOT}!" \
+        /etc/apache2/sites-available/000-default.conf \
+    && grep -Eq \
+        "^[[:space:]]*DocumentRoot[[:space:]]+${APACHE_DOCUMENT_ROOT}[[:space:]]*$" \
+        /etc/apache2/sites-enabled/000-default.conf
 
 # Mantém o cache das dependências quando apenas o código da aplicação muda.
 COPY composer.json composer.lock ./
@@ -33,7 +38,8 @@ RUN composer dump-autoload --optimize --no-interaction \
     && composer check-platform-reqs \
     && mkdir -p build writable/cache writable/debugbar writable/logs writable/session writable/uploads \
     && chown -R www-data:www-data writable build \
-    && chmod -R u+rwX writable build
+    && chmod -R u+rwX writable build \
+    && apache2ctl -t
 
 EXPOSE 80
 
