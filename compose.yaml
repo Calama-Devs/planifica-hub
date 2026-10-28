@@ -23,6 +23,7 @@ services:
         read_only: true
         bind:
           create_host_path: false
+      # Um volume vazio recebe o vendor instalado na imagem (cópia padrão do Docker).
       - dependencias:/var/www/html/vendor
       - escrita:/var/www/html/writable
       - relatorios:/var/www/html/build
@@ -31,7 +32,7 @@ services:
         condition: service_healthy
 
   phpmyadmin:
-    image: phpmyadmin:5.2.3-apache
+    image: phpmyadmin:5.2.3-apache@sha256:fb0cb638f7d1c2529407921d86679b2b2faf5bb8542314821e9f16e7e3d2954f
     profiles:
       - ferramentas
     ports:

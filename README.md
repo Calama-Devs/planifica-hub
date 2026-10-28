@@ -104,16 +104,24 @@ abaixo é para Linux; a compatibilidade opcional com Windows está descrita ao f
    de iniciar o Apache. O banco não publica uma porta no computador; a aplicação
    fica disponível apenas na interface local, na porta 8080.
 
-4. Prepare as dependências do volume e aplique as migrations no banco Docker local:
+4. Aplique as migrations no banco Docker local:
 
    ```bash
-   docker compose exec app composer install --no-interaction --prefer-dist
    docker compose exec --user www-data app php spark migrate --all
    ```
 
    A imagem já instala o `composer.lock`, incluindo as ferramentas de desenvolvimento.
-   A instalação explícita mantém o volume `vendor/` sincronizado, inclusive quando
-   ele já existe de uma execução anterior. Não execute `shield:setup` novamente.
+   Na primeira execução, o Docker copia automaticamente esse `vendor/` para o volume
+   vazio `dependencias`; não é necessário executar `composer install` separadamente.
+   Essa cópia não atualiza um volume já preenchido. Se estiver reutilizando um volume
+   de uma execução anterior e as dependências tiverem mudado, sincronize-o antes das
+   migrations:
+
+   ```bash
+   docker compose exec app composer install --no-interaction --prefer-dist
+   ```
+
+   Não execute `shield:setup` novamente.
    As migrations não são executadas automaticamente na construção ou inicialização.
 
 5. Acesse `http://localhost:8080/index.php/login`. O Apache substitui
@@ -183,7 +191,12 @@ docker compose ps
 docker compose exec app php -v
 docker compose exec app php -m
 docker compose exec app composer check-platform-reqs
+docker compose exec app php -r 'require "vendor/autoload.php"; echo "Autoload disponível." . PHP_EOL;'
 ```
+
+Para validar a cópia inicial das dependências, execute a verificação de autoload logo
+após o primeiro `up`, antes de qualquer `composer install` dentro do container.
+Não apague volumes existentes para repetir esse teste; use um ambiente local isolado.
 
 Execute as verificações com o mesmo usuário do Apache, evitando
 arquivos de cache e log sem permissão de escrita para a aplicação:
@@ -237,6 +250,9 @@ o banco; esta issue não adiciona alterações de estrutura nem modifica os flux
   (Linux amd64 e arm64). O digest preserva a imagem validada mesmo se a tag `8.4`
   mudar. Para atualizar, valide a nova imagem em um banco local de teste e atualize
   o digest no Compose; não remova essa fixação nem apague volumes existentes.
+- A imagem opcional do phpMyAdmin também está fixada por digest de um índice
+  multi-arquitetura, incluindo Linux amd64 e arm64. Ao atualizá-la, valide o acesso
+  ao banco local pelo perfil `ferramentas` antes de trocar a versão e o digest.
 - O código é montado do computador: as edições aparecem sem reconstruir a imagem.
   Dependências, `writable/` e `build/` usam volumes próprios. Por isso, os logs e as
   sessões Docker não aparecem no `writable/` local.
