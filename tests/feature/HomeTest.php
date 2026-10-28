@@ -8,6 +8,7 @@ use CodeIgniter\Shield\Test\AuthenticationTesting;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
+use CodeIgniter\Test\TestResponse;
 
 final class HomeTest extends CIUnitTestCase
 {
@@ -49,6 +50,9 @@ final class HomeTest extends CIUnitTestCase
         $resposta->assertOK();
         $resposta->assertSee('PlanIFica Hub');
         $resposta->assertSee('Dashboard');
+        $resposta->assertSee('Alterar Senha');
+        $resposta->assertSeeElement('button[id=botao-alterar-senha]');
+        $resposta->assertSee('mdi-lock-reset');
     }
 
     public function testExibeSobreReutilizandoLayoutQuandoAutenticado(): void
@@ -60,6 +64,17 @@ final class HomeTest extends CIUnitTestCase
         $resposta->assertOK();
         $resposta->assertSee('Sobre o PlanIFica Hub');
         $resposta->assertSee('Dashboard');
+    }
+
+    public function testIniciaAlteracaoDeSenhaPeloPerfil(): void
+    {
+        $usuario = $this->criarUsuario();
+        $this->actingAs($usuario);
+
+        $resposta = $this->enviarFormulario('perfil/alterar-senha');
+
+        $resposta->assertRedirectTo(site_url('forgot-password'));
+        $this->assertFalse(auth()->loggedIn());
     }
 
     private function criarUsuario(): User
@@ -77,5 +92,10 @@ final class HomeTest extends CIUnitTestCase
         $usuarioCriado = $users->findById($users->getInsertID());
 
         return $usuarioCriado;
+    }
+
+    private function enviarFormulario(string $rota): TestResponse
+    {
+        return $this->withSession($_SESSION)->post($rota, [csrf_token() => csrf_hash()]);
     }
 }
