@@ -26,8 +26,6 @@
         </div>
     </div>
 
-    <script src="<?= base_url('assets/vendors/js/vendor.bundle.base.js') ?>"></script>
-    <script src="<?= base_url('assets/js/custom.js') ?>"></script>
     <?= $this->renderSection('scripts') ?>
     <?= $this->renderSection('pageScripts') ?>
 </body>

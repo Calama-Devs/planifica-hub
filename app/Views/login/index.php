@@ -3,6 +3,14 @@
 <?= $this->section('titulo') ?>Entrar<?= $this->endSection() ?>
 
 <?= $this->section('conteudo') ?>
+<?php
+$validFields = setting('Auth.validFields') ?? ['email'];
+$isUsernameOnly = $validFields === ['username'];
+$fieldName = $isUsernameOnly ? 'username' : 'email';
+$fieldType = $isUsernameOnly ? 'text' : 'email';
+$fieldLabel = $isUsernameOnly ? 'Usuário' : (count($validFields) > 1 ? 'E-mail ou Usuário' : 'E-mail');
+$fieldPlaceholder = $isUsernameOnly ? 'Digite seu usuário' : (count($validFields) > 1 ? 'nome@exemplo.com ou usuário' : 'nome@exemplo.com');
+?>
 <div class="card col-12 col-sm-8 col-md-6 col-lg-4 mx-auto shadow-sm">
     <div class="card-body px-4 py-5">
         <div class="text-center mb-4">
@@ -34,10 +42,10 @@
         <form action="<?= url_to('login') ?>" method="post">
             <?= csrf_field() ?>
 
-            <!-- E-mail -->
+            <!-- Identificador de Acesso -->
             <div class="form-group mb-3">
-                <label for="email" class="form-label">E-mail</label>
-                <input type="email" class="form-control" id="email" name="email" inputmode="email" autocomplete="email" placeholder="nome@exemplo.com" value="<?= esc(old('email')) ?>" required autofocus>
+                <label for="<?= esc($fieldName) ?>" class="form-label"><?= esc($fieldLabel) ?></label>
+                <input type="<?= esc($fieldType) ?>" class="form-control" id="<?= esc($fieldName) ?>" name="<?= esc($fieldName) ?>" inputmode="<?= esc($fieldType) ?>" autocomplete="<?= esc($fieldName) ?>" placeholder="<?= esc($fieldPlaceholder) ?>" value="<?= esc(old($fieldName)) ?>" required autofocus>
             </div>
 
             <!-- Senha -->
@@ -69,4 +77,3 @@
     </div>
 </div>
 <?= $this->endSection() ?>
-
