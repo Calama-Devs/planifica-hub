@@ -6,7 +6,9 @@ services:
       - "127.0.0.1:8080:80"
     environment:
       CI_ENVIRONMENT: development
-      app_baseURL: ${app_baseURL:-http://localhost:8080/}
+      DOCKER_AMBIENTE: "1"
+      # Se ausente, o CodeIgniter lê a URL do .env em qualquer uma das duas formas.
+      app_baseURL:
       database_default_hostname: banco
       database_default_database: ${DOCKER_BANCO_NOME:?Defina DOCKER_BANCO_NOME no .env}
       database_default_username: ${DOCKER_BANCO_USUARIO:?Defina DOCKER_BANCO_USUARIO no .env}

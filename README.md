@@ -88,12 +88,17 @@ Confirme as versões e o acesso ao Docker, sem erros de conexão ou permissão.
 
 #### 2. Crie e configure o `.env`
 
+```bash
+if [ ! -e .env ]; then cp .env.example .env; fi
+nano .env
+```
+
 A cópia preserva um `.env` existente. Edite com Nano ou outro editor e confira:
 
 | Variável | Como configurar |
 |---|---|
 | `CI_ENVIRONMENT` | `development` |
-| `app_baseURL` | `'http://localhost:8080/'`, com a barra final |
+| `app.baseURL` ou `app_baseURL` | `'http://localhost:8080/'`, com a barra final |
 | `DOCKER_BANCO_NOME` | Nome do banco local, por exemplo `planifica_hub` |
 | `DOCKER_BANCO_USUARIO` | Usuário da aplicação, por exemplo `planifica`; não use `root` |
 | `DOCKER_BANCO_SENHA` | Senha local não vazia |
@@ -102,9 +107,9 @@ A cópia preserva um `.env` existente. Edite com Nano ou outro editor e confira:
 Use aspas simples nas senhas, especialmente com `$`. No Nano, salve com `Ctrl + O`,
 `Enter` e saia com `Ctrl + X`.
 
-Use `app_baseURL` e `database_default_*` com underscores, conforme a migração abaixo.
-O Compose fornece a conexão com o hostname `banco` e os valores `DOCKER_BANCO_*`;
-os campos `database_default_*` do exemplo podem permanecer como estão.
+As configurações do CodeIgniter aceitam pontos ou underscores, sem migração
+obrigatória. O Compose fornece a conexão com o hostname `banco` e os valores
+`DOCKER_BANCO_*`; os campos `database.default.*` do exemplo podem permanecer como estão.
 **Se o banco já existir, preserve os valores usados na criação do volume:** alterar
 o `.env` não reconfigura automaticamente suas credenciais.
 
@@ -146,11 +151,12 @@ Abra `http://localhost:8080/`. Sem sessão, o redirecionamento esperado é para
 `http://localhost:8080/index.php/login`. O Apache já serve a aplicação;
 não execute `php spark serve`.
 
-### Migração de um `.env` existente
+### Compatibilidade do `.env` com e sem Docker
 
-Renomeie as chaves antigas, preservando os valores:
+Não é necessário renomear as configurações existentes. O `.env.example` mantém
+a notação padrão com pontos; as formas equivalentes com underscores também funcionam:
 
-| Nome anterior | Nome atual |
+| Com pontos | Com underscores |
 |---|---|
 | `app.baseURL` | `app_baseURL` |
 | `database.default.hostname` | `database_default_hostname` |
@@ -160,9 +166,28 @@ Renomeie as chaves antigas, preservando os valores:
 | `database.default.DBDriver` | `database_default_DBDriver` |
 | `database.default.port` | `database_default_port` |
 
-Não mantenha as duas formas: as chaves com pontos podem prevalecer sobre as variáveis
-do Docker. Preserve `baseURL` e `DBDriver` com essa capitalização. E-mail e variáveis
-`DOCKER_BANCO_*` não precisam ser renomeados.
+Use apenas uma forma por configuração e preserve a capitalização de `baseURL` e
+`DBDriver`. Fora do Docker, o CodeIgniter carrega o arquivo normalmente, sem mudanças
+no fluxo de instalação local.
+
+No Docker, `DOCKER_AMBIENTE=1` ativa a compatibilidade na inicialização de
+desenvolvimento, após o carregamento do `.env`. O script
+`docker/php/preparar_ambiente.php` aplica os valores do ambiente de execução às duas
+formas em memória, garantindo a prioridade da conexão fornecida pelo Compose sem
+reescrever o arquivo ou registrar credenciais. As variáveis não vazias com
+underscores fornecidas pelo Compose têm prioridade sobre o arquivo local.
+
+A URL pode ser definida por `app.baseURL` ou `app_baseURL` no `.env`. Se nenhuma estiver
+definida, vale o padrão de `app/Config/App.php`: `http://localhost:8080/`. A URL não muda a porta
+publicada: se usar outra porta, ajuste também `ports` no Compose; domínios próprios
+precisam resolver por DNS ou `/etc/hosts`. Configurações de e-mail não são alteradas.
+
+Os testes de `tests/unit/AmbienteDockerTest.php` cobrem as duas notações, a execução
+local sem o adaptador e a precedência do Docker, usando somente configurações fictícias:
+
+```bash
+docker compose exec --user www-data app vendor/bin/phpunit --filter AmbienteDockerTest
+```
 
 ### phpMyAdmin opcional
 
