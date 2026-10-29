@@ -6,9 +6,9 @@
     <?= csrf_meta() ?>
     <title><?= $this->renderSection('titulo') ?: $this->renderSection('title') ?> | PlanIFica Hub</title>
 
-    <link rel="stylesheet" href="<?= base_url('assets/vendors/mdi/css/materialdesignicons.min.css') ?>">
-    <link rel="stylesheet" href="<?= base_url('assets/css/modern-vertical/style.css') ?>">
-    <link rel="stylesheet" href="<?= base_url('assets/css/custom.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/vendors/mdi/css/materialdesignicons.min.css?v=' . (file_exists(FCPATH . 'assets/vendors/mdi/css/materialdesignicons.min.css') ? filemtime(FCPATH . 'assets/vendors/mdi/css/materialdesignicons.min.css') : '1')) ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/css/modern-vertical/style.css?v=' . (file_exists(FCPATH . 'assets/css/modern-vertical/style.css') ? filemtime(FCPATH . 'assets/css/modern-vertical/style.css') : '1')) ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/css/custom.css?v=' . (file_exists(FCPATH . 'assets/css/custom.css') ? filemtime(FCPATH . 'assets/css/custom.css') : '1')) ?>">
     <?= $this->renderSection('estilos') ?>
     <?= $this->renderSection('pageStyles') ?>
 

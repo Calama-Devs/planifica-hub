@@ -16,6 +16,10 @@ app/Views/
     login.php            # View de formulário de login (estende layouts/autenticacao)
 ```
 
+> **Exceção Arquitetural do Shield (Manual 10.3):**
+> O fluxo de login é provido nativamente pelo pacote `CodeIgniter\Shield\Controllers\LoginController`, sem a existência de um controller intermediário em `app/Controllers/`.
+> Para manter a coesão de domínio e aderência aos requisitos definidos na issue PLAN-9 (*"Criar View específica, por exemplo app/Views/autenticacao/login.php"*), as telas customizadas do Shield são agrupadas no diretório de domínio `app/Views/autenticacao/` e mapeadas em `app/Config/Auth.php`. Essa exceção arquitetural evita a criação de controladores casca vazios mantendo a integração oficial do framework.
+
 ---
 
 ## 2. Integração com o CodeIgniter Shield
@@ -47,9 +51,9 @@ A view `app/Views/autenticacao/login.php` estende diretamente `layouts/autentica
 
 ---
 
-## 4. Seleção Mínima de Assets e Performance (Manual 15.4 e 25.4)
+## 4. Seleção Mínima de Assets, Versionamento e Performance (Manual 9.12, 9.13, 15.4 e 25.4)
 
-A tela de autenticação reutiliza estritamente os assets já homologados e versionados no projeto, com payload mínimo e sem carregar bundles JS desnecessários na tela de login:
+A tela de autenticação reutiliza estritamente os assets já homologados e versionados no projeto, com payload mínimo e controle de cache:
 
 | Tipo | Caminho do Arquivo | Finalidade |
 | :--- | :--- | :--- |
@@ -59,5 +63,6 @@ A tela de autenticação reutiliza estritamente os assets já homologados e vers
 | **Fontes** | `public/assets/fonts/Rubik/*` | Tipografia padrão do projeto. |
 | **Imagens**| `public/assets/images/logo-ifro-mini.png` | Logomarca institucional do IFRO e favicon. |
 
+> **Versionamento contra Cache (manual 9.12 e 9.13):** Conforme orientação do Manual Calama Devs (`docs/padroes/frontend.md`), os arquivos CSS são carregados com sufixo de versionamento dinâmico baseado no timestamp de modificação (`?v=<?= filemtime(...) ?>`), prevenindo que clientes utilizem arquivos desatualizados em cache após novos deploys.
 > **Performance e Payload Mínimo:** Por se tratar de um formulário POST padrão sem interações no cliente, o layout de autenticação não carrega scripts pesados de terceiros globalmente, disponibilizando as seções `scripts` e `pageScripts` apenas quando uma tela específica demandar código JS.
 > **Sem Imagens Externas / Fictícias:** Para evitar erros 404 em ambiente limpo, o fundo da tela utiliza a classe utilitária `.auth-bg-custom` em `custom.css` em vez de referenciar imagens locais ou externas ausentes.
