@@ -12,8 +12,8 @@ A interface de autenticação é composta por um layout isolado de tela cheia e 
 app/Views/
   layouts/
     autenticacao.php     # Layout base para fluxos públicos/autenticação (sem sidebar interna)
-  autenticacao/
-    login.php            # View de formulário de login (substitui a view padrão do Shield)
+  login/
+    index.php            # View de formulário de login (substitui a view padrão do Shield)
 ```
 
 ---
@@ -25,7 +25,7 @@ A substituição da view padrão do Shield é feita via configuração em `app/C
 ```php
 // app/Config/Auth.php
 public array $views = [
-    'login'  => 'autenticacao/login',
+    'login'  => 'login/index',
     'layout' => 'layouts/autenticacao',
     // ...
 ];
@@ -60,4 +60,3 @@ A tela de autenticação reutiliza estritamente os assets já homologados e vers
 | **JS** | `public/assets/js/custom.js` | Inicialização padronizada de CSRF e scripts locais. |
 
 > **Sem Imagens Externas / Fictícias:** Para evitar erros 404 em ambiente limpo, o fundo da tela utiliza a classe utilitária `.auth-bg-custom` em `custom.css` em vez de referenciar imagens locais ou externas ausentes.
-

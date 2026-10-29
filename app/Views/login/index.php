@@ -13,7 +13,9 @@
 
         <?php if (session('error') !== null) : ?>
             <div class="alert alert-danger" role="alert"><?= esc(session('error')) ?></div>
-        <?php elseif (session('errors') !== null) : ?>
+        <?php endif ?>
+
+        <?php if (session('errors') !== null) : ?>
             <div class="alert alert-danger" role="alert">
                 <?php if (is_array(session('errors'))) : ?>
                     <?php foreach (session('errors') as $error) : ?>
