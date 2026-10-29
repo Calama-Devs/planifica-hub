@@ -5,10 +5,10 @@ reutilizar componentes, consulte o [padrão de layout e dashboard](padroes/layou
 
 ## Diretórios e namespaces
 
-O namespace da aplicação permanece `App\`, definido em
-`app/Config/Constants.php`. O autoload PSR-4 de `composer.json` mapeia `App\`
-para `app/` e `Config\` para `app/Config/`. O CodeIgniter mantém esse
-mapeamento em `app/Config/Autoload.php`; não é necessário alterá-lo.
+O namespace da aplicação permanece `App\`. A fonte de verdade do mapeamento
+PSR-4 é `composer.json`, que associa `App\` a `app/` e `Config\` a
+`app/Config/`. O arquivo `app/Config/Autoload.php` contém a configuração
+complementar de autoload do CodeIgniter; não é necessário alterá-lo.
 
 | Diretório | Namespace ou finalidade | Situação atual |
 |---|---|---|
