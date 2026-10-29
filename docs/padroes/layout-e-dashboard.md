@@ -2,6 +2,11 @@
 
 Este documento descreve a arquitetura do layout interno (`layouts/principal.php`) e orienta a criação e extensão de novas páginas no PlanIFica Hub, em total conformidade com o **Manual Calama Devs** (capítulos 6, 9 e 10).
 
+O mapa central de diretórios e namespaces, a localização da autenticação e o
+registro do template oficial com sua política de uso seletivo estão em
+[estrutura inicial](../estrutura-inicial.md). Aqui ficam as instruções de
+composição das telas e o inventário dos assets usados pelo layout.
+
 ---
 
 ## 1. Estrutura de Views (Manual 9.3 e 10.3)
@@ -113,14 +118,14 @@ A entrega foi reduzida ao conjunto estritamente essencial para o funcionamento d
 
 | Tipo | Caminho do Arquivo | Justificativa de Uso Estrito |
 | :--- | :--- | :--- |
-| **CSS** | `public/assets/vendors/mdi/css/materialdesignicons.min.css` | Ícones oficiais da barra de navegação, menu lateral e botões de ação. |
-| **Fontes** | `public/assets/vendors/mdi/fonts/*` | Arquivos de fonte web (`.woff2`, `.woff`, `.ttf`, `.eot`) para renderizar os ícones MDI sem 404. |
+| **CSS** | `public/assets/vendor/mdi/css/materialdesignicons.min.css` | Ícones oficiais da barra de navegação, menu lateral e botões de ação. |
+| **Fontes** | `public/assets/vendor/mdi/fonts/*` | Arquivos de fonte web (`.woff2`, `.woff`, `.ttf`, `.eot`) para renderizar os ícones MDI sem 404. |
 | **CSS** | `public/assets/css/modern-vertical/style.css` | Framework visual Corona (Bootstrap e grid responsivo do layout). |
 | **Fontes** | `public/assets/fonts/Rubik/*` | Tipografia institucional consumida diretamente pelo `style.css`. |
 | **CSS** | `public/assets/css/custom.css` | Adaptações institucionais do IFRO, tamanho da logo e regras globais do projeto. |
 | **Imagens**| `public/assets/images/logo-ifro.png` | Logomarca oficial IFRO (menu expandido). |
 | **Imagens**| `public/assets/images/logo-ifro-mini.png` | Logomarca reduzida IFRO (menu recolhido) e favicon. |
-| **JS** | `public/assets/vendors/js/vendor.bundle.base.js` | jQuery e Bootstrap bundle necessários para o funcionamento de dropdowns e collapse do menu. |
+| **JS** | `public/assets/vendor/js/vendor.bundle.base.js` | jQuery e Bootstrap bundle necessários para o funcionamento de dropdowns e collapse do menu. |
 | **JS** | `public/assets/js/off-canvas.js` | Controle de abertura/fechamento do menu lateral em telas móveis. |
 | **JS** | `public/assets/js/hoverable-collapse.js` | Expansão de submenus ao passar o mouse com a barra minimizada. |
 | **JS** | `public/assets/js/misc.js` | Inicialização dos comportamentos visuais de navegação (sem dependência de plugins órfãos como PerfectScrollbar). |
