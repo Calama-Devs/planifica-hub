@@ -37,7 +37,7 @@
             <!-- E-mail -->
             <div class="form-group mb-3">
                 <label for="email" class="form-label">E-mail</label>
-                <input type="email" class="form-control" id="email" name="email" inputmode="email" autocomplete="email" placeholder="nome@exemplo.com" value="<?= old('email') ?>" required autofocus>
+                <input type="email" class="form-control" id="email" name="email" inputmode="email" autocomplete="email" placeholder="nome@exemplo.com" value="<?= esc(old('email')) ?>" required autofocus>
             </div>
 
             <!-- Senha -->

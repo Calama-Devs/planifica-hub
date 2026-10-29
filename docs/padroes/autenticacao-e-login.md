@@ -11,27 +11,28 @@ A interface de autenticação é composta por um layout isolado de tela cheia e 
 ```text
 app/Views/
   layouts/
-    autenticacao.php     # Layout base para fluxos públicos/autenticação (sem sidebar interna)
+    autenticacao.php     # Layout base para fluxos de autenticação (sem sidebar interna)
   login/
-    index.php            # View de formulário de login (substitui a view padrão do Shield)
+    index.php            # View de formulário de login (estende layouts/autenticacao)
 ```
 
 ---
 
 ## 2. Integração com o CodeIgniter Shield
 
-A substituição da view padrão do Shield é feita via configuração em `app/Config/Auth.php`, **sem qualquer alteração em arquivos do diretório `vendor/`**:
+A substituição da view padrão de login do Shield é feita via configuração em `app/Config/Auth.php`, **sem qualquer alteração em arquivos do diretório `vendor/`**:
 
 ```php
 // app/Config/Auth.php
 public array $views = [
-    'login'  => 'login/index',
-    'layout' => 'layouts/autenticacao',
+    'login'    => 'login/index',
+    'register' => '\CodeIgniter\Shield\Views\register',
+    'layout'   => '\CodeIgniter\Shield\Views\layout',
     // ...
 ];
 ```
 
-Dessa forma, todo o ciclo de vida da autenticação (validação de credenciais, geração de hash de sessão, cookies de `remember me` e controle de tentativas de login) é preservado de forma nativa pelo Shield.
+A view `app/Views/login/index.php` estende diretamente `layouts/autenticacao`, preservando o layout padrão do Shield para os demais fluxos (como `register`) e evitando regressões funcionais.
 
 ---
 
@@ -39,8 +40,8 @@ Dessa forma, todo o ciclo de vida da autenticação (validação de credenciais,
 
 - **Proteção CSRF (manual 11.3):** O formulário inclui obrigatoriamente `<?= csrf_field() ?>` e o cabeçalho do layout disponibiliza `<?= csrf_meta() ?>`.
 - **Prevenção de Enumeração de Contas:** As mensagens de erro e falha de login exibem retorno genérico do Shield (ex.: "Credenciais inválidas") sem detalhar se o e-mail informado existe ou não na base de dados.
-- **Não Repopulação de Senha:** Em caso de erro na submissão, apenas o campo de e-mail pode ser repopulado (`value="<?= old('email') ?>"`). O campo de senha **nunca** repopula valor digitado anteriormente (`old('password')` nunca é usado).
-- **Escape de Saída (manual 11.6):** Todas as mensagens de erro e alertas de sessão utilizam `esc()` (`<?= esc(session('error')) ?>`).
+- **Não Repopulação de Senha:** Em caso de erro na submissão, apenas o campo de e-mail pode ser repopulado. O campo de senha **nunca** repopula valor digitado anteriormente (`old('password')` nunca é usado).
+- **Escape de Saída Explícito (manual 11.6):** Todas as saídas dinâmicas utilizam escape explícito com `esc()`, incluindo o valor repopulado do e-mail (`value="<?= esc(old('email')) ?>"`) e os alertas de sessão.
 - **Acessibilidade e Semântica (manual 9.9):** Todos os campos de formulário possuem `<label>` explícito associado via atributo `for` ao `id` do respectivo `<input>`, além de tipos semânticos (`type="email"` e `type="password"`).
 
 ---

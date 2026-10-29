@@ -60,6 +60,10 @@ final class AutenticacaoTest extends CIUnitTestCase
 
         $resposta->assertOK();
         $resposta->assertSeeElement('input[name=' . csrf_token() . ']');
+        $resposta->assertSeeElement('input[name=username]');
+        $resposta->assertSeeElement('input[name=email]');
+        $resposta->assertSeeElement('input[name=password]');
+        $resposta->assertSeeElement('input[name=password_confirm]');
     }
 
     public function testRecusaLoginSemTokenCsrf(): void
