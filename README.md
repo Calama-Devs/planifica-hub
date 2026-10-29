@@ -62,76 +62,93 @@ acesso direto sem autenticação e com perfis sem permissão.
 
 ## Desenvolvimento local com Docker no Linux
 
-Este ambiente é exclusivo para desenvolvimento, não para homologação ou produção.
-Ele fornece PHP 8.3 com Apache, Composer, MySQL 8.4, SQLite e PCOV. Instale Docker
-Engine e o plugin Docker Compose no Linux e confirme que o daemon está acessível.
-Não é necessário instalar PHP, Composer ou MySQL no computador. O fluxo principal
-abaixo é para Linux; a compatibilidade opcional com Windows está descrita ao final.
+Ambiente exclusivo para desenvolvimento: PHP 8.3, Apache, Composer, MySQL 8.4,
+SQLite e PCOV. Instale Docker Engine e o plugin Docker Compose; não é necessário
+instalar PHP, Composer ou MySQL no computador.
 
 ### Configuração e primeira execução
 
-1. Caso ainda não exista um `.env`, copie o exemplo:
+> **Crie e preencha o `.env` antes de construir ou iniciar o projeto.** Substitua os
+> textos de orientação das senhas por senhas locais distintas. Não compartilhe nem
+> versione o arquivo (manual 10.5 e 11.8).
 
-   ```bash
-   cp .env.example .env
-   ```
+Execute os comandos na raiz do projeto, usando o `compose.yaml` original.
+Se iniciou com `-p planifica-primeiro`, repita essa opção em todos os comandos,
+como em `docker compose -p planifica-primeiro ps`.
 
-   Não sobrescreva um `.env` existente.
-   Se já tiver um, acrescente as variáveis `DOCKER_BANCO_*` presentes no exemplo
-   e ajuste os nomes das configurações conforme a seção de migração abaixo,
-   preservando seus valores locais.
+#### 1. Verifique os requisitos
 
-2. No `.env` local, configure `DOCKER_BANCO_NOME` e `DOCKER_BANCO_USUARIO` e preencha
-   `DOCKER_BANCO_SENHA` e `DOCKER_BANCO_SENHA_ROOT` com senhas locais distintas e não
-   vazias. Não use `root` como usuário da aplicação. Para senhas com `$`, use aspas
-   simples no `.env` para evitar interpolação pelo Compose. Não compartilhe esse arquivo.
+```bash
+docker --version
+docker compose version
+docker info
+```
 
-   O Compose configura a conexão `database_default_*` da aplicação com esses mesmos
-   valores e o hostname `banco`, pela rede interna. Com o `.env` usando os mesmos
-   nomes com underscores, as variáveis externas prevalecem e os valores de banco
-   usados fora do Docker podem ser mantidos. O `.env` também é montado somente
-   para leitura, para outras configurações locais, como e-mail.
+Confirme as versões e o acesso ao Docker, sem erros de conexão ou permissão.
 
-3. Construa a imagem e inicie os serviços:
+#### 2. Crie e configure o `.env`
 
-   ```bash
-   docker compose config --quiet
-   docker compose build app
-   docker compose up -d --wait
-   ```
+A cópia preserva um `.env` existente. Edite com Nano ou outro editor e confira:
 
-   O Compose aguarda o MySQL aceitar uma consulta com o usuário da aplicação antes
-   de iniciar o Apache. O banco não publica uma porta no computador; a aplicação
-   fica disponível apenas na interface local, na porta 8080.
+| Variável | Como configurar |
+|---|---|
+| `CI_ENVIRONMENT` | `development` |
+| `app_baseURL` | `'http://localhost:8080/'`, com a barra final |
+| `DOCKER_BANCO_NOME` | Nome do banco local, por exemplo `planifica_hub` |
+| `DOCKER_BANCO_USUARIO` | Usuário da aplicação, por exemplo `planifica`; não use `root` |
+| `DOCKER_BANCO_SENHA` | Senha local não vazia |
+| `DOCKER_BANCO_SENHA_ROOT` | Outra senha local não vazia |
 
-4. Aplique as migrations no banco Docker local:
+Use aspas simples nas senhas, especialmente com `$`. No Nano, salve com `Ctrl + O`,
+`Enter` e saia com `Ctrl + X`.
 
-   ```bash
-   docker compose exec --user www-data app php spark migrate --all
-   ```
+Use `app_baseURL` e `database_default_*` com underscores, conforme a migração abaixo.
+O Compose fornece a conexão com o hostname `banco` e os valores `DOCKER_BANCO_*`;
+os campos `database_default_*` do exemplo podem permanecer como estão.
+**Se o banco já existir, preserve os valores usados na criação do volume:** alterar
+o `.env` não reconfigura automaticamente suas credenciais.
 
-   A imagem já instala o `composer.lock`, incluindo as ferramentas de desenvolvimento.
-   Na primeira execução, o Docker copia automaticamente esse `vendor/` para o volume
-   vazio `dependencias`; não é necessário executar `composer install` separadamente.
-   Essa cópia não atualiza um volume já preenchido. Se estiver reutilizando um volume
-   de uma execução anterior e as dependências tiverem mudado, sincronize-o antes das
-   migrations:
+#### 3. Valide, construa e inicie
 
-   ```bash
-   docker compose exec app composer install --no-interaction --prefer-dist
-   ```
+```bash
+docker compose config --quiet
+docker compose build app
+docker compose up -d --wait
+docker compose ps
+```
 
-   Não execute `shield:setup` novamente.
-   As migrations não são executadas automaticamente na construção ou inicialização.
+- `config --quiet`: valida sem exibir credenciais; não deve produzir saída nem erro.
+- `build app`: constrói a imagem e instala as dependências do `composer.lock`.
+- `up -d --wait`: inicia em segundo plano e aguarda os serviços.
+- `ps`: deve mostrar `app` em execução, `banco` saudável e `127.0.0.1:8080->80/tcp`.
 
-5. Acesse `http://localhost:8080/index.php/login`. O Apache substitui
-   `php spark serve`; não inicie os dois na mesma porta. O Compose define
-   `CI_ENVIRONMENT=development` e `app_baseURL=http://localhost:8080/` dentro do container.
+Corrija qualquer erro antes de continuar. O banco não publica porta no computador.
+O volume vazio `dependencias` recebe o `vendor/` da imagem na primeira execução.
+Se reutilizar um volume e as dependências mudarem, sincronize antes das migrations:
+
+```bash
+docker compose exec app composer install --no-interaction --prefer-dist
+```
+
+#### 4. Aplique as migrations no banco local
+
+```bash
+docker compose exec --user www-data app php spark migrate --all
+```
+
+Prepara as tabelas com o usuário do Apache (manual 8.5). Espere `Migrations complete.`,
+sem erro de conexão. O aviso de PCNTL indisponível não impede, por si só, a execução.
+As migrations não são automáticas; não execute `shield:setup` novamente.
+
+#### 5. Acesse a aplicação
+
+Abra `http://localhost:8080/`. Sem sessão, o redirecionamento esperado é para
+`http://localhost:8080/index.php/login`. O Apache já serve a aplicação;
+não execute `php spark serve`.
 
 ### Migração de um `.env` existente
 
-O CodeIgniter 4 aceita os nomes abaixo com underscores. Se seu `.env` ainda usa
-pontos nessas configurações, renomeie as chaves, preservando os valores:
+Renomeie as chaves antigas, preservando os valores:
 
 | Nome anterior | Nome atual |
 |---|---|
@@ -143,130 +160,42 @@ pontos nessas configurações, renomeie as chaves, preservando os valores:
 | `database.default.DBDriver` | `database_default_DBDriver` |
 | `database.default.port` | `database_default_port` |
 
-Não mantenha as duas formas dessas chaves: o CodeIgniter consulta a forma com pontos
-primeiro, o que pode fazer um valor antigo do arquivo prevalecer sobre a configuração
-externa do Docker. Preserve a capitalização de `baseURL` e `DBDriver`.
-As configurações de e-mail e as variáveis `DOCKER_BANCO_*` não precisam ser renomeadas.
-Essa nomenclatura também funciona na execução sem Docker, por meio das classes de
-configuração do CodeIgniter. Não compartilhe o `.env` nem seus valores.
+Não mantenha as duas formas: as chaves com pontos podem prevalecer sobre as variáveis
+do Docker. Preserve `baseURL` e `DBDriver` com essa capitalização. E-mail e variáveis
+`DOCKER_BANCO_*` não precisam ser renomeados.
 
 ### phpMyAdmin opcional
 
-Por padrão, `docker compose up` inicia somente a aplicação e o banco, sem publicar
-a interface administrativa. O phpMyAdmin é uma ferramenta complementar, desativada
-por padrão no perfil `ferramentas`; a aplicação não depende dele para funcionar.
-
-Para habilitá-lo explicitamente quando necessário:
+O phpMyAdmin não inicia por padrão: é uma ferramenta opcional do perfil `ferramentas`.
+Para habilitar:
 
 ```bash
 docker compose --profile ferramentas up -d --wait phpmyadmin
 ```
 
-Acesse `http://localhost:8082`, disponível somente no próprio computador. Não exponha
-essa porta por túneis ou redirecionamentos para outras máquinas.
+Acesse `http://localhost:8082` com `DOCKER_BANCO_USUARIO` e `DOCKER_BANCO_SENHA` do
+`.env`; a conexão com `banco:3306` já está configurada. Não use `root` habitualmente,
+não compartilhe credenciais nem exponha essa porta a outras máquinas.
+Altere a estrutura do banco por migrations, não pelo phpMyAdmin (manual 8.5).
 
-Na tela de login, use o usuário definido em `DOCKER_BANCO_USUARIO` e a senha definida
-em `DOCKER_BANCO_SENHA` no seu `.env` local. A conexão com o serviço `banco`, na porta
-interna 3306, já está configurada. Não publique essas credenciais nem use `root`
-nas operações habituais (manual 10.5 e 11.8).
-
-Alterações na estrutura do banco devem continuar sendo feitas por migrations, não
-manualmente pelo phpMyAdmin (manual 8.5).
-
-Ao terminar, pare somente a ferramenta, mantendo aplicação e banco em execução:
+Para parar apenas a ferramenta:
 
 ```bash
 docker compose --profile ferramentas stop phpmyadmin
 ```
 
-Execute também esse comando se o phpMyAdmin já estava ativo antes da adoção do
-perfil: a mudança de configuração não encerra containers existentes automaticamente.
+Mudar o perfil no Compose não encerra um container que já estava ativo.
 
-### Verificações dentro do container
+### Atualizar ou encerrar o ambiente
 
-Confira primeiro o PHP, as extensões e os requisitos das dependências:
-
-```bash
-docker compose ps
-docker compose exec app php -v
-docker compose exec app php -m
-docker compose exec app composer check-platform-reqs
-docker compose exec app php -r 'require "vendor/autoload.php"; echo "Autoload disponível." . PHP_EOL;'
-```
-
-Para validar a cópia inicial das dependências, execute a verificação de autoload logo
-após o primeiro `up`, antes de qualquer `composer install` dentro do container.
-Não apague volumes existentes para repetir esse teste; use um ambiente local isolado.
-
-Execute as verificações com o mesmo usuário do Apache, evitando
-arquivos de cache e log sem permissão de escrita para a aplicação:
+Se mudar o Dockerfile ou o INI, reconstrua e reinicie:
 
 ```bash
-docker compose exec --user www-data app vendor/bin/phpcs
-docker compose exec --user www-data app vendor/bin/phpstan analyse --no-progress --memory-limit=1G
-docker compose exec --user www-data app vendor/bin/phpunit
+docker compose up -d --build --wait
 ```
 
-O PCOV está habilitado para cobertura de `app/`. Para rodar a suíte sem cobertura:
-
-```bash
-docker compose exec --user www-data app composer test
-```
-
-Os testes continuam usando SQLite em memória, sem depender dos dados do MySQL.
-Os relatórios ficam em `/var/www/html/build/logs`, em um volume separado. Para
-copiá-los para o computador:
-
-```bash
-docker compose cp app:/var/www/html/build/. ./build
-```
-
-Confira também no navegador cadastro válido e inválido, login correto e incorreto,
-logout por POST e bloqueio da página inicial após sair, como descrito acima.
-Reinicie os serviços com `docker compose restart` e confira se o usuário cadastrado
-continua conseguindo entrar. Use somente dados fictícios nos testes locais.
-
-Para comprovar a configuração externa, mantenha `database_default_hostname` do `.env`
-como `127.0.0.1`, sem a chave antiga com pontos: dentro do container a conexão deve
-usar `banco`, injetado pelo Compose,
-e as migrations devem funcionar. Confirme também o cadastro e o login no navegador:
-essa precedência é validada pela execução local. As migrations já existentes preparam
-o banco; esta issue não adiciona alterações de estrutura nem modifica os fluxos de autenticação.
-
-### Arquivos, volumes e manutenção
-
-- `Dockerfile`: instala extensões, Composer e dependências; serve somente `public/`.
-  O build define a diretiva `DocumentRoot`, confere o vhost habilitado e valida a
-  sintaxe do Apache. Se a configuração esperada não estiver presente, a construção falha.
-- `.dockerignore`: impede que `.env`, dependências locais e dados de execução entrem
-  na imagem (manual 10.5 e 11.8).
-- `docker/php/desenvolvimento.ini`: configura memória, inicialização de `$_ENV`
-  e cobertura com PCOV.
-- O entrypoint é o oficial da imagem PHP. As configurações com underscores são
-  reconhecidas nativamente pelo CodeIgniter, sem script adicional de inicialização.
-- `compose.yaml`: conecta aplicação e banco, sem credenciais fixas no código.
-  O phpMyAdmin só é iniciado mediante ativação explícita do perfil `ferramentas`.
-- A imagem do MySQL está fixada por digest SHA-256 de um índice multi-arquitetura
-  (Linux amd64 e arm64). O digest preserva a imagem validada mesmo se a tag `8.4`
-  mudar. Para atualizar, valide a nova imagem em um banco local de teste e atualize
-  o digest no Compose; não remova essa fixação nem apague volumes existentes.
-- A imagem opcional do phpMyAdmin também está fixada por digest de um índice
-  multi-arquitetura, incluindo Linux amd64 e arm64. Ao atualizá-la, valide o acesso
-  ao banco local pelo perfil `ferramentas` antes de trocar a versão e o digest.
-- O código é montado do computador: as edições aparecem sem reconstruir a imagem.
-  Dependências, `writable/` e `build/` usam volumes próprios. Por isso, os logs e as
-  sessões Docker não aparecem no `writable/` local.
-- Se `composer.lock` mudar, execute novamente o `composer install` acima. Se o
-  Dockerfile ou o INI mudar, execute novamente `docker compose up -d --build --wait`.
-- Alterar senhas ou o nome do banco no `.env` não reconfigura um volume MySQL já
-  inicializado. Mantenha os valores usados na criação ou faça uma alteração local
-  controlada das credenciais; não apague volumes para tentar corrigir isso.
-- Não publique a saída completa de `docker compose config`, pois pode conter senhas.
-- O `.env` é montado apenas na execução: não entra na imagem nem deve ser copiado
-  pelo Dockerfile. Nunca coloque credenciais em instruções `ARG`, `ENV` ou `RUN`.
-
-Para parar e remover todos os containers do projeto, incluindo a ferramenta opcional,
-preservando banco, sessões e dependências:
+Para remover os containers e a rede, incluindo a ferramenta opcional, preservando
+os volumes:
 
 ```bash
 docker compose --profile ferramentas down
