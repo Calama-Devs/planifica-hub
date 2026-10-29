@@ -155,14 +155,14 @@ if (! $this->validate($regras)) {
 }
 ```
 
-O layout base (`layouts/principal.php`) já inclui automaticamente o partial `partials/mensagens.php` no topo de cada página interna, renderizando o alerta correspondente com ícone MDI e escape seguro de strings e listas.
+O layout base (`layouts/principal.php`) já inclui automaticamente o partial `partials/mensagens.php` no topo de cada página interna, renderizando o alerta correspondente com ícone MDI e escape seguro de strings e listas. O componente agrupa as mensagens por categoria semântica (`success`/`sucesso`, `error`/`erro`/`errors`, `warning`/`aviso`, `info`/`message`) com ordem de precedência, prevenindo a duplicação de alertas caso mais de uma chave equivalente seja informada na sessão.
 
 ### 6.2 Como criar formulários com validação por campo
 
 Para dar feedback próximo a cada campo quando ocorrer erro de validação:
 
 1. Adicione a classe `<?= erro_campo('nome_campo') ?>` na tag do `<input>`, `<select>` ou `<textarea>`. O helper adiciona automaticamente `is-invalid` se o campo possuir erro registrado.
-2. Inclua o partial `partials/erros_validacao` logo abaixo do campo para exibir o feedback textual.
+2. Renderize o partial `partials/erros_validacao` logo abaixo do campo para exibir o feedback textual: `<?= view('partials/erros_validacao', ['campo' => 'nome_campo']) ?>`.
 3. Preserve os dados digitados usando `old('nome_campo')`.
 
 Exemplo de referência completo:
@@ -176,7 +176,7 @@ Exemplo de referência completo:
         <input type="text" id="campo-titulo" name="titulo"
                class="form-control <?= erro_campo('titulo') ?>"
                maxlength="150" value="<?= old('titulo') ?>" required>
-        <?= $this->include('partials/erros_validacao', ['campo' => 'titulo']) ?>
+        <?= view('partials/erros_validacao', ['campo' => 'titulo']) ?>
     </div>
 
     <div class="mb-3">
@@ -184,7 +184,7 @@ Exemplo de referência completo:
         <input type="email" id="campo-email" name="email"
                class="form-control <?= erro_campo('email') ?>"
                maxlength="254" value="<?= old('email') ?>" required>
-        <?= $this->include('partials/erros_validacao', ['campo' => 'email']) ?>
+        <?= view('partials/erros_validacao', ['campo' => 'email']) ?>
     </div>
 
     <button type="submit" class="btn btn-primary">Salvar</button>
