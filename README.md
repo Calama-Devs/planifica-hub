@@ -1,6 +1,13 @@
 # planifica-hub
 PlanIFica Hub
 
+## Estrutura do projeto
+
+Consulte [docs/estrutura-inicial.md](docs/estrutura-inicial.md) para o mapa de
+diretórios e namespaces, as convenções e a política de uso seletivo do template
+oficial. O desenvolvimento usa `develop`, a homologação usa `homolog` e a
+produção usa `main`.
+
 ## Autenticação com CodeIgniter Shield
 
 O projeto utiliza o Shield `^1.4`, instalado via Composer. A configuração segue a
