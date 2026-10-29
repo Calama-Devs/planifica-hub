@@ -131,10 +131,8 @@ ficam fora. Imagens e fontes devem ter seu uso verificado antes da inclusão;
 não devem ser copiadas preventivamente por aparecerem no pacote ou em
 estilos de componentes que a aplicação ainda não utiliza.
 
-O diretório `/home/geinfo/Downloads/corona` é apenas uma fonte local de
-consulta, não um requisito de instalação. A instalação segue o README, com
-os assets selecionados já versionados, sem exigir a importação do pacote
-completo, npm ou Gulp.
+A instalação segue o README, com os assets selecionados já versionados,
+sem exigir a importação do pacote completo, npm ou Gulp.
 
 ## Alcance deste mapa
 
