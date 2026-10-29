@@ -12,8 +12,8 @@ A interface de autenticação é composta por um layout isolado de tela cheia e 
 app/Views/
   layouts/
     autenticacao.php     # Layout base para fluxos de autenticação (sem sidebar interna)
-  login/
-    index.php            # View de formulário de login (estende layouts/autenticacao)
+  autenticacao/
+    login.php            # View de formulário de login (estende layouts/autenticacao)
 ```
 
 ---
@@ -25,14 +25,14 @@ A substituição da view padrão de login do Shield é feita via configuração 
 ```php
 // app/Config/Auth.php
 public array $views = [
-    'login'    => 'login/index',
+    'login'    => 'autenticacao/login',
     'register' => '\CodeIgniter\Shield\Views\register',
     'layout'   => '\CodeIgniter\Shield\Views\layout',
     // ...
 ];
 ```
 
-A view `app/Views/login/index.php` estende diretamente `layouts/autenticacao`, preservando o layout padrão do Shield para os demais fluxos (como `register`) e evitando regressões funcionais.
+A view `app/Views/autenticacao/login.php` estende diretamente `layouts/autenticacao`, preservando o layout padrão do Shield para os demais fluxos (como `register`) e evitando regressões funcionais.
 
 ---
 

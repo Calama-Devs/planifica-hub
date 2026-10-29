@@ -57,12 +57,17 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta->assertSee('assets/css/custom.css');
     }
 
-    public function testConfiguracaoCamposValidosDeAutenticacao(): void
+    public function testRenderizaCampoUsuarioQuandoConfiguradoApenasParaUsername(): void
     {
-        $camposValidos = setting('Auth.validFields');
+        service('settings')->set('Auth.validFields', ['username']);
 
-        $this->assertIsArray($camposValidos);
-        $this->assertContains('email', $camposValidos);
+        $resposta = $this->get('login');
+
+        $resposta->assertOK();
+        $resposta->assertSeeElement('label[for=username]');
+        $resposta->assertSeeElement('input[name=username]');
+
+        service('settings')->forget('Auth.validFields');
     }
 
     public function testExibeCadastroComTokenCsrf(): void

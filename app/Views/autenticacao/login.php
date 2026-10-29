@@ -77,3 +77,4 @@ $fieldPlaceholder = $isUsernameOnly ? 'Digite seu usuário' : (count($validField
     </div>
 </div>
 <?= $this->endSection() ?>
+
