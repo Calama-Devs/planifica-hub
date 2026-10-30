@@ -72,6 +72,20 @@ final class AutenticacaoTest extends CIUnitTestCase
         service('settings')->forget('Auth.validFields');
     }
 
+    public function testRenderizaCampoLoginQuandoConfiguradoParaMultiplosValidFields(): void
+    {
+        service('settings')->set('Auth.validFields', ['email', 'username']);
+
+        $resposta = $this->get('login');
+
+        $resposta->assertOK();
+        $resposta->assertSeeElement('label[for=login]');
+        $resposta->assertSeeElement('input[name=login]');
+        $resposta->assertSee('E-mail ou Usuário');
+
+        service('settings')->forget('Auth.validFields');
+    }
+
     public function testRecusaExibicaoDePaginaDeCadastro(): void
     {
         $resposta = $this->get('register');

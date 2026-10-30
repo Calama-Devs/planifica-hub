@@ -6,10 +6,24 @@
 <?php
 $validFields = setting('Auth.validFields') ?? ['email'];
 $isUsernameOnly = $validFields === ['username'];
-$fieldName = $isUsernameOnly ? 'username' : 'email';
-$fieldType = $isUsernameOnly ? 'text' : 'email';
-$fieldLabel = $isUsernameOnly ? 'Usuário' : (count($validFields) > 1 ? 'E-mail ou Usuário' : 'E-mail');
-$fieldPlaceholder = $isUsernameOnly ? 'Digite seu usuário' : (count($validFields) > 1 ? 'nome@exemplo.com ou usuário' : 'nome@exemplo.com');
+$isMultiple = count($validFields) > 1;
+
+if ($isMultiple) {
+    $fieldName = 'login';
+    $fieldType = 'text';
+    $fieldLabel = 'E-mail ou Usuário';
+    $fieldPlaceholder = 'nome@exemplo.com ou usuário';
+} elseif ($isUsernameOnly) {
+    $fieldName = 'username';
+    $fieldType = 'text';
+    $fieldLabel = 'Usuário';
+    $fieldPlaceholder = 'Digite seu usuário';
+} else {
+    $fieldName = 'email';
+    $fieldType = 'email';
+    $fieldLabel = 'E-mail';
+    $fieldPlaceholder = 'nome@exemplo.com';
+}
 ?>
 <div class="card col-12 col-sm-8 col-md-6 col-lg-4 mx-auto shadow-sm">
     <div class="card-body px-4 py-5">
@@ -51,7 +65,7 @@ $fieldPlaceholder = $isUsernameOnly ? 'Digite seu usuário' : (count($validField
             <!-- Senha -->
             <div class="form-group mb-3">
                 <label for="password" class="form-label">Senha</label>
-                <input type="password" class="form-control" id="password" name="password" inputmode="text" autocomplete="current-password" placeholder="Digite sua senha" required>
+                <input type="password" class="form-control" id="password" name="password" autocomplete="current-password" placeholder="Digite sua senha" required>
             </div>
 
             <!-- Lembrar de mim -->
