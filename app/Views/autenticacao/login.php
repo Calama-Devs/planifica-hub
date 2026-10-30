@@ -51,7 +51,7 @@ $campoLogin = dados_campo_login();
             </div>
 
             <!-- Lembrar de mim -->
-            <?php if (setting('Auth.sessionConfig')['allowRemembering']) : ?>
+            <?php if ((setting('Auth.sessionConfig')['allowRemembering'] ?? false)) : ?>
                 <div class="form-group d-flex align-items-center justify-content-between mb-4">
                     <div class="form-check">
                         <label class="form-check-label" for="remember">
