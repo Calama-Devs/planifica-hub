@@ -91,6 +91,16 @@ Copie o resultado — ele começa com `$2y$`. Nunca armazene a senha em texto ab
 
 ### Passos no MySQL
 
+Antes de qualquer `INSERT`, verifique se a conta já existe:
+
+```sql
+SELECT id FROM auth_identities WHERE type = 'email_password' AND secret = 'email@exemplo.com';
+```
+
+Se retornar resultado, a conta já existe — **não execute os passos abaixo**. Siga direto para a [verificação de grupo](#3-verificar-o-grupo-administrativo).
+
+Se não retornar resultado, execute na ordem:
+
 ```sql
 -- 1. Criar o usuário
 INSERT INTO users (username, active, created_at, updated_at)
@@ -99,7 +109,19 @@ VALUES ('nome-de-usuario', 1, NOW(), NOW());
 -- 2. Registrar a identidade (e-mail + hash gerado pelo PHP)
 INSERT INTO auth_identities (user_id, type, secret, secret2, created_at, updated_at)
 VALUES (LAST_INSERT_ID(), 'email_password', 'email@exemplo.com', '<hash-gerado-acima>', NOW(), NOW());
+```
 
+Antes de atribuir o grupo, verifique se ele já está vinculado:
+
+```sql
+SELECT user_id FROM auth_groups_users
+WHERE user_id = (SELECT id FROM users WHERE username = 'nome-de-usuario')
+  AND `group` = 'superadmin';
+```
+
+Se não retornar resultado:
+
+```sql
 -- 3. Atribuir o grupo administrativo
 INSERT INTO auth_groups_users (user_id, `group`, created_at)
 VALUES ((SELECT id FROM users WHERE username = 'nome-de-usuario'), 'superadmin', NOW());
