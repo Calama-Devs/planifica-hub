@@ -105,12 +105,9 @@ Se o projeto não tiver `phpcs.xml.dist`, `phpstan.neon.dist` ou o arquivo do PH
 
 ## Específico deste projeto
 
-Se esta seção estiver vazia, pergunte ao estudante o que for necessário (por exemplo, o nome da branch de homologação) em vez de supor.
-
-<!-- Preencher por projeto. Exemplo:
-- Sigla no DevCore: DC
-- Versão do PHP: 8.2
-- Branch de homologação: homologacao | branch de produção: main
-- Banco local: calama_projeto (ver .env.example)
-- Módulos e particularidades: ...
--->
+- Sigla no DevCore: PLAN.
+- Branches: produção `main`, homologação `homolog`, desenvolvimento `develop`.
+- Mapa de diretórios, namespaces, autenticação e política de assets: [docs/estrutura-inicial.md](docs/estrutura-inicial.md).
+- Antes de alterar layouts, componentes ou páginas internas, leia também [docs/padroes/layout-e-dashboard.md](docs/padroes/layout-e-dashboard.md).
+- Versões, instalação e comandos específicos estão no [README.md](README.md). Se faltar alguma informação do ambiente local, pergunte ao estudante em vez de supor.
+- A documentação versionada deve conter apenas informações técnicas permanentes, sem identificadores, histórico ou relatos de entrega de tarefas. Registros de acompanhamento ficam somente no MCP, quando disponível, e não em arquivos do repositório.
