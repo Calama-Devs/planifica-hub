@@ -1,6 +1,6 @@
 <?= $this->extend(config('Auth')->views['layout']) ?>
 
-<?= $this->section('title') ?>Redefinir senha<?= $this->endSection() ?>
+<?= $this->section('title') ?><?= esc($titulo) ?><?= $this->endSection() ?>
 
 <?= $this->section('pageStyles') ?>
 <link
@@ -16,14 +16,14 @@
 
         <header class="recuperacao-senha-cabecalho">
             <div>
-                <div class="recuperacao-senha-marca">PLANIFICAHUB</div>
-                <h1 id="titulo-recuperacao" class="recuperacao-senha-titulo">Redefinição de senha</h1>
+                <div class="recuperacao-senha-marca">PLANIFICA-HUB</div>
+                <h1 id="titulo-recuperacao" class="recuperacao-senha-titulo"><?= esc($titulo) ?></h1>
             </div>
         </header>
 
         <div class="recuperacao-senha-corpo">
             <p class="recuperacao-senha-texto mb-4">
-                Defina uma nova senha para concluir a recuperação da sua conta.
+                <?= esc($textoOrientacao) ?>
             </p>
 
             <?php $erros = (array) (session('errors') ?? session('error') ?? []); ?>
@@ -35,8 +35,23 @@
                 </div>
             <?php endif ?>
 
-            <form action="<?= site_url('reset-password') ?>" method="post" data-envio-unico="true">
+            <form action="<?= esc($acaoFormulario, 'attr') ?>" method="post" data-envio-unico="true">
                 <?= csrf_field() ?>
+
+                <?php if ($exigirSenhaAtual) : ?>
+                    <div class="form-floating mb-3">
+                        <input
+                            type="password"
+                            class="form-control"
+                            id="senha-atual"
+                            name="senha-atual"
+                            autocomplete="current-password"
+                            placeholder="Senha atual"
+                            required
+                        >
+                        <label for="senha-atual">Senha atual</label>
+                    </div>
+                <?php endif ?>
 
                 <div class="form-floating mb-3">
                     <input
@@ -78,13 +93,13 @@
                         class="btn btn-primary"
                         data-texto-processando="Salvando..."
                     >
-                        Salvar nova senha
+                        <?= esc($textoBotao) ?>
                     </button>
                 </div>
             </form>
 
             <div class="recuperacao-senha-aviso">
-                Após a alteração, sua sessão temporária será encerrada e você deverá entrar com a nova senha.
+                Após a alteração, sua sessão será encerrada e você deverá entrar com a nova senha.
             </div>
         </div>
 
