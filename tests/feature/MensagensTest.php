@@ -125,7 +125,23 @@ final class MensagensTest extends CIUnitTestCase
         $this->assertSame(1, substr_count($html, 'alert-danger'));
         $this->assertStringContainsString('Erro individual prioritário.', $html);
         $this->assertStringNotContainsString('Erro sinônimo.', $html);
-        $this->assertStringNotContainsString('Erro em lista.', $html);
+        $this->assertStringContainsString('Erro em lista.', $html);
+    }
+
+    public function testExibeMensagemGeralEErrosDeValidacaoSimultaneamente(): void
+    {
+        $_SESSION['error']  = 'Por favor, corrija os erros abaixo.';
+        $_SESSION['errors'] = [
+            'O campo nome é obrigatório.',
+            'O e-mail informado já existe.',
+        ];
+
+        $html = view('partials/mensagens');
+
+        $this->assertSame(1, substr_count($html, 'alert-danger'));
+        $this->assertStringContainsString('Por favor, corrija os erros abaixo.', $html);
+        $this->assertStringContainsString('<li>O campo nome é obrigatório.</li>', $html);
+        $this->assertStringContainsString('<li>O e-mail informado já existe.</li>', $html);
     }
 
     public function testExibeAlertasDistintosParaCategoriasDiferentes(): void

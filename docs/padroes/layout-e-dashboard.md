@@ -160,7 +160,7 @@ if (! $this->validate($regras)) {
 }
 ```
 
-O layout base (`layouts/principal.php`) já inclui automaticamente o partial `partials/mensagens.php` no topo de cada página interna, renderizando o alerta correspondente com ícone MDI e escape seguro de strings e listas. O componente agrupa as mensagens por categoria semântica (`success`/`sucesso`, `error`/`erro`/`errors`, `warning`/`aviso`, `info`/`message`) com ordem de precedência, prevenindo a duplicação de alertas caso mais de uma chave equivalente seja informada na sessão.
+O layout base (`layouts/principal.php`) já inclui automaticamente o partial `partials/mensagens.php` no topo de cada página interna, renderizando o alerta correspondente com ícone MDI e escape seguro de strings e listas. O componente agrupa as mensagens por categoria semântica (`success`/`sucesso`, `warning`/`aviso`, `info`/`message`), com ordem de precedência entre termos sinônimos. Para falhas, trata de forma combinada a mensagem geral (`error`/`erro`) e a lista de validação (`errors`/`erros`), garantindo que erros de validação nunca sejam mascarados caso uma mensagem geral de erro também seja enviada na sessão.
 
 ### 6.2 Como criar formulários com validação por campo
 
