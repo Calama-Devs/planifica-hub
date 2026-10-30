@@ -4,26 +4,8 @@
 
 <?= $this->section('conteudo') ?>
 <?php
-$validFields = setting('Auth.validFields') ?? ['email'];
-$isUsernameOnly = $validFields === ['username'];
-$isMultiple = count($validFields) > 1;
-
-if ($isMultiple) {
-    $fieldName = 'login';
-    $fieldType = 'text';
-    $fieldLabel = 'E-mail ou Usuário';
-    $fieldPlaceholder = 'nome@exemplo.com ou usuário';
-} elseif ($isUsernameOnly) {
-    $fieldName = 'username';
-    $fieldType = 'text';
-    $fieldLabel = 'Usuário';
-    $fieldPlaceholder = 'Digite seu usuário';
-} else {
-    $fieldName = 'email';
-    $fieldType = 'email';
-    $fieldLabel = 'E-mail';
-    $fieldPlaceholder = 'nome@exemplo.com';
-}
+helper('autenticacao');
+$campoLogin = dados_campo_login();
 ?>
 <div class="card col-12 col-sm-8 col-md-6 col-lg-4 mx-auto shadow-sm">
     <div class="card-body px-4 py-5">
@@ -58,8 +40,8 @@ if ($isMultiple) {
 
             <!-- Identificador de Acesso -->
             <div class="form-group mb-3">
-                <label for="<?= esc($fieldName) ?>" class="form-label"><?= esc($fieldLabel) ?></label>
-                <input type="<?= esc($fieldType) ?>" class="form-control" id="<?= esc($fieldName) ?>" name="<?= esc($fieldName) ?>" inputmode="<?= esc($fieldType) ?>" autocomplete="<?= esc($fieldName) ?>" placeholder="<?= esc($fieldPlaceholder) ?>" value="<?= esc(old($fieldName)) ?>" required autofocus>
+                <label for="<?= esc($campoLogin['nome']) ?>" class="form-label"><?= esc($campoLogin['label']) ?></label>
+                <input type="<?= esc($campoLogin['tipo']) ?>" class="form-control" id="<?= esc($campoLogin['nome']) ?>" name="<?= esc($campoLogin['nome']) ?>" inputmode="<?= esc($campoLogin['tipo']) ?>" autocomplete="<?= esc($campoLogin['nome']) ?>" placeholder="<?= esc($campoLogin['placeholder']) ?>" value="<?= esc(old($campoLogin['nome'])) ?>" required autofocus>
             </div>
 
             <!-- Senha -->

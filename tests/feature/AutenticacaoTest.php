@@ -48,7 +48,13 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta->assertSee('PlanIFica Hub');
         $resposta->assertSee('Entrar');
         $camposValidos = setting('Auth.validFields') ?? ['email'];
-        $campoIdentificador = $camposValidos === ['username'] ? 'username' : 'email';
+        if (count($camposValidos) > 1) {
+            $campoIdentificador = 'login';
+        } elseif ($camposValidos === ['username']) {
+            $campoIdentificador = 'username';
+        } else {
+            $campoIdentificador = 'email';
+        }
 
         $resposta->assertSeeElement('label[for=' . $campoIdentificador . ']');
         $resposta->assertSeeElement('input[name=' . $campoIdentificador . ']');
