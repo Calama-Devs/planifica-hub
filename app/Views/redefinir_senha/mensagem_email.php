@@ -84,6 +84,21 @@
                                 </tr>
                             </table>
 
+                            <p style="color: #aeb4c4; font-size: 13px; margin: 24px 0 8px;">
+                                Se o botão não funcionar, copie e cole o endereço abaixo no navegador:
+                            </p>
+                            <p
+                                style="font-size: 13px; line-height: 1.6; margin: 0; overflow-wrap: anywhere;
+                                    word-break: break-all;"
+                            >
+                                <a
+                                    href="<?= esc(url_to('verify-magic-link') . '?token=' . rawurlencode($token), 'attr') ?>"
+                                    style="color: #0090e7; text-decoration: underline;"
+                                >
+                                    <?= esc(url_to('verify-magic-link') . '?token=' . rawurlencode($token)) ?>
+                                </a>
+                            </p>
+
                             <table
                                 role="presentation"
                                 width="100%"
