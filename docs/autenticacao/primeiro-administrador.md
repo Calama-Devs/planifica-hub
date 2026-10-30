@@ -99,16 +99,23 @@ SELECT id FROM auth_identities WHERE type = 'email_password' AND secret = 'email
 
 Se retornar resultado, a conta já existe — **não execute os passos abaixo**. Siga direto para a [verificação de grupo](#3-verificar-o-grupo-administrativo).
 
-Se não retornar resultado, execute na ordem:
+Se não retornar resultado, execute dentro de uma transação:
 
 ```sql
+START TRANSACTION;
+
 -- 1. Criar o usuário
 INSERT INTO users (username, active, created_at, updated_at)
 VALUES ('nome-de-usuario', 1, NOW(), NOW());
 
--- 2. Registrar a identidade (e-mail + hash gerado pelo PHP)
+-- 2. Registrar a identidade usando busca determinística pelo username
 INSERT INTO auth_identities (user_id, type, secret, secret2, created_at, updated_at)
-VALUES (LAST_INSERT_ID(), 'email_password', 'email@exemplo.com', '<hash-gerado-acima>', NOW(), NOW());
+VALUES (
+    (SELECT id FROM users WHERE username = 'nome-de-usuario'),
+    'email_password','email@exemplo.com','<hash-gerado-acima>', NOW(), NOW()
+);
+
+COMMIT;
 ```
 
 Antes de atribuir o grupo, verifique se ele já está vinculado:
