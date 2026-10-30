@@ -33,7 +33,8 @@ Execute o comando abaixo, substituindo `nome-de-usuario` e `email@exemplo.com` p
 php spark shield:user create -n nome-de-usuario -e email@exemplo.com -g superadmin
 ```
 
-O comando pedirá a senha interativamente — ela **não fica registrada** no histórico de comandos nem no código. O grupo `superadmin` é o único com a permissão `acessos.administrar`, necessária para gerenciar outros acessos.
+O comando pedirá a senha interativamente; informe-a no terminal e não a passe como argumento. 
+Ainda assim, siga as políticas locais de terminal e auditoria do ambiente. O grupo `superadmin` é o único com a permissão `acessos.administrar`, necessária para gerenciar outros acessos.
 
 Se preferir criar a conta sem grupo e atribuí-lo depois:
 
@@ -74,15 +75,50 @@ php spark shield:user addgroup -e email@exemplo.com -g superadmin
 
 ---
 
-## 5. Situação por ambiente
+## 5. Contingência: criação direta via MySQL
+
+Use este caminho **somente** quando o CLI do Shield não estiver disponível (ex.: ambiente sem PHP acessível no servidor). O procedimento via CLI (seção 2) é sempre preferível.
+
+### Pré-requisito
+
+Gere o hash da senha **antes** de abrir o MySQL, usando PHP:
+
+```bash
+php -r "echo password_hash('sua-senha', PASSWORD_DEFAULT) . PHP_EOL;"
+```
+
+Copie o resultado — ele começa com `$2y$`. Nunca armazene a senha em texto aberto.
+
+### Passos no MySQL
+
+```sql
+-- 1. Criar o usuário
+INSERT INTO users (username, active, created_at, updated_at)
+VALUES ('nome-de-usuario', 1, NOW(), NOW());
+
+-- 2. Registrar a identidade (e-mail + hash gerado pelo PHP)
+INSERT INTO auth_identities (user_id, type, secret, secret2, created_at, updated_at)
+VALUES (LAST_INSERT_ID(), 'email_password', 'email@exemplo.com', '<hash-gerado-acima>', NOW(), NOW());
+
+-- 3. Atribuir o grupo administrativo
+INSERT INTO auth_groups_users (user_id, `group`, created_at)
+VALUES ((SELECT id FROM users WHERE username = 'nome-de-usuario'), 'superadmin', NOW());
+```
+
+Substitua `nome-de-usuario`, `email@exemplo.com` e `<hash-gerado-acima>` pelos valores reais.
+
+Após inserir, siga a [verificação de grupo](#3-verificar-o-grupo-administrativo) normalmente.
+
+---
+
+## 6. Situação por ambiente
 
 | Ambiente | Status | Responsável | Observação |
 |---|---|---|---|
-| Desenvolvimento | A executar | Desenvolvedor local | Cada desenvolvedor executa em seu banco local |
+| Desenvolvimento | Executado — 2026-10-29 | Responsável autorizado | Cada desenvolvedor executa em seu banco local |
 | Homologação | A executar | Responsável autorizado | Executar após próxima subida para homolog |
 | Produção | A executar | Responsável autorizado | Executar somente no go-live |
 
-Após a execução em cada ambiente, atualize a coluna **Status** para `Executado` e registre a data, sem incluir credenciais.
 
 ---
 
