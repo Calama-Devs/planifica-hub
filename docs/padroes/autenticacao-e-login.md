@@ -57,7 +57,7 @@ A tela de autenticação reutiliza estritamente os assets já homologados e vers
 
 | Tipo | Caminho do Arquivo | Finalidade |
 | :--- | :--- | :--- |
-| **CSS** | `public/assets/vendors/mdi/css/materialdesignicons.min.css` | Ícones do sistema. |
+| **CSS** | `public/assets/vendor/mdi/css/materialdesignicons.min.css` | Ícones do sistema. |
 | **CSS** | `public/assets/css/modern-vertical/style.css` | Grid e componentes base do Bootstrap/Corona. |
 | **CSS** | `public/assets/css/custom.css` | Adaptações de contraste, fundo escuro (`.auth-bg-custom`) e card centralizado. |
 | **Fontes** | `public/assets/fonts/Rubik/*` | Tipografia padrão do projeto. |
