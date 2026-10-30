@@ -20,6 +20,74 @@ class RedefinirSenhaService
     /**
      * @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string}
      */
+    public function alterarPeloPerfil(
+        User $usuario,
+        string $senhaAtual,
+        string $senhaNova,
+        string $confirmacao
+    ): array {
+        if ($senhaAtual === '') {
+            return $this->erro('validacao', 'SENHA_ATUAL_OBRIGATORIA', 'Informe sua senha atual.');
+        }
+
+        try {
+            $identidade = $this->modeloIdentidade->getIdentityByType(
+                $usuario,
+                Session::ID_TYPE_EMAIL_PASSWORD
+            );
+
+            if ($identidade === null || ! is_string($identidade->secret2)) {
+                log_message(
+                    'error',
+                    '[RedefinirSenhaService::alterarPeloPerfil] Usuario {id} não possui identidade email_password.',
+                    ['id' => $usuario->id]
+                );
+
+                return $this->erro(
+                    'regra_negocio',
+                    'IDENTIDADE_NAO_ENCONTRADA',
+                    'Não foi possivel alterar a senha desta conta.'
+                );
+            }
+
+            /** @var Passwords $senhas */
+            $senhas = service('passwords');
+
+            if (!$senhas->verify($senhaAtual, $identidade->secret2)) {
+                return $this->erro(
+                    'validacao',
+                    'SENHA_ATUAL_INCORRETA',
+                    'A senha atual informada esta incorreta.'
+                );
+            }
+
+            if ($senhas->verify($senhaNova, $identidade->secret2)) {
+                return $this->erro(
+                    'validacao',
+                    'NOVA_SENHA_IGUAL_ATUAL',
+                    'A nova senha deve ser diferente da senha atual.'
+                );
+            }
+        } catch (Throwable $erro) {
+            log_message(
+                'error',
+                '[RedefinirSenhaService::alterarPeloPerfil] Erro ao validar senha do usuario {id}: {erro}',
+                ['id' => $usuario->id, 'erro' => $erro->getMessage()]
+            );
+
+            return $this->erro(
+                'inesperado',
+                'ERRO_AO_VALIDAR_SENHA_ATUAL',
+                'Ocorreu um erro ao validar sua senha atual, tente novamente.'
+            );
+        }
+
+        return $this->redefinir($usuario, $senhaNova, $confirmacao);
+    }
+
+    /**
+     * @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string}
+     */
     public function redefinir(User $usuario, string $senha, string $confirmacao): array
     {
         $validacao = $this->validarSenha($usuario, $senha, $confirmacao);
