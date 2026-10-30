@@ -142,6 +142,14 @@ final class AutenticacaoTest extends CIUnitTestCase
         return $usuario;
     }
 
+    private function cadastrarUsuario(): User
+    {
+        $usuario = $this->criarUsuario();
+        auth()->login($usuario);
+
+        return $usuario;
+    }
+
     private function enviarFormulario(string $rota, array $campos): TestResponse
     {
         $campos[csrf_token()] = csrf_hash();
@@ -152,6 +160,18 @@ final class AutenticacaoTest extends CIUnitTestCase
     private function executarRedefinicao(string $senhaNova, string $confirmacao): TestResponse
     {
         return $this->enviarFormulario('reset-password', [
+            'senha-nova' => $senhaNova,
+            'confirmar-senha-nova' => $confirmacao,
+        ]);
+    }
+
+    private function executarAlteracaoPeloPerfil(
+        string $senhaAtual,
+        string $senhaNova,
+        string $confirmacao
+    ): TestResponse {
+        return $this->enviarFormulario('perfil/alterar-senha', [
+            'senha-atual' => $senhaAtual,
             'senha-nova' => $senhaNova,
             'confirmar-senha-nova' => $confirmacao,
         ]);
@@ -344,10 +364,101 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta = $this->withSession($_SESSION)->get('reset-password');
 
         $resposta->assertOK();
+        $resposta->assertDontSeeElement('input[name=senha-atual]');
         $resposta->assertSeeElement('input[name=senha-nova]');
         $resposta->assertSeeElement('form[data-envio-unico=true]');
         $resposta->assertSeeElement('button[data-texto-processando=Salvando...]');
         $resposta->assertSeeElement('script[data-script-envio-unico=true]');
+    }
+
+    public function testExibeAlteracaoPeloPerfilComSenhaAtual(): void
+    {
+        $this->cadastrarUsuario();
+
+        $resposta = $this->withSession($_SESSION)->get('perfil/alterar-senha');
+
+        $resposta->assertOK();
+        $resposta->assertSee('Alteração de senha');
+        $resposta->assertSeeElement('input[name=senha-atual]');
+        $resposta->assertSeeElement('input[name=senha-nova]');
+        $resposta->assertSeeElement('input[name=confirmar-senha-nova]');
+        $resposta->assertSeeElement('input[name=' . csrf_token() . ']');
+    }
+
+    public function testRecusaAlteracaoPeloPerfilSemAutenticacao(): void
+    {
+        $resposta = $this->get('perfil/alterar-senha');
+
+        $resposta->assertRedirectTo('/login');
+    }
+
+    public function testRecusaSenhaAtualIncorretaEMantemCampoNaTela(): void
+    {
+        $this->cadastrarUsuario();
+        $this->ativarUsuarioAutenticado();
+        $hashAnterior = $this->buscarHashDaSenha();
+
+        $resposta = $this->executarAlteracaoPeloPerfil(
+            'SenhaAtualIncorreta@123',
+            'NovaSenha@123',
+            'NovaSenha@123'
+        );
+
+        $resposta->assertRedirect();
+        $resposta->assertSessionHas('error', 'A senha atual informada esta incorreta.');
+        $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
+        $this->assertTrue(auth()->loggedIn());
+
+        $tela = $this->withSession($_SESSION)->get('perfil/alterar-senha');
+
+        $tela->assertOK();
+        $tela->assertSeeElement('input[name=senha-atual]');
+    }
+
+    public function testRecusaNovaSenhaIgualASenhaAtual(): void
+    {
+        $this->cadastrarUsuario();
+        $this->ativarUsuarioAutenticado();
+        $hashAnterior = $this->buscarHashDaSenha();
+
+        $resposta = $this->executarAlteracaoPeloPerfil($this->senha, $this->senha, $this->senha);
+
+        $resposta->assertRedirect();
+        $resposta->assertSessionHas('error', 'A nova senha deve ser diferente da senha atual.');
+        $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
+        $this->assertTrue(auth()->loggedIn());
+    }
+
+    public function testAlteraSenhaPeloPerfilEExigeNovaSenhaNoProximoLogin(): void
+    {
+        $this->cadastrarUsuario();
+        $this->ativarUsuarioAutenticado();
+        $senhaAnterior = $this->senha;
+        $senhaNova = 'NovaSenha@123';
+
+        $resposta = $this->executarAlteracaoPeloPerfil($senhaAnterior, $senhaNova, $senhaNova);
+
+        $resposta->assertRedirectTo('/login');
+        $resposta->assertSessionHas('success');
+        $this->assertFalse(password_verify($senhaAnterior, $this->buscarHashDaSenha()));
+        $this->assertTrue(password_verify($senhaNova, $this->buscarHashDaSenha()));
+        $this->assertFalse(auth()->loggedIn());
+
+        $loginComSenhaAnterior = $this->enviarFormulario('login', [
+            'email' => 'teste@example.com',
+            'password' => $senhaAnterior,
+        ]);
+
+        $loginComSenhaAnterior->assertRedirectTo('/login');
+        $this->assertFalse(auth()->loggedIn());
+
+        $loginComSenhaNova = $this->enviarFormulario('login', [
+            'email' => 'teste@example.com',
+            'password' => $senhaNova,
+        ]);
+
+        $loginComSenhaNova->assertRedirectTo(rtrim(site_url('/'), '/'));
+        $this->assertTrue(auth()->loggedIn());
     }
 
     public function testRedefineSenhaEEncerraSessao(): void
