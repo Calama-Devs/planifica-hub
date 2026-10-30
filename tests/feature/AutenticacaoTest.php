@@ -8,6 +8,8 @@ use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
 use CodeIgniter\Test\TestResponse;
+use CodeIgniter\Shield\Entities\User;
+use CodeIgniter\Shield\Models\UserModel;
 
 final class AutenticacaoTest extends CIUnitTestCase
 {
@@ -38,12 +40,11 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta->assertSeeElement('input[name=password]');
     }
 
-    public function testExibeCadastroComTokenCsrf(): void
+    public function testRecusaExibicaoDePaginaDeCadastro(): void
     {
         $resposta = $this->get('register');
 
-        $resposta->assertOK();
-        $resposta->assertSeeElement('input[name=' . csrf_token() . ']');
+        $resposta->assertRedirect();
     }
 
     public function testRecusaLoginSemTokenCsrf(): void
@@ -53,36 +54,23 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->post('login', ['email' => 'teste@example.com', 'password' => $this->senha]);
     }
 
-    public function testCadastraUsuarioComSenhaProtegida(): void
-    {
-        $resposta = $this->cadastrarUsuario();
-
-        $resposta->assertRedirectTo(rtrim(site_url('/'), '/'));
-        $this->seeInDatabase('users', ['username' => 'usuario.teste']);
-        $identidade = $this->db->table('auth_identities')->where('secret', 'teste@example.com')->get()->getRowArray();
-
-        $this->assertNotNull($identidade);
-        $this->assertTrue(password_verify($this->senha, $identidade['secret2']));
-        $this->assertTrue(auth()->loggedIn());
-    }
-
-    public function testRecusaCadastroInvalido(): void
+    public function testRecusaCadastroPublico(): void
     {
         $resposta = $this->enviarFormulario('register', [
-            'email' => 'email-invalido',
+            'email' => 'teste@example.com',
             'username' => 'usuario.teste',
             'password' => $this->senha,
             'password_confirm' => $this->senha,
         ]);
 
         $resposta->assertRedirect();
-        $resposta->assertSessionHas('errors');
+        $resposta->assertSessionHas('error');
         $this->dontSeeInDatabase('users', ['username' => 'usuario.teste']);
     }
 
     public function testAutenticaUsuarioCadastrado(): void
     {
-        $this->cadastrarUsuario();
+        $this->criarUsuario();
         auth()->logout();
 
         $resposta = $this->enviarFormulario('login', [
@@ -96,7 +84,7 @@ final class AutenticacaoTest extends CIUnitTestCase
 
     public function testRecusaSenhaIncorreta(): void
     {
-        $this->cadastrarUsuario();
+        $this->criarUsuario();
         auth()->logout();
 
         $resposta = $this->enviarFormulario('login', [
@@ -111,7 +99,8 @@ final class AutenticacaoTest extends CIUnitTestCase
 
     public function testEncerraSessaoComTokenCsrf(): void
     {
-        $this->cadastrarUsuario();
+        $usuario = $this->criarUsuario();
+        auth()->login($usuario);
 
         $resposta = $this->enviarFormulario('logout', []);
 
@@ -121,7 +110,8 @@ final class AutenticacaoTest extends CIUnitTestCase
 
     public function testRecusaLogoutSemTokenCsrf(): void
     {
-        $this->cadastrarUsuario();
+        $usuario = $this->criarUsuario();
+        auth()->login($usuario);
         $this->expectException(SecurityException::class);
 
         $this->withSession($_SESSION)->post('logout');
@@ -129,20 +119,27 @@ final class AutenticacaoTest extends CIUnitTestCase
 
     public function testNaoPermiteLogoutPorGet(): void
     {
-        $this->cadastrarUsuario();
+        $usuario = $this->criarUsuario();
+        auth()->login($usuario);
         $this->expectException(PageNotFoundException::class);
 
         $this->withSession($_SESSION)->get('logout');
     }
 
-    private function cadastrarUsuario(): TestResponse
+    private function criarUsuario(): User
     {
-        return $this->enviarFormulario('register', [
-            'email' => 'teste@example.com',
-            'username' => 'usuario.teste',
+        $usuarios = model(UserModel::class);
+        $usuario  = new User(['username' => 'usuario.teste']);
+        $usuarios->save($usuario);
+
+        /** @var User $usuario */
+        $usuario = $usuarios->findById($usuarios->getInsertID());
+        $usuario->createEmailIdentity([
+            'email'    => 'teste@example.com',
             'password' => $this->senha,
-            'password_confirm' => $this->senha,
         ]);
+
+        return $usuario;
     }
 
     private function enviarFormulario(string $rota, array $campos): TestResponse
