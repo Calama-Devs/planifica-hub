@@ -116,7 +116,17 @@
         'use strict';
 
         const formulario = document.querySelector('[data-envio-unico]');
+
+        if (!formulario) {
+            return;
+        }
+
         const botao = formulario.querySelector('button[type="submit"]');
+
+        if (!botao) {
+            return;
+        }
+
         const textoOriginal = botao.textContent;
 
         formulario.addEventListener('submit', function (evento) {
