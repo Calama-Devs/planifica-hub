@@ -38,6 +38,21 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta->assertSeeElement('input[name=password]');
     }
 
+    public function testExibeTelaDeLoginComIdentidadeVisualELabels(): void
+    {
+        $resposta = $this->get('login');
+
+        $resposta->assertOK();
+        $resposta->assertSee('PlanIFica');
+        $resposta->assertSee('Calama Devs');
+        $resposta->assertSeeElement('input[name=' . csrf_token() . ']');
+        $resposta->assertSeeElement('input[name=email]');
+        $resposta->assertSeeElement('input[name=password]');
+        $resposta->assertSeeElement('input[name=remember]');
+        $resposta->assertSeeElement('button[type=submit]');
+        $resposta->assertSee('Esqueceu a senha?');
+    }
+
     public function testExibeCadastroComTokenCsrf(): void
     {
         $resposta = $this->get('register');

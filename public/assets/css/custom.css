@@ -113,3 +113,33 @@ html, body {
     width: 2rem;
     height: 2rem;
 }
+
+
+/* Checkbox visível e acessível no tema escuro (Login e Formulários) */
+.form-check .form-check-input {
+    position: relative !important;
+    display: inline-block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    float: left !important;
+    width: 1.15em !important;
+    height: 1.15em !important;
+    margin-top: 0.2em !important;
+    margin-left: 0 !important;
+    margin-right: 0.5rem !important;
+    background-color: #2a3038 !important;
+    border: 1px solid #6c7293 !important;
+    border-radius: 0.25em !important;
+    cursor: pointer !important;
+}
+
+.form-check .form-check-input:checked {
+    background-color: #0090e7 !important;
+    border-color: #0090e7 !important;
+}
+
+.form-check .form-check-label {
+    cursor: pointer;
+    user-select: none;
+    padding-left: 0 !important;
+}
