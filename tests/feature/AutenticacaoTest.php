@@ -40,6 +40,58 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta->assertSeeElement('input[name=password]');
     }
 
+    public function testExibeTelaDeLoginComIdentidadeVisualELabels(): void
+    {
+        $resposta = $this->get('login');
+
+        $resposta->assertOK();
+        $resposta->assertSee('PlanIFica Hub');
+        $resposta->assertSee('Entrar');
+        $camposValidos = setting('Auth.validFields') ?? ['email'];
+        if (count($camposValidos) > 1) {
+            $campoIdentificador = 'login';
+        } elseif ($camposValidos === ['username']) {
+            $campoIdentificador = 'username';
+        } else {
+            $campoIdentificador = 'email';
+        }
+
+        $resposta->assertSeeElement('label[for=' . $campoIdentificador . ']');
+        $resposta->assertSeeElement('input[name=' . $campoIdentificador . ']');
+        $resposta->assertSeeElement('label[for=password]');
+        $resposta->assertSeeElement('input[name=password]');
+        $resposta->assertSee('assets/vendor/mdi/css/materialdesignicons.min.css');
+        $resposta->assertSee('assets/css/modern-vertical/style.css');
+        $resposta->assertSee('assets/css/custom.css');
+    }
+
+    public function testRenderizaCampoUsuarioQuandoConfiguradoApenasParaUsername(): void
+    {
+        service('settings')->set('Auth.validFields', ['username']);
+
+        $resposta = $this->get('login');
+
+        $resposta->assertOK();
+        $resposta->assertSeeElement('label[for=username]');
+        $resposta->assertSeeElement('input[name=username]');
+
+        service('settings')->forget('Auth.validFields');
+    }
+
+    public function testRenderizaCampoLoginQuandoConfiguradoParaMultiplosValidFields(): void
+    {
+        service('settings')->set('Auth.validFields', ['email', 'username']);
+
+        $resposta = $this->get('login');
+
+        $resposta->assertOK();
+        $resposta->assertSeeElement('label[for=login]');
+        $resposta->assertSeeElement('input[name=login]');
+        $resposta->assertSee('E-mail ou Usuário');
+
+        service('settings')->forget('Auth.validFields');
+    }
+
     public function testRecusaExibicaoDePaginaDeCadastro(): void
     {
         $resposta = $this->get('register');
