@@ -1,5 +1,10 @@
 <?php
 
+// Após o .env, aplica as configurações do Compose sem afetar a execução local.
+if (getenv('DOCKER_AMBIENTE') === '1') {
+    require ROOTPATH . 'docker/php/preparar_ambiente.php';
+}
+
 /*
  |--------------------------------------------------------------------------
  | ERROR DISPLAY
