@@ -113,3 +113,16 @@ html, body {
     width: 2rem;
     height: 2rem;
 }
+
+
+/* Layout e tela de autenticacao (PlanIFica Hub) */
+.auth.auth-bg-custom {
+    background-color: #0d0f12;
+    min-height: 100vh;
+}
+
+.auth .card {
+    background-color: #191c24;
+    border: 1px solid #2c2e33;
+    border-radius: 8px;
+}
