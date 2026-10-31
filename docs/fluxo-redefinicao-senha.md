@@ -10,6 +10,12 @@ Quando não possui acesso à conta, o usuário solicita um magic link em `/forgo
 
 A nova senha passa pelas validações do Shield e também deve conter letra maiúscula, letra minúscula, número e caractere especial. Emojis não são permitidos.
 
+## Dívida técnica: finalidade do Magic Link
+
+O Shield usa a marca temporária `magicLogin` para qualquer autenticação realizada por Magic Link. No estado atual do PlanificaHub, todo Magic Link é tratado intencionalmente como recuperação de senha e direcionado para `/reset-password`.
+
+Isso atende ao fluxo atualmente disponível, mas impede usar Magic Link no futuro como uma forma independente de login sem senha. Caso esse segundo uso seja necessário, a finalidade do link deverá ser persistida e diferenciada no próprio fluxo ou token, com ajustes em `loginRedirect()` e no filtro de redefinição. Uma flag temporária criada antes do envio do e-mail não é suficiente, pois o usuário pode abrir o link em outro navegador ou dispositivo.
+
 ## Onde estão os arquivos
 
 | Arquivo | Finalidade |
