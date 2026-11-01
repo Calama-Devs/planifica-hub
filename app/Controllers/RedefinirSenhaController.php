@@ -18,7 +18,7 @@ class RedefinirSenhaController extends BaseController
 
     public function solicitar(): string|RedirectResponse
     {
-        return view('redefinir_senha/solicitar');
+        return view('redefinirsenha/solicitar');
     }
 
     public function redefinir(): string|RedirectResponse
@@ -27,7 +27,7 @@ class RedefinirSenhaController extends BaseController
             return redirect()->route('magic-link');
         }
 
-        return view('redefinir_senha/redefinir', [
+        return view('redefinirsenha/redefinir', [
             'acaoFormulario'   => site_url('reset-password'),
             'exigirSenhaAtual' => false,
             'titulo'            => 'Redefinição de senha',
@@ -38,7 +38,7 @@ class RedefinirSenhaController extends BaseController
 
     public function alterarPeloPerfil(): string
     {
-        return view('redefinir_senha/redefinir', [
+        return view('redefinirsenha/alterar_pelo_perfil', [
             'acaoFormulario'   => site_url('perfil/alterar-senha'),
             'exigirSenhaAtual' => true,
             'titulo'            => 'Alteração de senha',

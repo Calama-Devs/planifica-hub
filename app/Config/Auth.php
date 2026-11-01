@@ -54,9 +54,9 @@ class Auth extends ShieldAuth
         'action_email_2fa_email'      => '\CodeIgniter\Shield\Views\Email\email_2fa_email',
         'action_email_activate_show'  => '\CodeIgniter\Shield\Views\email_activate_show',
         'action_email_activate_email' => '\CodeIgniter\Shield\Views\Email\email_activate_email',
-        'magic-link-login'            => 'redefinir_senha/solicitar',
-        'magic-link-message'          => 'redefinir_senha/solicitacao_recebida',
-        'magic-link-email'            => 'redefinir_senha/mensagem_email',
+        'magic-link-login'            => 'redefinirsenha/solicitar',
+        'magic-link-message'          => 'redefinirsenha/solicitacao_recebida',
+        'magic-link-email'            => 'redefinirsenha/mensagem_email',
     ];
 
     /**

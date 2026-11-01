@@ -27,10 +27,11 @@ Isso atende ao fluxo atualmente disponível, mas impede usar Magic Link no futur
 | `app/Controllers/RedefinirSenhaController.php` | Coordena a troca pelo perfil e a redefinição por magic link. |
 | `app/Services/RedefinirSenhaService.php` | Valida a senha atual quando exigida, aplica as regras da nova senha e atualiza a credencial. |
 | `app/Views/partials/cabecalho.php` | Exibe a opção **Alterar Senha** no menu do perfil. |
-| `app/Views/redefinir_senha/solicitar.php` | Formulário para solicitar o magic link. |
-| `app/Views/redefinir_senha/solicitacao_recebida.php` | Confirma o envio do link. |
-| `app/Views/redefinir_senha/redefinir.php` | Formulário para informar a nova senha. |
-| `app/Views/redefinir_senha/mensagem_email.php` | Modelo do e-mail enviado ao usuário. |
+| `app/Views/redefinirsenha/solicitar.php` | Formulário para solicitar o magic link. |
+| `app/Views/redefinirsenha/solicitacao_recebida.php` | Confirma o envio do link. |
+| `app/Views/redefinirsenha/redefinir.php` | Formulário para informar a nova senha. |
+| `app/Views/redefinirsenha/alterar_pelo_perfil.php` | View do método de alteração de senha pelo perfil. |
+| `app/Views/redefinirsenha/mensagem_email.php` | Modelo do e-mail enviado ao usuário. |
 | `public/assets/css/recuperacao-senha.css` | Estilos das telas de recuperação de senha. |
 | `tests/feature/AutenticacaoTest.php` | Testes automatizados do fluxo de autenticação e redefinição. |
 | `tests/feature/HomeTest.php` | Testa a opção do perfil e o acesso ao formulário de alteração de senha. |
