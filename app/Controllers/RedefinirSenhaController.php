@@ -60,7 +60,7 @@ class RedefinirSenhaController extends BaseController
 
             return redirect()
                 ->route('magic-link')
-                ->with('error', 'Usuario nao encontrado ou desativado.');
+                ->with('error', 'Usuário não encontrado ou desativado.');
         }
 
         $resultado = $this->redefinirSenhaService->redefinir(
@@ -89,7 +89,7 @@ class RedefinirSenhaController extends BaseController
 
             return redirect()
                 ->route('login')
-                ->with('error', 'Usuario não encontrado ou desativado.');
+                ->with('error', 'Usuário não encontrado ou desativado.');
         }
 
         $resultado = $this->redefinirSenhaService->alterarPeloPerfil(

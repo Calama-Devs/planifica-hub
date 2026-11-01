@@ -39,14 +39,14 @@ class RedefinirSenhaService
             if ($identidade === null || ! is_string($identidade->secret2)) {
                 log_message(
                     'error',
-                    '[RedefinirSenhaService::alterarPeloPerfil] Usuario {id} não possui identidade email_password.',
+                    '[RedefinirSenhaService::alterarPeloPerfil] Usuário {id} não possui identidade email_password.',
                     ['id' => $usuario->id]
                 );
 
                 return $this->erro(
                     'regra_negocio',
                     'IDENTIDADE_NAO_ENCONTRADA',
-                    'Não foi possivel alterar a senha desta conta.'
+                    'Não foi possível alterar a senha desta conta.'
                 );
             }
 
@@ -57,7 +57,7 @@ class RedefinirSenhaService
                 return $this->erro(
                     'validacao',
                     'SENHA_ATUAL_INCORRETA',
-                    'A senha atual informada esta incorreta.'
+                    'A senha atual informada está incorreta.'
                 );
             }
 
@@ -71,14 +71,14 @@ class RedefinirSenhaService
         } catch (Throwable $erro) {
             log_message(
                 'error',
-                '[RedefinirSenhaService::alterarPeloPerfil] Erro ao validar senha do usuario {id}: {erro}',
+                '[RedefinirSenhaService::alterarPeloPerfil] Erro ao validar senha do usuário {id}: {erro}',
                 ['id' => $usuario->id, 'erro' => $erro->getMessage()]
             );
 
             return $this->erro(
                 'inesperado',
                 'ERRO_AO_VALIDAR_SENHA_ATUAL',
-                'Ocorreu um erro ao validar sua senha atual, tente novamente.'
+                'Ocorreu um erro ao validar sua senha atual. Tente novamente.'
             );
         }
 
@@ -105,14 +105,14 @@ class RedefinirSenhaService
             if ($identidade === null) {
                 log_message(
                     'error',
-                    '[RedefinirSenhaService::redefinir] Usuario {id} nao possui identidade email_password.',
+                    '[RedefinirSenhaService::redefinir] Usuário {id} não possui identidade email_password.',
                     ['id' => $usuario->id]
                 );
 
                 return $this->erro(
                     'regra_negocio',
                     'IDENTIDADE_NAO_ENCONTRADA',
-                    'Nao foi possivel redefinir a senha desta conta.'
+                    'Não foi possível redefinir a senha desta conta.'
                 );
             }
 
@@ -122,7 +122,7 @@ class RedefinirSenhaService
             if (! is_string($hashSenha)) {
                 log_message(
                     'error',
-                    '[RedefinirSenhaService::redefinir] Nao foi possivel gerar hash para o usuario {id}.',
+                    '[RedefinirSenhaService::redefinir] Não foi possível gerar hash para o usuário {id}.',
                     ['id' => $usuario->id]
                 );
 
@@ -137,14 +137,14 @@ class RedefinirSenhaService
             if ($atualizado === false) {
                 log_message(
                     'error',
-                    '[RedefinirSenhaService::redefinir] Falha ao atualizar a senha do usuario {id}.',
+                    '[RedefinirSenhaService::redefinir] Falha ao atualizar a senha do usuário {id}.',
                     ['id' => $usuario->id]
                 );
 
                 return $this->erro('inesperado', 'SENHA_NAO_ATUALIZADA', 'Erro ao redefinir senha.');
             }
 
-            log_message('info', '[RedefinirSenhaService::redefinir] Senha redefinida para o usuario {id}.', [
+            log_message('info', '[RedefinirSenhaService::redefinir] Senha redefinida para o usuário {id}.', [
                 'id' => $usuario->id,
             ]);
 
@@ -157,7 +157,7 @@ class RedefinirSenhaService
         } catch (Throwable $erro) {
             log_message(
                 'error',
-                '[RedefinirSenhaService::redefinir] Erro inesperado para o usuario {id}: {erro}',
+                '[RedefinirSenhaService::redefinir] Erro inesperado para o usuário {id}: {erro}',
                 ['id' => $usuario->id, 'erro' => $erro->getMessage()]
             );
 
@@ -198,7 +198,7 @@ class RedefinirSenhaService
             return $this->erro(
                 'validacao',
                 'SENHA_SEM_MAIUSCULA',
-                'A senha deve conter pelo menos uma letra maiuscula.'
+                'A senha deve conter pelo menos uma letra maiúscula.'
             );
         }
 
@@ -206,12 +206,12 @@ class RedefinirSenhaService
             return $this->erro(
                 'validacao',
                 'SENHA_SEM_MINUSCULA',
-                'A senha deve conter pelo menos uma letra minuscula.'
+                'A senha deve conter pelo menos uma letra minúscula.'
             );
         }
 
         if (!preg_match('/[0-9]/', $senha)) {
-            return $this->erro('validacao', 'SENHA_SEM_NUMERO', 'A senha deve conter pelo menos um numero.');
+            return $this->erro('validacao', 'SENHA_SEM_NUMERO', 'A senha deve conter pelo menos um número.');
         }
 
         if (!preg_match('/[^a-zA-Z0-9]/', $senha)) {
@@ -223,14 +223,14 @@ class RedefinirSenhaService
         }
 
         if (preg_match('/[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]/u', $senha)) {
-            return $this->erro('validacao', 'SENHA_COM_EMOJI', 'A senha nao pode conter emojis.');
+            return $this->erro('validacao', 'SENHA_COM_EMOJI', 'A senha não pode conter emojis.');
         }
 
         return [
             'sucesso'  => true,
             'tipo'     => 'sucesso',
             'codigo'   => 'SENHA_VALIDA',
-            'mensagem' => 'Senha valida.',
+            'mensagem' => 'Senha válida.',
         ];
     }
 
@@ -241,13 +241,13 @@ class RedefinirSenhaService
             lang('Auth.errorPasswordEmpty') => 'Informe a nova senha.',
             lang('Auth.errorPasswordLength', [$tamanhoMinimo]) =>
                 'A senha deve ter pelo menos ' . $tamanhoMinimo . ' caracteres.',
-            lang('Auth.errorPasswordCommon') => 'A senha informada e muito comum. Escolha outra senha.',
+            lang('Auth.errorPasswordCommon') => 'A senha informada é muito comum. Escolha outra senha.',
             lang('Auth.errorPasswordPersonal') =>
-                'A senha nao pode conter informacoes do nome de usuario ou do e-mail.',
-            lang('Auth.errorPasswordTooSimilar') => 'A senha e muito semelhante ao nome de usuario.',
+                'A senha não pode conter informações do nome de usuário ou do e-mail.',
+            lang('Auth.errorPasswordTooSimilar') => 'A senha é muito semelhante ao nome de usuário.',
         ];
 
-        return $mensagens[$motivo ?? ''] ?? 'A senha nao atende as regras de seguranca do sistema.';
+        return $mensagens[$motivo ?? ''] ?? 'A senha não atende às regras de segurança do sistema.';
     }
 
     /**

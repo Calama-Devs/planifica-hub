@@ -264,7 +264,7 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta->assertRedirect();
         $resposta->assertSessionHas(
             'error',
-            'A senha nao pode conter informacoes do nome de usuario ou do e-mail.'
+            'A senha não pode conter informações do nome de usuário ou do e-mail.'
         );
         $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
     }
@@ -279,7 +279,7 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta = $this->executarRedefinicao('password', 'password');
 
         $resposta->assertRedirect();
-        $resposta->assertSessionHas('error', 'A senha informada e muito comum. Escolha outra senha.');
+        $resposta->assertSessionHas('error', 'A senha informada é muito comum. Escolha outra senha.');
         $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
     }
 
@@ -293,7 +293,7 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta = $this->executarRedefinicao('nova-senha@123', 'nova-senha@123');
 
         $resposta->assertRedirect();
-        $resposta->assertSessionHas('error', 'A senha deve conter pelo menos uma letra maiuscula.');
+        $resposta->assertSessionHas('error', 'A senha deve conter pelo menos uma letra maiúscula.');
         $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
     }
 
@@ -405,7 +405,7 @@ final class AutenticacaoTest extends CIUnitTestCase
         );
 
         $resposta->assertRedirect();
-        $resposta->assertSessionHas('error', 'A senha atual informada esta incorreta.');
+        $resposta->assertSessionHas('error', 'A senha atual informada está incorreta.');
         $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
         $this->assertTrue(auth()->loggedIn());
 
