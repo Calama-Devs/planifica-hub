@@ -49,6 +49,9 @@ final class HomeTest extends CIUnitTestCase
         $resposta->assertOK();
         $resposta->assertSee('PlanIFica Hub');
         $resposta->assertSee('Dashboard');
+        $resposta->assertSee('Alterar Senha');
+        $resposta->assertSeeElement('a[id=botao-alterar-senha]');
+        $resposta->assertSee('mdi-lock-reset');
     }
 
     public function testExibeSobreReutilizandoLayoutQuandoAutenticado(): void
@@ -60,6 +63,18 @@ final class HomeTest extends CIUnitTestCase
         $resposta->assertOK();
         $resposta->assertSee('Sobre o PlanIFica Hub');
         $resposta->assertSee('Dashboard');
+    }
+
+    public function testAcessaAlteracaoDeSenhaPeloPerfil(): void
+    {
+        $usuario = $this->criarUsuario();
+        $this->actingAs($usuario);
+
+        $resposta = $this->withSession($_SESSION)->get('perfil/alterar-senha');
+
+        $resposta->assertOK();
+        $resposta->assertSeeElement('input[name=senha-atual]');
+        $this->assertTrue(auth()->loggedIn());
     }
 
     public function testUsaAssetsExistentesNoLayoutDasPaginasAutenticadas(): void
