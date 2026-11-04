@@ -6,7 +6,7 @@
     <?= csrf_meta() ?>
     <title><?= $this->renderSection('titulo') ?> | PlanIFica Hub</title>
 
-    <link rel="stylesheet" href="<?= base_url('assets/vendors/mdi/css/materialdesignicons.min.css') ?>">
+    <link rel="stylesheet" href="<?= esc(base_url('assets/vendor/mdi/css/materialdesignicons.min.css')) ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/modern-vertical/style.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/custom.css') ?>">
     <?= $this->renderSection('estilos') ?>
@@ -31,7 +31,7 @@
         </div>
     </div>
 
-    <script src="<?= base_url('assets/vendors/js/vendor.bundle.base.js') ?>"></script>
+    <script src="<?= esc(base_url('assets/vendor/js/vendor.bundle.base.js')) ?>"></script>
     <script src="<?= base_url('assets/js/off-canvas.js') ?>"></script>
     <script src="<?= base_url('assets/js/hoverable-collapse.js') ?>"></script>
     <script src="<?= base_url('assets/js/misc.js') ?>"></script>

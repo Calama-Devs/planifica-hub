@@ -42,24 +42,24 @@ class AuthGroups extends ShieldAuthGroups
      */
     public array $groups = [
         'superadmin' => [
-            'title'       => 'Super Admin',
-            'description' => 'Complete control of the site.',
+            'title'       => 'Administrador geral',
+            'description' => 'Pode executar as permissões administrativas cadastradas.',
         ],
         'admin' => [
-            'title'       => 'Admin',
-            'description' => 'Day to day administrators of the site.',
+            'title'       => 'Administrador de contas',
+            'description' => 'Pode consultar e criar contas, mas não administrar grupos e permissões.',
         ],
         'developer' => [
-            'title'       => 'Developer',
-            'description' => 'Site programmers.',
+            'title'       => 'Desenvolvedor',
+            'description' => 'Sem permissões administrativas configuradas.',
         ],
         'user' => [
-            'title'       => 'User',
-            'description' => 'General users of the site. Often customers.',
+            'title'       => 'Usuário',
+            'description' => 'Grupo padrão, sem permissões administrativas.',
         ],
         'beta' => [
-            'title'       => 'Beta User',
-            'description' => 'Has access to beta-level features.',
+            'title'       => 'Usuário beta',
+            'description' => 'Sem permissões configuradas no momento.',
         ],
     ];
 
@@ -67,51 +67,41 @@ class AuthGroups extends ShieldAuthGroups
      * --------------------------------------------------------------------
      * Permissions
      * --------------------------------------------------------------------
-     * The available permissions in the system.
+     * Catálogo de permissões do sistema. O Shield recusa qualquer permissão
+     * que não esteja listada aqui.
      *
-     * If a permission is not listed here it cannot be used.
+     * Identificadores no formato `contexto.acao`, em minúsculas e sem acento.
+     * Depois de integrados, não devem ser renomeados: o código e os vínculos
+     * gravados no banco dependem deles. Convenção e passo a passo para
+     * acrescentar uma permissão: docs/padroes/permissoes.md.
      */
     public array $permissions = [
-        'admin.access'        => 'Can access the sites admin area',
-        'admin.settings'      => 'Can access the main site settings',
-        'users.manage-admins' => 'Can manage other admins',
-        'users.create'        => 'Can create new non-admin users',
-        'users.edit'          => 'Can edit existing non-admin users',
-        'users.delete'        => 'Can delete existing non-admin users',
-        'beta.access'         => 'Can access beta-level features',
+        'contas.consultar'    => 'Consultar a lista e os dados das contas de usuário',
+        'contas.criar'        => 'Criar novas contas de usuário',
+        'acessos.administrar' => 'Conceder e remover grupos e permissões das contas de usuário',
     ];
 
     /**
      * --------------------------------------------------------------------
      * Permissions Matrix
      * --------------------------------------------------------------------
-     * Maps permissions to groups.
+     * Permissões concedidas a cada grupo.
      *
-     * This defines group-level permissions.
+     * As concessões são explícitas, sem curinga (`*`), para que fique
+     * verificável quem possui cada permissão administrativa.
      */
     public array $matrix = [
         'superadmin' => [
-            'admin.*',
-            'users.*',
-            'beta.*',
+            'contas.consultar',
+            'contas.criar',
+            'acessos.administrar',
         ],
         'admin' => [
-            'admin.access',
-            'users.create',
-            'users.edit',
-            'users.delete',
-            'beta.access',
+            'contas.consultar',
+            'contas.criar',
         ],
-        'developer' => [
-            'admin.access',
-            'admin.settings',
-            'users.create',
-            'users.edit',
-            'beta.access',
-        ],
-        'user' => [],
-        'beta' => [
-            'beta.access',
-        ],
+        'developer' => [],
+        'user'      => [],
+        'beta'      => [],
     ];
 }

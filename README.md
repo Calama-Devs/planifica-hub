@@ -1,6 +1,13 @@
 # planifica-hub
 PlanIFica Hub
 
+## Estrutura do projeto
+
+Consulte [docs/estrutura-inicial.md](docs/estrutura-inicial.md) para o mapa de
+diretórios e namespaces, as convenções e a política de uso seletivo do template
+oficial. O desenvolvimento usa `develop`, a homologação usa `homolog` e a
+produção usa `main`.
+
 ## Autenticação com CodeIgniter Shield
 
 O projeto utiliza o Shield `^1.4`, instalado via Composer. A configuração segue a
@@ -36,6 +43,8 @@ incluindo suas tabelas, entidades e configurações.
 O CSRF é global e utiliza sessão (manual 11.3). As telas e os Controllers são
 fornecidos pelo próprio Shield. A página inicial exige autenticação pelo filtro `session`;
 futuras rotas restritas devem utilizar os Filters de autenticação e autorização.
+O catálogo de permissões, a convenção de nomes e os exemplos de checagem estão em
+`docs/padroes/permissoes.md`.
 Links mágicos e outros fluxos por e-mail exigem configurar o remetente e o
 transporte de e-mail no `.env` antes de utilizá-los.
 
