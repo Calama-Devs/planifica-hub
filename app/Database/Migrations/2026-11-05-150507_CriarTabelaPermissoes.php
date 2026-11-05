@@ -61,34 +61,6 @@ class CriarTabelaPermissoes extends Migration
         $this->forge->addForeignKey('created_by', 'users', 'id', 'CASCADE', 'SET NULL');
         $this->forge->addForeignKey('updated_by', 'users', 'id', 'CASCADE', 'SET NULL');
         $this->forge->createTable('permissoes', true);
-
-        // Popula as permissões administrativas iniciais do sistema
-        $agora = date('Y-m-d H:i:s');
-        $permissoesIniciais = [
-            [
-                'identificador' => 'contas.consultar',
-                'descricao'     => 'Consultar a lista e os dados das contas de usuário',
-                'origem'        => 'sistema',
-                'created_at'    => $agora,
-                'updated_at'    => $agora,
-            ],
-            [
-                'identificador' => 'contas.criar',
-                'descricao'     => 'Criar novas contas de usuário',
-                'origem'        => 'sistema',
-                'created_at'    => $agora,
-                'updated_at'    => $agora,
-            ],
-            [
-                'identificador' => 'acessos.administrar',
-                'descricao'     => 'Conceder e remover grupos e permissões das contas de usuário',
-                'origem'        => 'sistema',
-                'created_at'    => $agora,
-                'updated_at'    => $agora,
-            ],
-        ];
-
-        $this->db->table('permissoes')->insertBatch($permissoesIniciais);
     }
 
     public function down(): void
