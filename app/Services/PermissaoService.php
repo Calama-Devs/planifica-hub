@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\PermissaoModel;
+use CodeIgniter\Shield\Models\UserModel;
 use Config\AuthGroups;
 
 class PermissaoService
@@ -46,6 +47,15 @@ class PermissaoService
      */
     public function cadastrarPermissao(array $dados, int $usuarioId): array
     {
+        if (! $this->usuarioPodeAdministrar($usuarioId)) {
+            return [
+                'sucesso'  => false,
+                'tipo'     => 'permissao',
+                'codigo'   => 'ACESSOS_SEM_PERMISSAO',
+                'mensagem' => 'Sem permissão para administrar acessos.',
+            ];
+        }
+
         $identificador = trim((string) ($dados['identificador'] ?? ''));
         $descricao     = trim((string) ($dados['descricao'] ?? ''));
 
@@ -122,6 +132,15 @@ class PermissaoService
      */
     public function atualizarDescricao(int $id, string $descricao, int $usuarioId): array
     {
+        if (! $this->usuarioPodeAdministrar($usuarioId)) {
+            return [
+                'sucesso'  => false,
+                'tipo'     => 'permissao',
+                'codigo'   => 'ACESSOS_SEM_PERMISSAO',
+                'mensagem' => 'Sem permissão para administrar acessos.',
+            ];
+        }
+
         $permissao = $this->buscarPorId($id);
         if ($permissao === null) {
             return [
@@ -208,5 +227,18 @@ class PermissaoService
         }
 
         return $this->permissaoModel->obterMapaCatalogo();
+    }
+
+    /**
+     * Valida se o usuário informado possui autorização para administrar acessos (defesa em profundidade).
+     */
+    private function usuarioPodeAdministrar(int $usuarioId): bool
+    {
+        /** @var UserModel $userModel */
+        $userModel = model(UserModel::class);
+        /** @var \CodeIgniter\Shield\Entities\User|null $usuario */
+        $usuario = $userModel->findById($usuarioId);
+
+        return $usuario !== null && $usuario->can('acessos.administrar');
     }
 }

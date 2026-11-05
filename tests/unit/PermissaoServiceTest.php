@@ -39,6 +39,10 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $usuarios = model(UserModel::class);
         $usuarios->save(new User(['username' => 'admin.teste']));
         $this->usuarioId = (int) $usuarios->getInsertID();
+
+        /** @var User $usuario */
+        $usuario = $usuarios->findById($this->usuarioId);
+        $usuario->addGroup('superadmin');
     }
 
     public function testSincronizarCatalogoGarantePermissoesDeCodigoNoBancoESemPoluirSettings(): void
@@ -192,5 +196,49 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $this->assertFalse($resultado['sucesso']);
         $this->assertSame('inesperado', $resultado['tipo']);
         $this->assertSame('PERMISSAO_ERRO_ATUALIZACAO', $resultado['codigo']);
+    }
+
+    public function testCadastrarPermissaoRecusaUsuarioSemPermissaoAcessosAdministrar(): void
+    {
+        $usuarios = model(UserModel::class);
+        $usuarios->save(new User(['username' => 'usuario.comum']));
+        $usuarioComumId = (int) $usuarios->getInsertID();
+
+        /** @var User $usuario */
+        $usuario = $usuarios->findById($usuarioComumId);
+        $usuario->addGroup('user');
+
+        $resultado = $this->service->cadastrarPermissao([
+            'identificador' => 'relatorios.exportar',
+            'descricao'     => 'Permite exportar relatórios para planilhas',
+        ], $usuarioComumId);
+
+        $this->assertFalse($resultado['sucesso']);
+        $this->assertSame('permissao', $resultado['tipo']);
+        $this->assertSame('ACESSOS_SEM_PERMISSAO', $resultado['codigo']);
+    }
+
+    public function testAtualizarDescricaoRecusaUsuarioSemPermissaoAcessosAdministrar(): void
+    {
+        $usuarios = model(UserModel::class);
+        $usuarios->save(new User(['username' => 'usuario.sem_permissao']));
+        $usuarioSemPermissaoId = (int) $usuarios->getInsertID();
+
+        /** @var User $usuario */
+        $usuario = $usuarios->findById($usuarioSemPermissaoId);
+        $usuario->addGroup('user');
+
+        $permissao = $this->model->buscarPorIdentificador('contas.consultar');
+        $this->assertNotNull($permissao);
+
+        $resultado = $this->service->atualizarDescricao(
+            (int) $permissao['id'],
+            'Nova descrição não autorizada',
+            $usuarioSemPermissaoId
+        );
+
+        $this->assertFalse($resultado['sucesso']);
+        $this->assertSame('permissao', $resultado['tipo']);
+        $this->assertSame('ACESSOS_SEM_PERMISSAO', $resultado['codigo']);
     }
 }
