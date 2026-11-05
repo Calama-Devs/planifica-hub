@@ -36,6 +36,8 @@ final class PermissoesAdminTest extends CIUnitTestCase
 
         $this->userModel      = model(UserModel::class);
         $this->permissaoModel = model(PermissaoModel::class);
+
+        $this->seed(\App\Database\Seeds\PermissoesSeeder::class);
     }
 
     protected function tearDown(): void

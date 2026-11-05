@@ -2,17 +2,23 @@
 
 Base: Manual Calama Devs, capítulo 6 (camadas e Filters) e item 11.3 (permissões). Em caso de dúvida, o manual prevalece.
 
-## Onde ficam
+## Onde ficam e Política de Precedência
 
-| O quê | Onde |
-|---|---|
-| Catálogo de permissões de sistema (código versionado) | `app/Config/AuthGroups.php`, propriedade `$permissions` |
-| Persistência e catálogo completo de permissões | tabela `permissoes` (identificador, descrição, origem, autoria e auditoria) |
-| Catálogo ativo em runtime (Shield) | `setting('AuthGroups.permissions')`, sincronizado de forma consolidada pelo `PermissaoService` |
-| Permissões de cada grupo | `app/Config/AuthGroups.php`, propriedade `$matrix` |
-| Vínculo de usuário com grupo ou permissão individual | tabelas do Shield `auth_groups_users` e `auth_permissions_users` |
+| O quê | Onde | Finalidade e Precedência |
+|---|---|---|
+| Catálogo base do sistema (código versionado) | `app/Config/AuthGroups.php`, propriedade `$permissions` | **Fonte primária de verdade** para permissões nativas e estáveis (`origem = 'sistema'`). Identificadores integrados são imutáveis. |
+| Persistência e catálogo completo | tabela `permissoes` | Armazena permissões de sistema e permissões customizadas (`origem = 'customizada'`) criadas pela área administrativa, com auditoria de autoria e soft deletes. |
+| Carga inicial de permissões | `app/Database/Seeds/PermissoesSeeder.php` | Seeder idempotente que popula a tabela `permissoes` a partir do código versionado. |
+| Catálogo ativo em runtime (Shield) | `setting('AuthGroups.permissions')` | Consolidado em tempo de execução via `PermissaoService::sincronizarCatalogo()`, permitindo que o Shield verifique tanto permissões nativas quanto customizadas. |
+| Matriz de grupos | `app/Config/AuthGroups.php`, propriedade `$matrix` | Concessão explícita por grupo; permissões customizadas recém-criadas não entram em grupos automaticamente (menor privilégio). |
+| Vínculos de usuário | tabelas do Shield `auth_groups_users` e `auth_permissions_users` | Associação individual ou por grupo. |
 
-O Shield recusa (`AuthorizationException`) qualquer permissão atribuída a um usuário que não esteja no catálogo. A aplicação unifica as permissões versionadas no código (`origem = 'sistema'`) e as cadastradas pela área administrativa (`origem = 'customizada'`) através do `PermissaoService::sincronizarCatalogo()`, garantindo que novos deploys nunca percam identificadores estáveis nem permissões dinâmicas.
+### Processo de Reconciliação e Prevenção de Inconsistências (Anti-drift)
+
+O Shield recusa (`AuthorizationException`) qualquer permissão atribuída a um usuário que não conste em seu catálogo ativo. Para conciliar segurança, versionamento e flexibilidade administrativa:
+1. **Prioridade do código:** Toda permissão definida em `AuthGroups.php` é soberana. O processo de reconciliação (`PermissaoService::sincronizarCatalogo()`) garante que permissões de código ausentes na tabela sejam cadastradas como `sistema`, sem jamais serem excluídas ou terem seu identificador alterado pela interface.
+2. **Reconciliação não-destrutiva:** Permissões customizadas cadastradas no banco são unificadas com as de código no storage de runtime (`setting()`). Um novo deploy contendo novas permissões em arquivo simplesmente incorpora essas permissões ao banco e ao storage na próxima sincronização, sem apagar as permissões customizadas existentes.
+3. **Imutabilidade de identificador:** O identificador de uma permissão com `origem = 'sistema'` é travado contra alteração (permitindo apenas atualização da descrição), preservando a integridade das regras em código e das rotas protegidas.
 
 ## Área administrativa de permissões
 
@@ -100,17 +106,21 @@ $usuario->addPermission('contas.consultar');
 
 No ambiente local, também dá para usar o comando do Shield: `php spark shield:user addgroup -n nome.usuario -g admin`.
 
-## Como acrescentar uma permissão (issue futura)
+## Como acrescentar uma permissão
+
+### 1. Via código (funcionalidade estável do sistema)
 
 1. Confirme que a issue entrega a funcionalidade que vai usar a permissão.
 2. Escolha o identificador seguindo a convenção e confira no catálogo que ainda não existe permissão para a mesma ação.
 3. Acrescente em `$permissions` (`app/Config/AuthGroups.php`), com descrição em português.
 4. Conceda aos grupos em `$matrix`, explicitamente e pelo menor privilégio.
-5. Proteja a rota com `permission:` e repita a checagem no Service quando a operação for sensível.
-6. Teste:
-   - automatizado: siga o modelo de `tests/feature/PermissoesAdministrativasTest.php`, com um usuário que tem a permissão e outro que não tem;
-   - manual: entre com perfis diferentes e acesse a URL direto.
-7. Atualize a tabela "Catálogo atual" deste documento.
+5. Execute o seeder (`php spark db:seed PermissoesSeeder`) para atualizar a tabela local.
+6. Proteja a rota com `permission:` e repita a checagem no Service quando a operação for sensível.
+7. Teste (automatizado e manual) e atualize a tabela deste documento.
 8. Na descrição da entrega, marque "Altera permissões ou regras de acesso" e informe quais grupos receberam a permissão.
 
-Não é preciso migration: as tabelas do Shield não mudam, e só o arquivo de configuração é alterado.
+### 2. Via área administrativa (dinâmica / operacional)
+
+1. Acesse `/admin/permissoes` autenticado com usuário que possui a permissão `acessos.administrar`.
+2. Clique em "Nova Permissão", preencha identificador padronizado (`contexto.acao`) e descrição.
+3. Ao salvar, a permissão é persistida com auditoria na tabela `permissoes` e reconciliada automaticamente com o catálogo do Shield para permitir atribuição (`addPermission`) e verificações em runtime (`can`).
