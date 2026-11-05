@@ -70,4 +70,3 @@ class PermissaoModel extends Model
         return $mapa;
     }
 }
-
