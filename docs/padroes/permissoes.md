@@ -6,11 +6,22 @@ Base: Manual Calama Devs, capítulo 6 (camadas e Filters) e item 11.3 (permissõ
 
 | O quê | Onde |
 |---|---|
-| Catálogo de permissões (identificador e descrição) | `app/Config/AuthGroups.php`, propriedade `$permissions` |
+| Catálogo de permissões de sistema (código versionado) | `app/Config/AuthGroups.php`, propriedade `$permissions` |
+| Persistência e catálogo completo de permissões | tabela `permissoes` (identificador, descrição, origem, autoria e auditoria) |
+| Catálogo ativo em runtime (Shield) | `setting('AuthGroups.permissions')`, sincronizado de forma consolidada pelo `PermissaoService` |
 | Permissões de cada grupo | `app/Config/AuthGroups.php`, propriedade `$matrix` |
 | Vínculo de usuário com grupo ou permissão individual | tabelas do Shield `auth_groups_users` e `auth_permissions_users` |
 
-O Shield recusa (`AuthorizationException`) qualquer permissão atribuída a um usuário que não esteja no catálogo. Catálogo e matriz são alterados **só no arquivo de configuração**, que é versionado. Não grave `AuthGroups.permissions` ou `AuthGroups.matrix` pelo `setting()`: o valor salvo no banco passa a prevalecer sobre o arquivo.
+O Shield recusa (`AuthorizationException`) qualquer permissão atribuída a um usuário que não esteja no catálogo. A aplicação unifica as permissões versionadas no código (`origem = 'sistema'`) e as cadastradas pela área administrativa (`origem = 'customizada'`) através do `PermissaoService::sincronizarCatalogo()`, garantindo que novos deploys nunca percam identificadores estáveis nem permissões dinâmicas.
+
+## Área administrativa de permissões
+
+- **Acesso restrito:** `/admin/permissoes` e seus subcaminhos exigem autenticação ativa (`session`) e a permissão administrativa `acessos.administrar` no servidor.
+- **Formulário e validações:**
+  - O identificador deve seguir o formato `contexto.acao`, em minúsculas e sem acentos, com validação de duplicidade.
+  - A descrição é obrigatória (entre 5 e 255 caracteres).
+  - Identificadores com `origem = 'sistema'` possuem identificador estável/fixo integrado ao código e não admitem renomeação, permitindo apenas o ajuste de sua descrição.
+- **Auditoria:** Toda inclusão ou alteração registra o `created_by`/`updated_by` com o ID do usuário autenticado no banco e emite evento institucional em `log_message()`.
 
 ## Convenção de nomes
 
