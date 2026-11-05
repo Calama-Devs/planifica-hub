@@ -6,27 +6,27 @@ Base: Manual Calama Devs, capítulo 6 (camadas e Filters) e item 11.3 (permissõ
 
 | O quê | Onde | Finalidade e Precedência |
 |---|---|---|
-| Catálogo base do sistema (código versionado) | `app/Config/AuthGroups.php`, propriedade `$permissions` | **Fonte primária de verdade** para permissões nativas e estáveis (`origem = 'sistema'`). Identificadores integrados são imutáveis. |
+| Catálogo base do sistema (código versionado) | `app/Config/AuthGroups.php`, propriedade `$permissions` | **Fonte primária de verdade** para permissões nativas e estáveis (`origem = 'sistema'`). Identificadores integrados são soberanos e imutáveis. |
 | Persistência e catálogo completo | tabela `permissoes` | Armazena permissões de sistema e permissões customizadas (`origem = 'customizada'`) criadas pela área administrativa, com auditoria de autoria e soft deletes. |
 | Carga inicial de permissões | `app/Database/Seeds/PermissoesSeeder.php` | Seeder idempotente que popula a tabela `permissoes` a partir do código versionado. |
-| Catálogo ativo em runtime (Shield) | `setting('AuthGroups.permissions')` | Consolidado em tempo de execução via `PermissaoService::sincronizarCatalogo()`, permitindo que o Shield verifique tanto permissões nativas quanto customizadas. |
+| Catálogo ativo em runtime (Shield) | `Config\AuthGroups` (merge em memória) | Resolvido dinamicamente no construtor de `Config\AuthGroups`, mantendo o código versionado como base soberana e adicionando permissões customizadas da tabela `permissoes`. **Nunca grave `AuthGroups.permissions` via `setting()`**, evitando sobreposição indevida do arquivo versionado e prevenindo drift entre deploys. |
 | Matriz de grupos | `app/Config/AuthGroups.php`, propriedade `$matrix` | Concessão explícita por grupo; permissões customizadas recém-criadas não entram em grupos automaticamente (menor privilégio). |
 | Vínculos de usuário | tabelas do Shield `auth_groups_users` e `auth_permissions_users` | Associação individual ou por grupo. |
 
 ### Processo de Reconciliação e Prevenção de Inconsistências (Anti-drift)
 
 O Shield recusa (`AuthorizationException`) qualquer permissão atribuída a um usuário que não conste em seu catálogo ativo. Para conciliar segurança, versionamento e flexibilidade administrativa:
-1. **Prioridade do código:** Toda permissão definida em `AuthGroups.php` é soberana. O processo de reconciliação (`PermissaoService::sincronizarCatalogo()`) garante que permissões de código ausentes na tabela sejam cadastradas como `sistema`, sem jamais serem excluídas ou terem seu identificador alterado pela interface.
-2. **Reconciliação não-destrutiva:** Permissões customizadas cadastradas no banco são unificadas com as de código no storage de runtime (`setting()`). Um novo deploy contendo novas permissões em arquivo simplesmente incorpora essas permissões ao banco e ao storage na próxima sincronização, sem apagar as permissões customizadas existentes.
-3. **Imutabilidade de identificador:** O identificador de uma permissão com `origem = 'sistema'` é travado contra alteração (permitindo apenas atualização da descrição), preservando a integridade das regras em código e das rotas protegidas.
+1. **Prioridade absoluta do código:** Toda permissão definida em `AuthGroups.php` é soberana. O processo de reconciliação (`PermissaoService::sincronizarCatalogo()`) garante que permissões de código ausentes na tabela sejam cadastradas como `sistema`, sem jamais sobrepor as definições versionadas nem permitir alteração de identificadores.
+2. **Merge em memória sem poluição de settings:** O catálogo ativo em runtime é mantido na própria classe `Config\AuthGroups`. Em tempo de execução, o construtor lê as permissões ativas de `permissoes` e mescla em `$permissions` sem persistir no banco via `setting()`. O `sincronizarCatalogo()` assegura a limpeza de qualquer chave residual via `setting()->forget('AuthGroups.permissions')`.
+3. **Imutabilidade total de identificadores:** O identificador de qualquer permissão registrada (seja nativa do sistema ou customizada) é **estritamente imutável**. A interface e o Controller aceitam apenas a edição do campo `descricao`, preservando permanentemente os vínculos de autorização e evitando bypass acidental ou renomeação destrutiva.
 
 ## Área administrativa de permissões
 
-- **Acesso restrito:** `/admin/permissoes` e seus subcaminhos exigem autenticação ativa (`session`) e a permissão administrativa `acessos.administrar` no servidor.
+- **Acesso restrito:** `/admin/permissoes` e seus subcaminhos exigem autenticação ativa (`session`) e a permissão administrativa `acessos.administrar` no servidor (tanto no filtro de rota quanto em verificação em profundidade nos Controllers e Services).
 - **Formulário e validações:**
-  - O identificador deve seguir o formato `contexto.acao`, em minúsculas e sem acentos, com validação de duplicidade.
+  - No cadastro: o identificador deve seguir o formato `contexto.acao`, em minúsculas e sem acentos, com validação de duplicidade.
   - A descrição é obrigatória (entre 5 e 255 caracteres).
-  - Identificadores com `origem = 'sistema'` possuem identificador estável/fixo integrado ao código e não admitem renomeação, permitindo apenas o ajuste de sua descrição.
+  - Na edição: o campo identificador é exibido apenas como texto/badge fixo para leitura. O formulário envia e o Controller aceita exclusivamente o campo `descricao`.
 - **Auditoria:** Toda inclusão ou alteração registra o `created_by`/`updated_by` com o ID do usuário autenticado no banco e emite evento institucional em `log_message()`.
 
 ## Convenção de nomes
