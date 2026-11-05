@@ -185,7 +185,19 @@ class PermissaoService
             }
         }
 
-        $this->permissaoModel->update($id, $dadosAtualizacao);
+        $atualizado = $this->permissaoModel->update($id, $dadosAtualizacao);
+
+        if (! $atualizado) {
+            log_message('error', 'Falha ao atualizar permissão ID {id}', ['id' => $id]);
+
+            return [
+                'sucesso'  => false,
+                'tipo'     => 'inesperado',
+                'codigo'   => 'PERMISSAO_ERRO_ATUALIZACAO',
+                'mensagem' => 'Não foi possível atualizar a permissão no momento.',
+            ];
+        }
+
         $this->sincronizarCatalogo();
 
         log_message('info', 'Permissão atualizada (ID: {id}) pelo usuário ID {usuario_id}', [

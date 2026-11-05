@@ -33,6 +33,8 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $this->model   = model(PermissaoModel::class);
         $this->service = new PermissaoService($this->model);
 
+        $this->seed(\App\Database\Seeds\PermissoesSeeder::class);
+
         $usuarios = model(UserModel::class);
         $usuarios->save(new User(['username' => 'admin.teste']));
         $this->usuarioId = (int) $usuarios->getInsertID();
@@ -163,5 +165,27 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $this->assertNotNull($atualizado);
         $this->assertSame('Nova descrição administrativa atualizada', $atualizado['descricao']);
         $this->assertSame($this->usuarioId, (int) $atualizado['updated_by']);
+    }
+
+    public function testAtualizarPermissaoRetornaErroQuandoModelFalha(): void
+    {
+        $mockModel = $this->createMock(PermissaoModel::class);
+        $mockModel->method('find')->willReturn([
+            'id'            => 1,
+            'identificador' => 'contas.consultar',
+            'descricao'     => 'Descrição existente',
+            'origem'        => 'sistema',
+        ]);
+        $mockModel->method('update')->willReturn(false);
+
+        $serviceComFalha = new PermissaoService($mockModel);
+
+        $resultado = $serviceComFalha->atualizarPermissao(1, [
+            'descricao' => 'Nova descrição válida para teste',
+        ], $this->usuarioId);
+
+        $this->assertFalse($resultado['sucesso']);
+        $this->assertSame('inesperado', $resultado['tipo']);
+        $this->assertSame('PERMISSAO_ERRO_ATUALIZACAO', $resultado['codigo']);
     }
 }
