@@ -18,39 +18,43 @@
                 $actionUrl = $modo === 'edicao'
                     ? site_url('admin/permissoes/atualizar/' . (int) $permissao['id'])
                     : url_to('permissoes.salvar');
-                $ehSistema = ($modo === 'edicao' && ($permissao['origem'] ?? '') === 'sistema');
                 ?>
 
                 <form action="<?= $actionUrl ?>" method="post">
                     <?= csrf_field() ?>
 
-                    <div class="mb-3">
-                        <label for="campo-identificador" class="form-label">Identificador da Permissão</label>
-                        <?php if ($ehSistema) : ?>
-                            <input type="text"
-                                   id="campo-identificador"
-                                   name="identificador"
-                                   class="form-control"
-                                   value="<?= esc($permissao['identificador'] ?? '') ?>"
-                                   readonly>
-                            <small class="form-text text-muted">
-                                Identificadores de sistema são estáveis e integrados ao código. Apenas a descrição pode ser alterada.
+                    <?php if ($modo === 'edicao') : ?>
+                        <div class="mb-3">
+                            <label class="form-label d-block text-muted mb-1">Identificador da Permissão</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <code class="fs-6"><?= esc($permissao['identificador'] ?? '') ?></code>
+                                <?php if (($permissao['origem'] ?? '') === 'sistema') : ?>
+                                    <span class="badge badge-outline-info">Sistema</span>
+                                <?php else : ?>
+                                    <span class="badge badge-outline-primary">Customizada</span>
+                                <?php endif ?>
+                            </div>
+                            <small class="form-text text-muted d-block mt-1">
+                                Identificadores são estáveis e integrados aos acessos do sistema. Apenas a descrição pode ser alterada.
                             </small>
-                        <?php else : ?>
+                        </div>
+                    <?php else : ?>
+                        <div class="mb-3">
+                            <label for="campo-identificador" class="form-label">Identificador da Permissão</label>
                             <input type="text"
                                    id="campo-identificador"
                                    name="identificador"
                                    class="form-control <?= erro_campo('identificador') ?>"
                                    placeholder="ex.: relatorios.emitir"
                                    maxlength="100"
-                                   value="<?= old('identificador', $permissao['identificador'] ?? '') ?>"
+                                   value="<?= old('identificador') ?>"
                                    required>
                             <?= view('partials/erros_validacao', ['campo' => 'identificador']) ?>
                             <small class="form-text text-muted">
                                 Formato obrigatório: <code>contexto.acao</code> em minúsculas e sem acentos (ex.: <code>contas.consultar</code>, <code>relatorios.emitir</code>).
                             </small>
-                        <?php endif ?>
-                    </div>
+                        </div>
+                    <?php endif ?>
 
                     <div class="mb-4">
                         <label for="campo-descricao" class="form-label">Descrição</label>

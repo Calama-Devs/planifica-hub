@@ -44,6 +44,10 @@ class PermissaoController extends BaseController
      */
     public function salvar(): RedirectResponse
     {
+        if (! auth()->user()->can('acessos.administrar')) {
+            return redirect()->to(rtrim(site_url('/'), '/'))->with('error', 'Sem permissão para administrar acessos.');
+        }
+
         $regras = [
             'identificador' => [
                 'rules'  => 'required|regex_match[/^[a-z]+(_[a-z]+)*\.[a-z]+(_[a-z]+)*$/]|max_length[100]',
@@ -100,6 +104,10 @@ class PermissaoController extends BaseController
      */
     public function atualizar(int $id): RedirectResponse
     {
+        if (! auth()->user()->can('acessos.administrar')) {
+            return redirect()->to(rtrim(site_url('/'), '/'))->with('error', 'Sem permissão para administrar acessos.');
+        }
+
         $regras = [
             'descricao' => [
                 'rules'  => 'required|min_length[5]|max_length[255]',
@@ -115,18 +123,9 @@ class PermissaoController extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $dados = [
-            'descricao' => (string) $this->request->getPost('descricao'),
-        ];
-
-        // Se o identificador foi enviado para permissão customizada
-        $identificador = $this->request->getPost('identificador');
-        if ($identificador !== null) {
-            $dados['identificador'] = (string) $identificador;
-        }
-
+        $descricao = (string) $this->request->getPost('descricao');
         $usuarioId = (int) auth()->id();
-        $resultado = $this->permissaoService->atualizarPermissao($id, $dados, $usuarioId);
+        $resultado = $this->permissaoService->atualizarDescricao($id, $descricao, $usuarioId);
 
         if (! $resultado['sucesso']) {
             return redirect()->back()->withInput()->with('error', $resultado['mensagem']);
