@@ -104,4 +104,42 @@ class AuthGroups extends ShieldAuthGroups
         'user'      => [],
         'beta'      => [],
     ];
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        $this->carregarPermissoes();
+    }
+
+    /**
+     * Mescla dinamicamente permissões customizadas ativas da tabela `permissoes`
+     * sem sobrescrever as permissões nativas versionadas em código (precedência de código).
+     */
+    public function carregarPermissoes(): void
+    {
+        try {
+            $db = db_connect();
+
+            if ($db->tableExists('permissoes')) {
+                $customizadas = $db->table('permissoes')
+                    ->select('identificador, descricao')
+                    ->where('origem', 'customizada')
+                    ->where('deleted_at', null)
+                    ->get()
+                    ->getResultArray();
+
+                foreach ($customizadas as $permissao) {
+                    $identificador = (string) $permissao['identificador'];
+
+                    // O código versionado é a base prioritária: nunca substitui chaves do código
+                    if (! isset($this->permissions[$identificador])) {
+                        $this->permissions[$identificador] = (string) $permissao['descricao'];
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // Em comandos CLI, migrations ou ambiente sem banco conectado, preserva estritamente o código
+        }
+    }
 }

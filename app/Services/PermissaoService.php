@@ -115,12 +115,12 @@ class PermissaoService
     }
 
     /**
-     * Atualiza a descrição de uma permissão existente, preservando identificadores estáveis.
+     * Atualiza a descrição de uma permissão existente.
+     * Identificadores são imutáveis após o cadastro (preservação de identificadores estáveis).
      *
-     * @param array<string, mixed> $dados
      * @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string}
      */
-    public function atualizarPermissao(int $id, array $dados, int $usuarioId): array
+    public function atualizarDescricao(int $id, string $descricao, int $usuarioId): array
     {
         $permissao = $this->buscarPorId($id);
         if ($permissao === null) {
@@ -132,8 +132,8 @@ class PermissaoService
             ];
         }
 
-        $descricao = trim((string) ($dados['descricao'] ?? ''));
-        if ($descricao === '' || mb_strlen($descricao) < 5 || mb_strlen($descricao) > 255) {
+        $descricaoLimpa = trim($descricao);
+        if ($descricaoLimpa === '' || mb_strlen($descricaoLimpa) < 5 || mb_strlen($descricaoLimpa) > 255) {
             return [
                 'sucesso'  => false,
                 'tipo'     => 'validacao',
@@ -143,47 +143,9 @@ class PermissaoService
         }
 
         $dadosAtualizacao = [
-            'descricao'  => $descricao,
+            'descricao'  => $descricaoLimpa,
             'updated_by' => $usuarioId,
         ];
-
-        // Se for informada tentativa de mudança de identificador
-        if (isset($dados['identificador'])) {
-            $novoIdentificador = trim((string) $dados['identificador']);
-
-            if ($novoIdentificador !== $permissao['identificador']) {
-                if ($permissao['origem'] === 'sistema') {
-                    return [
-                        'sucesso'  => false,
-                        'tipo'     => 'regra_negocio',
-                        'codigo'   => 'PERMISSAO_SISTEMA_IDENTIFICADOR_FIXO',
-                        'mensagem' => 'O identificador de permissões do sistema é fixo e não pode ser alterado.',
-                    ];
-                }
-
-                if (! preg_match(self::REGEX_IDENTIFICADOR, $novoIdentificador)) {
-                    return [
-                        'sucesso'  => false,
-                        'tipo'     => 'validacao',
-                        'codigo'   => 'PERMISSAO_FORMATO_INVALIDO',
-                        'mensagem' => 'O identificador deve seguir o formato contexto.acao, '
-                            . 'em minúsculas e sem acentos.',
-                    ];
-                }
-
-                $existente = $this->permissaoModel->buscarPorIdentificador($novoIdentificador);
-                if ($existente !== null && (int) $existente['id'] !== $id) {
-                    return [
-                        'sucesso'  => false,
-                        'tipo'     => 'regra_negocio',
-                        'codigo'   => 'PERMISSAO_DUPLICADA',
-                        'mensagem' => 'Já existe outra permissão cadastrada com este identificador.',
-                    ];
-                }
-
-                $dadosAtualizacao['identificador'] = $novoIdentificador;
-            }
-        }
 
         $atualizado = $this->permissaoModel->update($id, $dadosAtualizacao);
 
@@ -215,7 +177,7 @@ class PermissaoService
 
     /**
      * Sincroniza as permissões de código (AuthGroups.php) com o banco de dados
-     * e consolida o catálogo ativo para consumo pelo Shield via setting().
+     * e garante a mescla transparente em memória sem sobrescrever settings.
      *
      * @return array<string, string> Mapa consolidado [identificador => descricao]
      */
@@ -236,12 +198,15 @@ class PermissaoService
             }
         }
 
-        // Obtém o catálogo consolidado de todas as permissões ativas
-        $catalogoConsolidado = $this->permissaoModel->obterMapaCatalogo();
+        // Limpa chave residual em settings caso exista, preservando a soberania do arquivo de código
+        setting()->forget('AuthGroups.permissions');
 
-        // Atualiza a persistência de configurações consumida pelo Shield
-        setting('AuthGroups.permissions', $catalogoConsolidado);
+        // Aciona a mescla transparente na configuração compartilhada em memória
+        $authGroups = config(AuthGroups::class);
+        if ($authGroups instanceof AuthGroups) {
+            $authGroups->carregarPermissoes();
+        }
 
-        return $catalogoConsolidado;
+        return $this->permissaoModel->obterMapaCatalogo();
     }
 }
