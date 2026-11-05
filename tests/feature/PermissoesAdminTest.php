@@ -166,7 +166,7 @@ final class PermissoesAdminTest extends CIUnitTestCase
         ]);
     }
 
-    public function testEditarEAtualizarDescricaoPermissao(): void
+    public function testEditarEAtualizarDescricaoPermissaoIgnorandoIdentificador(): void
     {
         $superadmin = $this->criarUsuario('superadmin');
         $permissao  = $this->permissaoModel->buscarPorIdentificador('contas.criar');
@@ -177,11 +177,13 @@ final class PermissoesAdminTest extends CIUnitTestCase
         $respostaForm->assertSee('Editar Permissão');
         $respostaForm->assertSee('contas.criar');
 
+        // Mesmo se o cliente tentar enviar 'identificador' malicioso no payload, ele é imutável
         $respostaAtualizar = $this->actingAs($superadmin)
             ->withSession($_SESSION)
             ->post('admin/permissoes/atualizar/' . (int) $permissao['id'], [
-                'descricao'  => 'Descrição administrativa revisada para criação de contas',
-                csrf_token() => csrf_hash(),
+                'identificador' => 'contas.renomeada_maliciosamente',
+                'descricao'     => 'Descrição administrativa revisada para criação de contas',
+                csrf_token()    => csrf_hash(),
             ]);
 
         $respostaAtualizar->assertRedirectTo(url_to('permissoes.index'));
@@ -190,6 +192,7 @@ final class PermissoesAdminTest extends CIUnitTestCase
         /** @var array<string, mixed>|null $registroAtualizado */
         $registroAtualizado = $this->permissaoModel->find((int) $permissao['id']);
         $this->assertNotNull($registroAtualizado);
+        $this->assertSame('contas.criar', $registroAtualizado['identificador']);
         $this->assertSame('Descrição administrativa revisada para criação de contas', $registroAtualizado['descricao']);
         $this->assertSame((int) $superadmin->id, (int) $registroAtualizado['updated_by']);
     }

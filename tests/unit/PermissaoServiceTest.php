@@ -10,6 +10,7 @@ use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
+use Config\AuthGroups;
 
 final class PermissaoServiceTest extends CIUnitTestCase
 {
@@ -40,7 +41,7 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $this->usuarioId = (int) $usuarios->getInsertID();
     }
 
-    public function testSincronizarCatalogoGarantePermissoesDeCodigoNoBancoENoShield(): void
+    public function testSincronizarCatalogoGarantePermissoesDeCodigoNoBancoESemPoluirSettings(): void
     {
         $catalogo = $this->service->sincronizarCatalogo();
 
@@ -48,10 +49,12 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $this->assertArrayHasKey('contas.criar', $catalogo);
         $this->assertArrayHasKey('acessos.administrar', $catalogo);
 
-        // Confere que no storage do Shield o catálogo reflete os identificadores
-        $configShield = setting('AuthGroups.permissions');
-        $this->assertIsArray($configShield);
-        $this->assertArrayHasKey('contas.consultar', $configShield);
+        // Confere que NUNCA grava AuthGroups.permissions na tabela settings do banco (anti-drift)
+        $this->dontSeeInDatabase('settings', ['key' => 'permissions']);
+
+        // Confere que o catálogo em memória da config reflete as permissões
+        $authGroups = config(AuthGroups::class);
+        $this->assertArrayHasKey('contas.consultar', $authGroups->permissions);
     }
 
     public function testCadastrarPermissaoComSucesso(): void
@@ -72,9 +75,10 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $this->assertSame('customizada', $registro['origem']);
         $this->assertSame($this->usuarioId, (int) $registro['created_by']);
 
-        // Verifica que o catálogo do Shield foi sincronizado com a nova permissão
-        $catalogoShield = setting('AuthGroups.permissions');
-        $this->assertArrayHasKey('relatorios.emitir', $catalogoShield);
+        // Verifica que a tabela settings permanece limpa e o objeto AuthGroups carrega a customizada em memória
+        $this->dontSeeInDatabase('settings', ['key' => 'permissions']);
+        $authGroups = new AuthGroups();
+        $this->assertArrayHasKey('relatorios.emitir', $authGroups->permissions);
     }
 
     public function testCadastrarPermissaoRecusaFormatoInvalido(): void
@@ -134,28 +138,16 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $this->assertSame('PERMISSAO_DUPLICADA', $segundo['codigo']);
     }
 
-    public function testAtualizarPermissaoDeSistemaNaoPermiteAlterarIdentificador(): void
+    public function testAtualizarDescricaoComSucesso(): void
     {
         $permissaoSistema = $this->model->buscarPorIdentificador('acessos.administrar');
         $this->assertNotNull($permissaoSistema);
 
-        $resultado = $this->service->atualizarPermissao((int) $permissaoSistema['id'], [
-            'identificador' => 'acessos.gerenciar_novo_nome',
-            'descricao'     => 'Nova descrição válida para o teste',
-        ], $this->usuarioId);
-
-        $this->assertFalse($resultado['sucesso']);
-        $this->assertSame('PERMISSAO_SISTEMA_IDENTIFICADOR_FIXO', $resultado['codigo']);
-    }
-
-    public function testAtualizarPermissaoComSucesso(): void
-    {
-        $permissaoSistema = $this->model->buscarPorIdentificador('acessos.administrar');
-        $this->assertNotNull($permissaoSistema);
-
-        $resultado = $this->service->atualizarPermissao((int) $permissaoSistema['id'], [
-            'descricao' => 'Nova descrição administrativa atualizada',
-        ], $this->usuarioId);
+        $resultado = $this->service->atualizarDescricao(
+            (int) $permissaoSistema['id'],
+            'Nova descrição administrativa atualizada',
+            $this->usuarioId
+        );
 
         $this->assertTrue($resultado['sucesso']);
         $this->assertSame('PERMISSAO_ATUALIZADA', $resultado['codigo']);
@@ -167,7 +159,22 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $this->assertSame($this->usuarioId, (int) $atualizado['updated_by']);
     }
 
-    public function testAtualizarPermissaoRetornaErroQuandoModelFalha(): void
+    public function testAtualizarDescricaoRecusaDescricaoInvalida(): void
+    {
+        $permissao = $this->model->buscarPorIdentificador('contas.consultar');
+        $this->assertNotNull($permissao);
+
+        $resultado = $this->service->atualizarDescricao(
+            (int) $permissao['id'],
+            'abc',
+            $this->usuarioId
+        );
+
+        $this->assertFalse($resultado['sucesso']);
+        $this->assertSame('PERMISSAO_DESCRICAO_INVALIDA', $resultado['codigo']);
+    }
+
+    public function testAtualizarDescricaoRetornaErroQuandoModelFalha(): void
     {
         $mockModel = $this->createMock(PermissaoModel::class);
         $mockModel->method('find')->willReturn([
@@ -180,9 +187,7 @@ final class PermissaoServiceTest extends CIUnitTestCase
 
         $serviceComFalha = new PermissaoService($mockModel);
 
-        $resultado = $serviceComFalha->atualizarPermissao(1, [
-            'descricao' => 'Nova descrição válida para teste',
-        ], $this->usuarioId);
+        $resultado = $serviceComFalha->atualizarDescricao(1, 'Nova descrição válida para teste', $this->usuarioId);
 
         $this->assertFalse($resultado['sucesso']);
         $this->assertSame('inesperado', $resultado['tipo']);
