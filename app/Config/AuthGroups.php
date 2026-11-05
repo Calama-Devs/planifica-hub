@@ -138,8 +138,9 @@ class AuthGroups extends ShieldAuthGroups
                     }
                 }
             }
-        } catch (\Throwable) {
-            // Em comandos CLI, migrations ou ambiente sem banco conectado, preserva estritamente o código
+        } catch (\Throwable $e) {
+            // Em comandos CLI, migrations ou indisponibilidade de banco, registra aviso e preserva o código versionado
+            log_message('warning', '[AuthGroups] Não foi possível carregar permissões do banco: ' . $e->getMessage());
         }
     }
 }
