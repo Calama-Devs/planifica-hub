@@ -80,7 +80,7 @@ return view('contas/index', ['podeCriarConta' => auth()->user()->can('contas.cri
 
 ### 4. Para atribuir a um usuário
 
-Prefira atribuir pelo grupo. Use a permissão individual só como exceção justificada.
+Prefira atribuir pelo grupo. Use a permissão individual só como exceção justificada. A concessão e a revogação de permissões individuais têm tela própria (**Administração > Acessos**) e estão descritas em [permissões diretas](../autorizacao/permissoes-diretas.md), inclusive o que fazer quando o acesso continua por herança do grupo.
 
 ```php
 $usuario->addGroup('admin');
