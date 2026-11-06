@@ -9,6 +9,8 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
     $routes->get('/', 'Home::index', ['as' => 'dashboard']);
     $routes->get('sobre', 'Home::sobre', ['as' => 'sobre']);
     $routes->post('sobre', 'Home::testarValidacao', ['as' => 'sobre.testar']);
+    $routes->get('perfil', 'PerfilController::index', ['as' => 'perfil']);
+    $routes->post('perfil', 'PerfilController::atualizar', ['as' => 'perfil.atualizar']);
 });
 
 service('auth')->routes($routes, ['except' => ['logout']]);
