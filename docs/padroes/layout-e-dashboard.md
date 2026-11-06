@@ -21,6 +21,7 @@ app/Views/
     menu.php            # Menu de navegação lateral (sidebar Corona)
     cabecalho.php       # Barra superior com perfil e logout com proteção CSRF
     mensagens.php       # Alertas de sessão (sucesso, erro, aviso, info)
+    paginacao.php       # Navegação entre páginas das listagens (Bootstrap, em português)
     rodape.php          # Rodapé institucional oficial e ano dinâmico
   home/
     index.php           # View do método index() (Dashboard/Início) estendendo o layout
@@ -103,7 +104,7 @@ Quando uma nova rota autenticada for criada:
 
 ## 4. Regras do Manual
 
-- **Sem rotas fictícias (manual 19):** Não cadastrar links no menu para páginas inexistentes (o menu possui apenas as rotas reais ativas `/` e `/sobre`).
+- **Sem rotas fictícias (manual 19):** Não cadastrar links no menu para páginas inexistentes. Itens da seção "Administração" só aparecem para quem tem a permissão da rota (como "Acessos", de `acessos.administrar`); isso é conveniência, e a barreira é o filtro da rota.
 - **CSRF obrigatório (manual 11.3):** Formulários POST contêm `<?= csrf_field() ?>`. Chamadas AJAX enviam o token configurado em `public/assets/js/custom.js`, que lê e valida o meta tag `X-CSRF-TOKEN` gerado por `<?= csrf_meta() ?>` no layout base e o mantém atualizado em cada requisição (`ajaxSend`), sem nomes de cookie hardcoded e impedindo envio de headers com valores indefinidos.
 - **Proteção de Rotas Internas:** As páginas que utilizam `layouts/principal` são protegidas pelo filtro de autenticação `session` em `app/Config/Routes.php`, impedindo acesso indevido por usuários não autenticados.
 - **Prevenção de XSS (manual 11.6):** Toda informação dinâmica impressa em HTML deve usar `esc()`.

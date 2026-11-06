@@ -126,3 +126,11 @@ html, body {
     border: 1px solid #2c2e33;
     border-radius: 8px;
 }
+
+
+/* Tabelas da administração de acessos: o tema não deixa as células quebrarem linha, e a coluna de ação
+   saía da área visível em telas de 1024 px. Com a quebra, as colunas se ajustam e a ação continua à vista. */
+.tabela-acessos th,
+.tabela-acessos td {
+    white-space: normal;
+}
