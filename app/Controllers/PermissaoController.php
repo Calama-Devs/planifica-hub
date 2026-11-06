@@ -23,7 +23,7 @@ class PermissaoController extends BaseController
     {
         $permissoes = $this->permissaoService->listarPermissoes();
 
-        return view('permissoes/index', [
+        return view('permissao/index', [
             'permissoes' => $permissoes,
         ]);
     }
@@ -33,10 +33,7 @@ class PermissaoController extends BaseController
      */
     public function nova(): string
     {
-        return view('permissoes/formulario', [
-            'modo'      => 'cadastro',
-            'permissao' => null,
-        ]);
+        return view('permissao/nova');
     }
 
     /**
@@ -93,8 +90,7 @@ class PermissaoController extends BaseController
             return redirect()->to(url_to('permissoes.index'))->with('error', 'Permissão não encontrada.');
         }
 
-        return view('permissoes/formulario', [
-            'modo'      => 'edicao',
+        return view('permissao/editar', [
             'permissao' => $permissao,
         ]);
     }

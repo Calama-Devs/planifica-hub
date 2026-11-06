@@ -241,4 +241,20 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $this->assertSame('permissao', $resultado['tipo']);
         $this->assertSame('ACESSOS_SEM_PERMISSAO', $resultado['codigo']);
     }
+
+    public function testSincronizacaoCatalogoExecutaComSegurancaSemLancarExcecao(): void
+    {
+        // Garante que a chamada direta e após operações administrativas nunca dispara falhas de runtime
+        $catalogo = $this->service->sincronizarCatalogo();
+        $this->assertNotEmpty($catalogo);
+
+        // Testa persistência prévia em settings para confirmar limpeza defensiva
+        setting('AuthGroups.permissions', ['dummy.permissao' => 'Teste']);
+        $this->seeInDatabase('settings', ['key' => 'permissions']);
+
+        // A sincronização limpa a chave residual sem erros de método inexistente
+        $catalogoAposLimpeza = $this->service->sincronizarCatalogo();
+        $this->assertNotEmpty($catalogoAposLimpeza);
+        $this->dontSeeInDatabase('settings', ['key' => 'permissions']);
+    }
 }

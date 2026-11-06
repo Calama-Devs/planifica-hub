@@ -218,7 +218,14 @@ class PermissaoService
         }
 
         // Limpa chave residual em settings caso exista, preservando a soberania do arquivo de código
-        setting()->forget('AuthGroups.permissions');
+        $settings = setting();
+        if (is_object($settings)) {
+            if (method_exists($settings, 'forget')) {
+                $settings->forget('AuthGroups.permissions');
+            } elseif (method_exists($settings, 'delete')) {
+                $settings->delete('AuthGroups.permissions');
+            }
+        }
 
         // Aciona a mescla transparente na configuração compartilhada em memória
         $authGroups = config(AuthGroups::class);
