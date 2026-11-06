@@ -161,6 +161,32 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $this->assertSame($this->usuarioId, (int) $atualizado['updated_by']);
     }
 
+    public function testAtualizarDescricaoPermissaoCustomizadaRefleteNoAuthGroupsEmMemoria(): void
+    {
+        $dados = [
+            'identificador' => 'projetos.avaliar',
+            'descricao'     => 'Descrição original de avaliação de projetos',
+        ];
+
+        $cadastro = $this->service->cadastrarPermissao($dados, $this->usuarioId);
+        $this->assertTrue($cadastro['sucesso']);
+        $id = (int) $cadastro['id'];
+
+        $resultado = $this->service->atualizarDescricao(
+            $id,
+            'Descrição atualizada e sincronizada com shield em runtime',
+            $this->usuarioId
+        );
+
+        $this->assertTrue($resultado['sucesso']);
+
+        $authGroups = config(AuthGroups::class);
+        $this->assertSame(
+            'Descrição atualizada e sincronizada com shield em runtime',
+            $authGroups->permissions['projetos.avaliar']
+        );
+    }
+
     public function testAtualizarDescricaoRecusaDescricaoInvalida(): void
     {
         $permissao = $this->model->buscarPorIdentificador('contas.consultar');

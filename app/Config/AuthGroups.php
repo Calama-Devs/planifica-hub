@@ -123,15 +123,16 @@ class AuthGroups extends ShieldAuthGroups
 
             if ($db->tableExists('permissoes')) {
                 $permissoesAtivas = $db->table('permissoes')
-                    ->select('identificador, descricao')
+                    ->select('identificador, descricao, origem')
                     ->where('deleted_at', null)
                     ->get()
                     ->getResultArray();
 
                 foreach ($permissoesAtivas as $permissao) {
                     $identificador = (string) $permissao['identificador'];
+                    $origem        = (string) ($permissao['origem'] ?? 'customizada');
 
-                    if (! isset($this->permissions[$identificador])) {
+                    if (! isset($this->permissions[$identificador]) || $origem === 'customizada') {
                         $this->permissions[$identificador] = (string) $permissao['descricao'];
                     }
                 }
