@@ -110,7 +110,6 @@ final class PermissoesAdminTest extends CIUnitTestCase
         $this->assertSame('customizada', $registro['origem']);
         $this->assertSame((int) $superadmin->id, (int) $registro['created_by']);
 
-        // Verifica que o Shield aceita a nova permissão diretamente no usuário
         $superadmin->addPermission('projetos.aprovar');
         $this->assertTrue($superadmin->can('projetos.aprovar'));
     }
@@ -177,7 +176,6 @@ final class PermissoesAdminTest extends CIUnitTestCase
         $respostaForm->assertSee('Editar Permissão');
         $respostaForm->assertSee('contas.criar');
 
-        // Mesmo se o cliente tentar enviar 'identificador' malicioso no payload, ele é imutável
         $respostaAtualizar = $this->actingAs($superadmin)
             ->withSession($_SESSION)
             ->post('admin/permissoes/atualizar/' . (int) $permissao['id'], [

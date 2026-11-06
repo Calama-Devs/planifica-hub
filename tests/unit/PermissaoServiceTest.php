@@ -54,10 +54,8 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $this->assertArrayHasKey('contas.criar', $catalogo);
         $this->assertArrayHasKey('acessos.administrar', $catalogo);
 
-        // Confere que NUNCA grava AuthGroups.permissions na tabela settings do banco (anti-drift)
         $this->dontSeeInDatabase('settings', ['key' => 'permissions']);
 
-        // Confere que o catálogo em memória da config reflete as permissões
         $authGroups = config(AuthGroups::class);
         $this->assertArrayHasKey('contas.consultar', $authGroups->permissions);
     }
@@ -80,7 +78,6 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $this->assertSame('customizada', $registro['origem']);
         $this->assertSame($this->usuarioId, (int) $registro['created_by']);
 
-        // Verifica que a tabela settings permanece limpa e o objeto AuthGroups carrega a customizada em memória
         $this->dontSeeInDatabase('settings', ['key' => 'permissions']);
         $authGroups = new AuthGroups();
         $this->assertArrayHasKey('relatorios.emitir', $authGroups->permissions);
@@ -245,15 +242,12 @@ final class PermissaoServiceTest extends CIUnitTestCase
 
     public function testSincronizacaoCatalogoExecutaComSegurancaSemLancarExcecao(): void
     {
-        // Garante que a chamada direta e após operações administrativas nunca dispara falhas de runtime
         $catalogo = $this->service->sincronizarCatalogo();
         $this->assertNotEmpty($catalogo);
 
-        // Testa persistência prévia em settings para confirmar limpeza defensiva
         setting('AuthGroups.permissions', ['dummy.permissao' => 'Teste']);
         $this->seeInDatabase('settings', ['key' => 'permissions']);
 
-        // A sincronização limpa a chave residual sem erros de método inexistente
         $catalogoAposLimpeza = $this->service->sincronizarCatalogo();
         $this->assertNotEmpty($catalogoAposLimpeza);
         $this->dontSeeInDatabase('settings', ['key' => 'permissions']);
@@ -261,7 +255,6 @@ final class PermissaoServiceTest extends CIUnitTestCase
 
     public function testAuthGroupsCarregaPermissaoAtivaDoBancoMesmoComOrigemSistema(): void
     {
-        // Insere permissão com origem sistema diretamente no banco
         $this->model->insert([
             'identificador' => 'auditoria.consultar',
             'descricao'     => 'Permite consultar logs de auditoria institucional',

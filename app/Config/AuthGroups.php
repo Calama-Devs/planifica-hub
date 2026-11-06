@@ -131,14 +131,12 @@ class AuthGroups extends ShieldAuthGroups
                 foreach ($permissoesAtivas as $permissao) {
                     $identificador = (string) $permissao['identificador'];
 
-                    // O código versionado é a base prioritária: nunca substitui chaves do código
                     if (! isset($this->permissions[$identificador])) {
                         $this->permissions[$identificador] = (string) $permissao['descricao'];
                     }
                 }
             }
         } catch (\Throwable $e) {
-            // Em comandos CLI, migrations ou indisponibilidade de banco, registra aviso e preserva o código versionado
             log_message('warning', '[AuthGroups] Não foi possível carregar permissões do banco: ' . $e->getMessage());
         }
     }

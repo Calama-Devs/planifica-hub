@@ -98,7 +98,6 @@ class PermissaoService
                 'updated_by'    => $usuarioId,
             ]);
         } catch (\Throwable $e) {
-            // Trata colisão concorrente de chave única (MySQL 1062 - Duplicate entry)
             $mensagemErro = $e->getMessage();
             $isDuplicada  = $e->getCode() === 1062
                 || str_contains($mensagemErro, 'Duplicate entry')
@@ -252,7 +251,6 @@ class PermissaoService
     {
         $permissoesCodigo = config(AuthGroups::class)->permissions;
 
-        // Garante que todas as permissões declaradas em código existam no banco
         foreach ($permissoesCodigo as $identificador => $descricao) {
             $existente = $this->permissaoModel->buscarPorIdentificador($identificador);
 
@@ -265,7 +263,6 @@ class PermissaoService
             }
         }
 
-        // Limpa chave residual em settings caso exista, preservando a soberania do arquivo de código
         $settings = setting();
         if (is_object($settings)) {
             if (method_exists($settings, 'forget')) {
@@ -275,7 +272,6 @@ class PermissaoService
             }
         }
 
-        // Aciona a mescla transparente na configuração compartilhada em memória
         $authGroups = config(AuthGroups::class);
         if ($authGroups instanceof AuthGroups) {
             $authGroups->carregarPermissoes();

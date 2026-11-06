@@ -23,7 +23,6 @@ class PermissaoModel extends Model
         'deleted_by',
     ];
 
-    // Datas
     protected $useTimestamps = true;
     protected $dateFormat    = 'datetime';
     protected $createdField  = 'created_at';
