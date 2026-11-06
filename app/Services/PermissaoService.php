@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\PermissaoModel;
+use CodeIgniter\Database\Exceptions\DatabaseException;
 use CodeIgniter\Shield\Models\UserModel;
 use Config\AuthGroups;
 
@@ -88,15 +89,62 @@ class PermissaoService
             ];
         }
 
-        $id = $this->permissaoModel->insert([
-            'identificador' => $identificador,
-            'descricao'     => $descricao,
-            'origem'        => 'customizada',
-            'created_by'    => $usuarioId,
-            'updated_by'    => $usuarioId,
-        ]);
+        try {
+            $id = $this->permissaoModel->insert([
+                'identificador' => $identificador,
+                'descricao'     => $descricao,
+                'origem'        => 'customizada',
+                'created_by'    => $usuarioId,
+                'updated_by'    => $usuarioId,
+            ]);
+        } catch (\Throwable $e) {
+            // Trata colisão concorrente de chave única (MySQL 1062 - Duplicate entry)
+            $mensagemErro = $e->getMessage();
+            $isDuplicada  = $e->getCode() === 1062
+                || str_contains($mensagemErro, 'Duplicate entry')
+                || str_contains($mensagemErro, '1062');
+
+            if ($isDuplicada) {
+                log_message('notice', 'Tentativa concorrente de duplicidade para permissão: {identificador}', [
+                    'identificador' => $identificador,
+                ]);
+
+                return [
+                    'sucesso'  => false,
+                    'tipo'     => 'regra_negocio',
+                    'codigo'   => 'PERMISSAO_DUPLICADA',
+                    'mensagem' => 'Já existe uma permissão cadastrada com este identificador.',
+                ];
+            }
+
+            log_message('error', 'Exceção de banco ao persistir permissão {identificador}: {mensagem}', [
+                'identificador' => $identificador,
+                'mensagem'      => $mensagemErro,
+            ]);
+
+            return [
+                'sucesso'  => false,
+                'tipo'     => 'inesperado',
+                'codigo'   => 'PERMISSAO_ERRO_PERSISTENCIA',
+                'mensagem' => 'Não foi possível salvar a permissão no momento.',
+            ];
+        }
 
         if (! $id) {
+            /** @var array{code?: int|string, message?: string} $dbError */
+            $dbError      = $this->permissaoModel->db->error();
+            $mensagemErro = (string) ($dbError['message'] ?? '');
+            $codigoErro   = (int) ($dbError['code'] ?? 0);
+
+            if ($codigoErro === 1062 || str_contains($mensagemErro, 'Duplicate entry')) {
+                return [
+                    'sucesso'  => false,
+                    'tipo'     => 'regra_negocio',
+                    'codigo'   => 'PERMISSAO_DUPLICADA',
+                    'mensagem' => 'Já existe uma permissão cadastrada com este identificador.',
+                ];
+            }
+
             log_message('error', 'Falha ao persistir permissão: {identificador}', ['identificador' => $identificador]);
 
             return [

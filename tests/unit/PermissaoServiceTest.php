@@ -6,6 +6,7 @@ namespace Tests\Unit;
 
 use App\Models\PermissaoModel;
 use App\Services\PermissaoService;
+use CodeIgniter\Database\Exceptions\DatabaseException;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\Test\CIUnitTestCase;
@@ -256,5 +257,44 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $catalogoAposLimpeza = $this->service->sincronizarCatalogo();
         $this->assertNotEmpty($catalogoAposLimpeza);
         $this->dontSeeInDatabase('settings', ['key' => 'permissions']);
+    }
+
+    public function testAuthGroupsCarregaPermissaoAtivaDoBancoMesmoComOrigemSistema(): void
+    {
+        // Insere permissão com origem sistema diretamente no banco
+        $this->model->insert([
+            'identificador' => 'auditoria.consultar',
+            'descricao'     => 'Permite consultar logs de auditoria institucional',
+            'origem'        => 'sistema',
+            'created_by'    => $this->usuarioId,
+            'updated_by'    => $this->usuarioId,
+        ]);
+
+        $authGroups = new AuthGroups();
+        $this->assertArrayHasKey('auditoria.consultar', $authGroups->permissions);
+        $this->assertSame(
+            'Permite consultar logs de auditoria institucional',
+            $authGroups->permissions['auditoria.consultar']
+        );
+    }
+
+    public function testCadastrarPermissaoTrataExcecaoDeChaveUnicaComoDuplicada(): void
+    {
+        $mockModel = $this->createMock(PermissaoModel::class);
+        $mockModel->method('buscarPorIdentificador')->willReturn(null);
+        $mockModel->method('insert')->willThrowException(
+            new DatabaseException('Duplicate entry for key identificador', 1062)
+        );
+
+        $service = new PermissaoService($mockModel);
+        $resultado = $service->cadastrarPermissao([
+            'identificador' => 'concorrente.inserir',
+            'descricao'     => 'Teste de colisão concorrente de duplicidade',
+        ], $this->usuarioId);
+
+        $this->assertFalse($resultado['sucesso']);
+        $this->assertSame('regra_negocio', $resultado['tipo']);
+        $this->assertSame('PERMISSAO_DUPLICADA', $resultado['codigo']);
+        $this->assertSame('Já existe uma permissão cadastrada com este identificador.', $resultado['mensagem']);
     }
 }

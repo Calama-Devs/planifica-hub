@@ -113,7 +113,7 @@ class AuthGroups extends ShieldAuthGroups
     }
 
     /**
-     * Mescla dinamicamente permissões customizadas ativas da tabela `permissoes`
+     * Mescla dinamicamente permissões ativas da tabela `permissoes`
      * sem sobrescrever as permissões nativas versionadas em código (precedência de código).
      */
     public function carregarPermissoes(): void
@@ -122,14 +122,13 @@ class AuthGroups extends ShieldAuthGroups
             $db = db_connect();
 
             if ($db->tableExists('permissoes')) {
-                $customizadas = $db->table('permissoes')
+                $permissoesAtivas = $db->table('permissoes')
                     ->select('identificador, descricao')
-                    ->where('origem', 'customizada')
                     ->where('deleted_at', null)
                     ->get()
                     ->getResultArray();
 
-                foreach ($customizadas as $permissao) {
+                foreach ($permissoesAtivas as $permissao) {
                     $identificador = (string) $permissao['identificador'];
 
                     // O código versionado é a base prioritária: nunca substitui chaves do código
