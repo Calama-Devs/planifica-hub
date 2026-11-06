@@ -2,6 +2,7 @@
 
 namespace Config;
 
+use App\Services\PermissaoDiretaService;
 use CodeIgniter\Config\BaseService;
 
 /**
@@ -29,4 +30,13 @@ class Services extends BaseService
      *     return new \CodeIgniter\Example();
      * }
      */
+
+    public static function permissaoDiretaService(bool $getShared = true): PermissaoDiretaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('permissaoDiretaService');
+        }
+
+        return new PermissaoDiretaService();
+    }
 }
