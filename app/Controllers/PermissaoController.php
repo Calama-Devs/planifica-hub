@@ -41,7 +41,7 @@ class PermissaoController extends BaseController
      */
     public function salvar(): RedirectResponse
     {
-        if (! auth()->user()->can('acessos.administrar')) {
+        if (! auth()->loggedIn() || ! auth()->user()?->can('acessos.administrar')) {
             return redirect()->to(rtrim(site_url('/'), '/'))->with('error', 'Sem permissão para administrar acessos.');
         }
 
@@ -100,7 +100,7 @@ class PermissaoController extends BaseController
      */
     public function atualizar(int $id): RedirectResponse
     {
-        if (! auth()->user()->can('acessos.administrar')) {
+        if (! auth()->loggedIn() || ! auth()->user()?->can('acessos.administrar')) {
             return redirect()->to(rtrim(site_url('/'), '/'))->with('error', 'Sem permissão para administrar acessos.');
         }
 

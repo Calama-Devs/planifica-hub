@@ -316,4 +316,20 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $this->assertSame('PERMISSAO_DUPLICADA', $resultado['codigo']);
         $this->assertSame('Já existe uma permissão cadastrada com este identificador.', $resultado['mensagem']);
     }
+
+    public function testAuthGroupsNuncaSobrescreveDescricaoDePermissaoNativaVersionada(): void
+    {
+        $registro = $this->model->buscarPorIdentificador('contas.consultar');
+        $this->assertNotNull($registro);
+
+        $this->model->update((int) $registro['id'], [
+            'descricao' => 'Tentativa de sobrescrever descrição nativa pelo banco',
+        ]);
+
+        $authGroups = new AuthGroups();
+        $this->assertSame(
+            'Consultar a lista e os dados das contas de usuário',
+            $authGroups->permissions['contas.consultar']
+        );
+    }
 }

@@ -113,6 +113,15 @@ class AuthGroups extends ShieldAuthGroups
     }
 
     /**
+     * Identificadores de permissões nativas versionadas em código (imutáveis via banco).
+     */
+    private const PERMISSOES_NATIVAS = [
+        'contas.consultar',
+        'contas.criar',
+        'acessos.administrar',
+    ];
+
+    /**
      * Mescla dinamicamente permissões ativas da tabela `permissoes`
      * sem sobrescrever as permissões nativas versionadas em código (precedência de código).
      */
@@ -123,18 +132,19 @@ class AuthGroups extends ShieldAuthGroups
 
             if ($db->tableExists('permissoes')) {
                 $permissoesAtivas = $db->table('permissoes')
-                    ->select('identificador, descricao, origem')
+                    ->select('identificador, descricao')
                     ->where('deleted_at', null)
                     ->get()
                     ->getResultArray();
 
                 foreach ($permissoesAtivas as $permissao) {
                     $identificador = (string) $permissao['identificador'];
-                    $origem        = (string) ($permissao['origem'] ?? 'customizada');
 
-                    if (! isset($this->permissions[$identificador]) || $origem === 'customizada') {
-                        $this->permissions[$identificador] = (string) $permissao['descricao'];
+                    if (in_array($identificador, self::PERMISSOES_NATIVAS, true)) {
+                        continue;
                     }
+
+                    $this->permissions[$identificador] = (string) $permissao['descricao'];
                 }
             }
         } catch (\Throwable $e) {
