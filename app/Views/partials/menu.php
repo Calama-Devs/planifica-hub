@@ -28,5 +28,21 @@
                 <span class="menu-title">Sobre</span>
             </a>
         </li>
+
+        <?php // Só conveniência: quem digitar a URL sem a permissão é barrado pelo filtro da rota. ?>
+        <?php if (auth()->loggedIn() && auth()->user()->can('acessos.administrar')) : ?>
+            <li class="nav-item nav-category">
+                <span class="nav-link">Administração</span>
+            </li>
+
+            <li class="nav-item menu-items <?= url_is('admin/acessos*') ? 'active' : '' ?>">
+                <a class="nav-link" href="<?= site_url('admin/acessos') ?>">
+                    <span class="menu-icon">
+                        <i class="mdi mdi-account-key text-warning" aria-hidden="true"></i>
+                    </span>
+                    <span class="menu-title">Acessos</span>
+                </a>
+            </li>
+        <?php endif ?>
     </ul>
 </nav>
