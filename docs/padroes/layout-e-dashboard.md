@@ -26,7 +26,7 @@ app/Views/
   home/
     index.php           # View do método index() (Dashboard/Início) estendendo o layout
     sobre.php           # View do método sobre() (Segunda tela de demonstração do reuso)
-  <controller>/
+  <controller>/         # Nome do Controller sem o sufixo, em minúsculas (AcessoController: acesso/)
     <metodo>.php        # Telas dos futuros controllers do sistema
 ```
 
@@ -36,7 +36,7 @@ app/Views/
 
 Para criar uma tela e integrá-la ao layout reutilizável:
 
-1. Crie o arquivo da view no diretório do controller correspondente, ex.: `app/Views/<controller>/<metodo>.php`.
+1. Crie o arquivo da view no diretório do controller correspondente, ex.: `app/Views/<controller>/<metodo>.php`. O diretório leva o nome do Controller sem o sufixo `Controller`, em minúsculas (`Home` → `home/`, `AcessoController` → `acesso/`).
 2. Estenda o layout principal através da diretiva `$this->extend('layouts/principal')` e preencha as seções necessárias:
 
 ```php
