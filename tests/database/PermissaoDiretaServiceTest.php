@@ -264,6 +264,73 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
         $this->seeInDatabase('auth_permissions_users', ['user_id' => $conta->id, 'permission' => 'contas.consultar']);
     }
 
+    public function testNaoConfirmaATransacaoExternaDoChamador(): void
+    {
+        $conta = $this->criarConta('conta.alvo', 'user');
+
+        $this->db->transBegin();
+        $resultado = $this->servico->conceder($conta->id, 'contas.consultar', $this->operador->id);
+
+        // O commit de dentro do serviço só baixa a profundidade: a transação do chamador continua aberta.
+        $this->assertTrue($resultado['sucesso']);
+        $this->assertSame(1, $this->db->transDepth);
+
+        $this->db->transRollback();
+
+        $this->assertSame(0, $this->db->transDepth);
+        $this->dontSeeInDatabase('auth_permissions_users', ['user_id' => $conta->id]);
+        $this->dontSeeInDatabase('auditoria_permissoes', ['usuario_id' => $conta->id]);
+    }
+
+    public function testRevogacaoNaoConfirmaATransacaoExternaDoChamador(): void
+    {
+        $conta = $this->criarConta('conta.alvo', 'user', ['contas.consultar']);
+
+        $this->db->transBegin();
+        $resultado = $this->servico->revogar($conta->id, 'contas.consultar', $this->operador->id);
+        $this->db->transRollback();
+
+        $this->assertTrue($resultado['sucesso']);
+        $this->seeInDatabase('auth_permissions_users', ['user_id' => $conta->id, 'permission' => 'contas.consultar']);
+        $this->dontSeeInDatabase('auditoria_permissoes', ['usuario_id' => $conta->id]);
+    }
+
+    public function testConfirmaOsDadosQuandoOChamadorConfirmaASuaTransacao(): void
+    {
+        $conta = $this->criarConta('conta.alvo', 'user');
+
+        $this->db->transBegin();
+        $this->servico->conceder($conta->id, 'contas.consultar', $this->operador->id);
+        $this->db->transCommit();
+
+        // Com o par transBegin/transCommit equilibrado, o commit do chamador é o de verdade e a profundidade zera.
+        $this->assertSame(0, $this->db->transDepth);
+        $this->seeInDatabase('auth_permissions_users', ['user_id' => $conta->id, 'permission' => 'contas.consultar']);
+        $this->seeNumRecords(1, 'auditoria_permissoes', ['usuario_id' => $conta->id]);
+    }
+
+    public function testRollbackDoChamadorDesfazTudoMesmoComFalhaNoMeio(): void
+    {
+        $primeira = $this->criarConta('conta.alvo', 'user');
+        $segunda  = $this->criarConta('conta.outra', 'user');
+        $comFalha = new PermissaoDiretaService(null, $this->auditoriaQueLancaExcecao());
+
+        $this->db->transBegin();
+        $primeiro = $this->servico->conceder($primeira->id, 'contas.consultar', $this->operador->id);
+        $falha    = $comFalha->conceder($segunda->id, 'contas.consultar', $this->operador->id);
+
+        // O serviço só informa a falha: quem abriu a transação continua com ela e decide desfazer tudo.
+        $this->assertTrue($primeiro['sucesso']);
+        $this->assertSame('PERMISSAO_DIRETA_ERRO_PERSISTENCIA', $falha['codigo']);
+        $this->assertSame(1, $this->db->transDepth);
+
+        $this->db->transRollback();
+
+        $this->dontSeeInDatabase('auth_permissions_users', ['user_id' => $primeira->id]);
+        $this->dontSeeInDatabase('auth_permissions_users', ['user_id' => $segunda->id]);
+        $this->seeNumRecords(0, 'auditoria_permissoes', []);
+    }
+
     public function testConsultarSeparaHerdadasDiretasEEfetivas(): void
     {
         $conta = $this->criarConta('conta.alvo', 'admin', ['acessos.administrar']);
