@@ -139,7 +139,7 @@ class PermissaoDiretaService
             return $this->falha('regra_negocio', 'CONTA_NAO_ENCONTRADA', 'Conta não encontrada.');
         }
 
-        if ($conta->hasPermission($permissao)) {
+        if ($this->temVinculoDireto($conta, $permissao)) {
             return $this->falha(
                 'regra_negocio',
                 'PERMISSAO_DIRETA_JA_CONCEDIDA',
@@ -172,7 +172,8 @@ class PermissaoDiretaService
         }
 
         // A lista permitida é o que a conta tem de fato: assim também dá para limpar vínculos fora do catálogo.
-        if (! $conta->hasPermission($permissao)) {
+        // Só vale o vínculo direto: quem recebe a permissão apenas de um grupo não tem o que revogar aqui.
+        if (! $this->temVinculoDireto($conta, $permissao)) {
             return $this->falha(
                 'regra_negocio',
                 'PERMISSAO_DIRETA_NAO_CONCEDIDA',
@@ -186,6 +187,10 @@ class PermissaoDiretaService
     /**
      * Grava o vínculo direto e a auditoria na mesma transação e devolve o efeito real,
      * lido da conta recarregada.
+     *
+     * Se o chamador já abriu uma transação, a operação participa dela: no CodeIgniter só a transação
+     * mais externa faz COMMIT ou ROLLBACK de verdade, e as de dentro apenas ajustam a profundidade.
+     * Quem abriu a transação continua decidindo o desfecho, olhando o `sucesso` do retorno.
      *
      * @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string, acesso_efetivo?: bool}
      */
@@ -208,6 +213,8 @@ class PermissaoDiretaService
                 throw new RuntimeException('A auditoria não foi gravada.');
             }
 
+            // Par do transBegin(): em transação externa só baixa a profundidade,
+            // e o COMMIT de verdade continua com quem abriu a transação.
             $this->banco->transCommit();
         } catch (Throwable $erro) {
             $this->banco->transRollback();
@@ -304,6 +311,15 @@ class PermissaoDiretaService
         }
 
         return $this->falha('permissao', 'ACESSOS_SEM_PERMISSAO', 'Sem permissão para administrar acessos.');
+    }
+
+    /**
+     * Informa se a permissão está gravada diretamente na conta (`auth_permissions_users`).
+     * Os grupos não entram: a herança só aparece em `User::can()`, nunca aqui.
+     */
+    private function temVinculoDireto(User $conta, string $permissao): bool
+    {
+        return in_array($permissao, $conta->getPermissions() ?? [], true);
     }
 
     /**
