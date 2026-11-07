@@ -13,7 +13,8 @@ use CodeIgniter\Database\Migration;
  * Tabela só de inclusão: um registro nunca é alterado nem excluído, por isso
  * não tem `updated_at` nem `deleted_at`. A autoria fica em `created_by` (quem
  * operou) e a conta afetada em `usuario_id`. As chaves estrangeiras usam
- * RESTRICT para que a trilha nunca perca o vínculo com as contas.
+ * `ON DELETE RESTRICT` (uma conta com histórico não pode ser excluída de vez, e
+ * a trilha nunca perde o vínculo) e `ON UPDATE CASCADE`.
  */
 class CriarTabelaAuditoriaPermissoes extends Migration
 {
@@ -50,8 +51,9 @@ class CriarTabelaAuditoriaPermissoes extends Migration
         ]);
 
         $this->forge->addPrimaryKey('id');
-        $this->forge->addForeignKey('usuario_id', 'users', 'id', 'CASCADE', 'RESTRICT');
-        $this->forge->addForeignKey('created_by', 'users', 'id', 'CASCADE', 'RESTRICT');
+        // Argumentos nomeados: a ordem do Forge é onUpdate e depois onDelete, fácil de ler ao contrário.
+        $this->forge->addForeignKey('usuario_id', 'users', 'id', onUpdate: 'CASCADE', onDelete: 'RESTRICT');
+        $this->forge->addForeignKey('created_by', 'users', 'id', onUpdate: 'CASCADE', onDelete: 'RESTRICT');
         $this->forge->createTable('auditoria_permissoes');
     }
 
