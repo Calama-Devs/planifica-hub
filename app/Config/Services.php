@@ -2,6 +2,7 @@
 
 namespace Config;
 
+use App\Services\PerfilService;
 use CodeIgniter\Config\BaseService;
 
 /**
@@ -19,6 +20,15 @@ use CodeIgniter\Config\BaseService;
  */
 class Services extends BaseService
 {
+    public static function perfilService(bool $getShared = true): PerfilService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('perfilService');
+        }
+
+        return new PerfilService();
+    }
+
     /*
      * public static function example($getShared = true)
      * {
