@@ -87,6 +87,7 @@ Depois de qualquer um dos caminhos, reabra a página de permissões da conta e c
 
 - **Persiste só vínculos diretos:** usa `User::addPermission()` e `User::removePermission()` do Shield. Não usa `syncGroups()`, `syncPermissions()` nem grava `AuthGroups.matrix` pelo `setting()`.
 - **Vínculo e auditoria na mesma transação:** se a auditoria falhar, o vínculo também não é gravado, e o operador vê "Não foi possível concluir a operação" sem detalhe técnico. O detalhe vai para o log, sem dados pessoais.
+- **Dentro de uma transação maior:** se o chamador já abriu uma transação, a operação participa dela. O CodeIgniter só efetiva a transação mais externa, então o `commit` e o `rollback` de verdade ficam com quem a abriu, que decide pelo `sucesso` do retorno.
 - **Efeito real:** depois de gravar, o Service **recarrega a conta do banco** antes de calcular o resultado, porque o Shield guarda grupos e permissões em cache na própria entidade. A mensagem e a tela mostram o que o `can()` decide.
 - **Herança calculada como o Shield calcula:** os grupos que concedem a permissão são achados com o mesmo `PermissionMatcher` do `can()`, então curingas na matriz (como `contas.*`) também aparecem.
 
