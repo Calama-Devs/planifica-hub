@@ -5,6 +5,7 @@ namespace App\Filters;
 use CodeIgniter\Filters\FilterInterface;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
+use CodeIgniter\HTTP\SiteURI;
 use CodeIgniter\Shield\Authentication\Authenticators\Session;
 
 class RedefinicaoSenhaFilter implements FilterInterface
@@ -17,12 +18,19 @@ class RedefinicaoSenhaFilter implements FilterInterface
 
     private const ROTAS_PERMITIDAS_DURANTE_REDEFINICAO = [
         'reset-password',
+        'reset-password/cancelar',
         'logout',
     ];
 
     public function before(RequestInterface $request, $arguments = null): ?ResponseInterface
     {
-        $caminho      = $this->normalizarCaminho($request->getUri()->getPath());
+        $uri = $request->getUri();
+
+        if (!$uri instanceof SiteURI) {
+            return null;
+        }
+
+        $caminho      = trim($uri->getRoutePath(), '/');
         $autenticador = auth('session')->getAuthenticator();
 
         if (!$autenticador instanceof Session) {
@@ -31,6 +39,17 @@ class RedefinicaoSenhaFilter implements FilterInterface
 
         $temSessao  = $autenticador->loggedIn() || $autenticador->isPending();
         $magicLogin = session()->getTempdata('magicLogin') === true;
+
+        if ($magicLogin && $autenticador->loggedIn()) {
+            session()->set('redefinicaoSenhaPendente', true);
+        }
+
+        if (session()->get('redefinicaoSenhaPendente') === true && !$magicLogin) {
+            auth()->logout();
+            session()->remove(['redefinicaoSenhaPendente', 'beforeLoginUrl']);
+
+            return redirect()->to(site_url('login'));
+        }
 
         if ($magicLogin && ! $autenticador->loggedIn()) {
             session()->removeTempdata('magicLogin');
@@ -58,16 +77,5 @@ class RedefinicaoSenhaFilter implements FilterInterface
         $arguments = null
     ): ?ResponseInterface {
         return null;
-    }
-
-    private function normalizarCaminho(string $caminho): string
-    {
-        $caminho = trim($caminho, '/');
-
-        if (str_starts_with($caminho, 'index.php/')) {
-            return substr($caminho, strlen('index.php/'));
-        }
-
-        return $caminho;
     }
 }

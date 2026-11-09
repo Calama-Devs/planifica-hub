@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Services\RedefinirSenhaService;
 use CodeIgniter\HTTP\RedirectResponse;
+use CodeIgniter\HTTP\ResponseInterface;
 
 class RedefinirSenhaController extends BaseController
 {
@@ -27,24 +28,18 @@ class RedefinirSenhaController extends BaseController
             return redirect()->route('magic-link');
         }
 
-        return view('redefinirsenha/redefinir', [
-            'acaoFormulario'   => site_url('reset-password'),
-            'exigirSenhaAtual' => false,
-            'titulo'            => 'Redefinição de senha',
-            'textoOrientacao'   => 'Defina uma nova senha para concluir a recuperação da sua conta.',
-            'textoBotao'        => 'Salvar nova senha',
-        ]);
+        return view('redefinirsenha/redefinir');
     }
 
-    public function alterarPeloPerfil(): string
+    public function cancelar(): RedirectResponse
     {
-        return view('redefinirsenha/alterar_pelo_perfil', [
-            'acaoFormulario'   => site_url('perfil/alterar-senha'),
-            'exigirSenhaAtual' => true,
-            'titulo'            => 'Alteração de senha',
-            'textoOrientacao'   => 'Confirme sua senha atual e defina uma nova senha para sua conta.',
-            'textoBotao'        => 'Alterar senha',
-        ]);
+        if (!$this->possuiAcessoTemporario()) {
+            return redirect()->to(site_url('/'));
+        }
+
+        $this->encerrarSessaoTemporaria();
+
+        return redirect()->route('login');
     }
 
     public function atualizar(): RedirectResponse
@@ -80,16 +75,28 @@ class RedefinirSenhaController extends BaseController
             ->with('success', 'Senha redefinida com sucesso. Acesse com sua nova senha.');
     }
 
-    public function atualizarPeloPerfil(): RedirectResponse
+    public function atualizarPeloPerfil(): ResponseInterface
     {
+        if ($this->possuiAcessoTemporario() || session()->get('redefinicaoSenhaPendente') === true) {
+            return $this->responderPerfil([
+                'sucesso' => false,
+                'tipo' => 'permissao',
+                'codigo' => 'SESSAO_TEMPORARIA',
+                'mensagem' => 'Utilize a página de recuperação de senha.',
+            ], 403);
+        }
+
         $usuario = auth()->user();
 
         if ($usuario === null || (int) $usuario->active !== 1) {
             auth()->logout();
 
-            return redirect()
-                ->route('login')
-                ->with('error', 'Usuário não encontrado ou desativado.');
+            return $this->responderPerfil([
+                'sucesso' => false,
+                'tipo' => 'permissao',
+                'codigo' => 'USUARIO_INDISPONIVEL',
+                'mensagem' => 'Sessão indisponível. Entre novamente.',
+            ], 403);
         }
 
         $resultado = $this->redefinirSenhaService->alterarPeloPerfil(
@@ -100,14 +107,22 @@ class RedefinirSenhaController extends BaseController
         );
 
         if (!$resultado['sucesso']) {
-            return redirect()->back()->with('error', $resultado['mensagem']);
+            return $this->responderPerfil($resultado, $resultado['tipo'] === 'inesperado' ? 500 : 422);
         }
 
         auth()->logout();
 
-        return redirect()
-            ->route('login')
-            ->with('success', 'Senha alterada com sucesso. Acesse com sua nova senha.');
+        session()->setFlashdata('success', 'Senha alterada com sucesso. Acesse com sua nova senha.');
+
+        return $this->responderPerfil($resultado + ['redirecionamento' => url_to('login')]);
+    }
+
+    /** @param array<string, mixed> $resultado */
+    private function responderPerfil(array $resultado, int $status = 200): ResponseInterface
+    {
+        return $this->response->setStatusCode($status)->setJSON($resultado + [
+            'csrf' => ['nome' => csrf_token(), 'hash' => csrf_hash()],
+        ]);
     }
 
     private function possuiAcessoTemporario(): bool
@@ -119,6 +134,7 @@ class RedefinirSenhaController extends BaseController
     {
         session()->removeTempdata('magicLogin');
         session()->removeTempdata('beforeLoginUrl');
+        session()->remove('redefinicaoSenhaPendente');
         auth()->logout();
     }
 }

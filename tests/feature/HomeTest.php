@@ -50,7 +50,7 @@ final class HomeTest extends CIUnitTestCase
         $resposta->assertSee('PlanIFica Hub');
         $resposta->assertSee('Dashboard');
         $resposta->assertSee('Alterar Senha');
-        $resposta->assertSeeElement('a[id=botao-alterar-senha]');
+        $resposta->assertSeeElement('button[id=botao-alterar-senha]');
         $resposta->assertSee('mdi-lock-reset');
     }
 
@@ -70,7 +70,7 @@ final class HomeTest extends CIUnitTestCase
         $usuario = $this->criarUsuario();
         $this->actingAs($usuario);
 
-        $resposta = $this->withSession($_SESSION)->get('perfil/alterar-senha');
+        $resposta = $this->withSession($_SESSION)->get('/');
 
         $resposta->assertOK();
         $resposta->assertSeeElement('input[name=senha-atual]');
@@ -85,6 +85,8 @@ final class HomeTest extends CIUnitTestCase
             $resposta = $this->actingAs($usuario)->get($rota);
 
             $resposta->assertOK();
+            $resposta->assertSeeElement('div[id=modal-alterar-senha]');
+            $resposta->assertSeeElement('form[id=formulario-alterar-senha]');
             $this->assertStringContainsString(
                 '<link rel="stylesheet" href="' . base_url('assets/vendor/mdi/css/materialdesignicons.min.css') . '">',
                 $resposta->getBody()

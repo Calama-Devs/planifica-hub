@@ -28,7 +28,7 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->resetServices();
         parent::setUp();
 
-        $this->senha = bin2hex(random_bytes(24));
+        $this->senha = 'Inicial@9' . bin2hex(random_bytes(24));
     }
 
     public function testExibeLoginComTokenCsrf(): void
@@ -417,6 +417,8 @@ final class AutenticacaoTest extends CIUnitTestCase
 
         $resposta->assertOK();
         $resposta->assertDontSeeElement('input[name=senha-atual]');
+        $resposta->assertDontSeeElement('div[id=modal-alterar-senha]');
+        $resposta->assertSee('Voltar para o login');
         $resposta->assertSeeElement('input[name=senha-nova]');
         $resposta->assertSeeElement('form[data-envio-unico=true]');
         $resposta->assertSeeElement('button[data-texto-processando=Salvando...]');
@@ -427,10 +429,10 @@ final class AutenticacaoTest extends CIUnitTestCase
     {
         $this->cadastrarUsuario();
 
-        $resposta = $this->withSession($_SESSION)->get('perfil/alterar-senha');
+        $resposta = $this->withSession($_SESSION)->get('/');
 
         $resposta->assertOK();
-        $resposta->assertSee('Alteração de senha');
+        $resposta->assertSeeElement('div[id=modal-alterar-senha]');
         $resposta->assertSeeElement('input[name=senha-atual]');
         $resposta->assertSeeElement('input[name=senha-nova]');
         $resposta->assertSeeElement('input[name=confirmar-senha-nova]');
@@ -439,7 +441,7 @@ final class AutenticacaoTest extends CIUnitTestCase
 
     public function testRecusaAlteracaoPeloPerfilSemAutenticacao(): void
     {
-        $resposta = $this->get('perfil/alterar-senha');
+        $resposta = $this->executarAlteracaoPeloPerfil('Atual@123', 'NovaSenha@123', 'NovaSenha@123');
 
         $resposta->assertRedirectTo('/login');
     }
@@ -456,12 +458,12 @@ final class AutenticacaoTest extends CIUnitTestCase
             'NovaSenha@123'
         );
 
-        $resposta->assertRedirect();
-        $resposta->assertSessionHas('error', 'A senha atual informada está incorreta.');
+        $resposta->assertStatus(422);
+        $resposta->assertJSONFragment(['codigo' => 'SENHA_ATUAL_INCORRETA', 'sucesso' => false]);
         $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
         $this->assertTrue(auth()->loggedIn());
 
-        $tela = $this->withSession($_SESSION)->get('perfil/alterar-senha');
+        $tela = $this->withSession($_SESSION)->get('/');
 
         $tela->assertOK();
         $tela->assertSeeElement('input[name=senha-atual]');
@@ -475,8 +477,8 @@ final class AutenticacaoTest extends CIUnitTestCase
 
         $resposta = $this->executarAlteracaoPeloPerfil($this->senha, $this->senha, $this->senha);
 
-        $resposta->assertRedirect();
-        $resposta->assertSessionHas('error', 'A nova senha deve ser diferente da senha atual.');
+        $resposta->assertStatus(422);
+        $resposta->assertJSONFragment(['codigo' => 'NOVA_SENHA_IGUAL_ATUAL', 'sucesso' => false]);
         $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
         $this->assertTrue(auth()->loggedIn());
     }
@@ -490,7 +492,8 @@ final class AutenticacaoTest extends CIUnitTestCase
 
         $resposta = $this->executarAlteracaoPeloPerfil($senhaAnterior, $senhaNova, $senhaNova);
 
-        $resposta->assertRedirectTo('/login');
+        $resposta->assertOK();
+        $resposta->assertJSONFragment(['sucesso' => true, 'redirecionamento' => url_to('login')]);
         $resposta->assertSessionHas('success');
         $this->assertFalse(password_verify($senhaAnterior, $this->buscarHashDaSenha()));
         $this->assertTrue(password_verify($senhaNova, $this->buscarHashDaSenha()));
@@ -527,5 +530,143 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->assertFalse(auth()->loggedIn());
         $this->assertNull(session()->getTempdata('magicLogin'));
         $resposta->assertSessionHas('success');
+    }
+
+    public function testRemoveRotaGetDeAlteracaoPeloPerfil(): void
+    {
+        $this->cadastrarUsuario();
+        $this->expectException(PageNotFoundException::class);
+
+        $this->withSession($_SESSION)->get('perfil/alterar-senha');
+    }
+
+    public function testRecusaAlteracaoPeloPerfilSemCsrf(): void
+    {
+        $this->cadastrarUsuario();
+        $this->expectException(SecurityException::class);
+
+        $this->withSession($_SESSION)->post('perfil/alterar-senha', ['senha-atual' => $this->senha]);
+    }
+
+    public function testMagicLinkNaoPodeAlterarPeloPerfil(): void
+    {
+        $this->cadastrarUsuario();
+        $this->ativarUsuarioAutenticado();
+        session()->setTempdata('magicLogin', true);
+        $hashAnterior = $this->buscarHashDaSenha();
+
+        $resposta = $this->executarAlteracaoPeloPerfil($this->senha, 'NovaSenha@123', 'NovaSenha@123');
+
+        $resposta->assertRedirectTo(site_url('reset-password'));
+        $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
+    }
+
+    public function testRetornaAoLoginELimpaSessaoTemporariaSemMudarSenha(): void
+    {
+        $this->cadastrarUsuario();
+        session()->setTempdata('magicLogin', true);
+        session()->setTempdata('beforeLoginUrl', site_url('sobre'));
+        session()->set('redefinicaoSenhaPendente', true);
+        $hashAnterior = $this->buscarHashDaSenha();
+
+        $resposta = $this->enviarFormulario('reset-password/cancelar', []);
+
+        $resposta->assertRedirectTo('/login');
+        $this->assertFalse(auth()->loggedIn());
+        $this->assertNull(session()->getTempdata('magicLogin'));
+        $this->assertNull(session()->getTempdata('beforeLoginUrl'));
+        $this->assertNull(session()->get('redefinicaoSenhaPendente'));
+        $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
+        $this->withSession($_SESSION)->get('sobre')->assertRedirectTo('/login');
+    }
+
+    public function testRetornoAoLoginExigeCsrf(): void
+    {
+        $this->cadastrarUsuario();
+        session()->setTempdata('magicLogin', true);
+        $this->expectException(SecurityException::class);
+
+        $this->withSession($_SESSION)->post('reset-password/cancelar');
+    }
+
+    public function testRetornoAoLoginNaoAceitaGet(): void
+    {
+        $this->cadastrarUsuario();
+        session()->setTempdata('magicLogin', true);
+        $this->expectException(PageNotFoundException::class);
+
+        $this->withSession($_SESSION)->get('reset-password/cancelar');
+    }
+
+    public function testPerfilRecusaTokenCsrfInvalidoEmAjax(): void
+    {
+        $this->cadastrarUsuario();
+        $this->expectException(SecurityException::class);
+
+        $this->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])
+            ->withSession($_SESSION)->post('perfil/alterar-senha', [csrf_token() => 'invalido']);
+    }
+
+    public function testRetornoAoLoginNaoEncerraSessaoNormal(): void
+    {
+        $this->cadastrarUsuario();
+
+        $this->enviarFormulario('reset-password/cancelar', [])->assertRedirectTo(site_url('/'));
+
+        $this->assertTrue(auth()->loggedIn());
+    }
+
+    public function testExpiracaoDoMagicLinkNaoLiberaPaginasInternas(): void
+    {
+        $this->cadastrarUsuario();
+        session()->setTempdata('magicLogin', true);
+        config('Auth')->loginRedirect();
+        session()->removeTempdata('magicLogin');
+
+        $this->withSession($_SESSION)->get('sobre')->assertRedirectTo(site_url('login'));
+
+        $this->assertFalse(auth()->loggedIn());
+    }
+
+    public function testErrosDoPerfilRetornamJsonECsrfRenovado(): void
+    {
+        $this->cadastrarUsuario();
+        $this->ativarUsuarioAutenticado();
+        $hashAnterior = $this->buscarHashDaSenha();
+
+        foreach (
+            [
+            ['', 'NovaSenha@123', 'NovaSenha@123', 'SENHA_ATUAL_OBRIGATORIA'],
+            [$this->senha, 'NovaSenha@123', 'OutraSenha@123', 'CONFIRMACAO_DIVERGENTE'],
+            [$this->senha, 'curta', 'curta', 'SENHA_RECUSADA_PELO_SHIELD'],
+            ] as [$atual, $nova, $confirmacao, $codigo]
+        ) {
+            $tokenAnterior = csrf_hash();
+            $resposta = $this->executarAlteracaoPeloPerfil($atual, $nova, $confirmacao);
+
+            $resposta->assertStatus(422);
+            $resposta->assertJSONFragment(['sucesso' => false, 'codigo' => $codigo]);
+            $json = json_decode($resposta->getJSON(), true);
+            $this->assertSame(csrf_hash(), $json['csrf']['hash']);
+            $this->assertNotSame($tokenAnterior, $json['csrf']['hash']);
+            $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
+            $this->assertTrue(auth()->loggedIn());
+            $resposta->assertSessionMissing('_ci_old_input');
+        }
+    }
+
+    public function testPerfilRecusaUsuarioDesativado(): void
+    {
+        $usuario = $this->cadastrarUsuario();
+        $usuario->active = 0;
+        $this->db->table('users')->where('id', $usuario->id)->update(['active' => 0]);
+        $hashAnterior = $this->buscarHashDaSenha();
+
+        $resposta = $this->executarAlteracaoPeloPerfil($this->senha, 'NovaSenha@123', 'NovaSenha@123');
+
+        $resposta->assertStatus(403);
+        $resposta->assertJSONFragment(['codigo' => 'USUARIO_INDISPONIVEL']);
+        $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
+        $this->assertFalse(auth()->loggedIn());
     }
 }

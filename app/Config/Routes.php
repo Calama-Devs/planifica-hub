@@ -8,7 +8,6 @@ use CodeIgniter\Router\RouteCollection;
 $routes->group('', ['filter' => ['session', 'redefinicaoSenha']], static function (RouteCollection $routes): void {
     $routes->get('/', 'Home::index', ['as' => 'dashboard']);
     $routes->get('sobre', 'Home::sobre', ['as' => 'sobre']);
-    $routes->get('perfil/alterar-senha', 'RedefinirSenhaController::alterarPeloPerfil', ['as' => 'alterar-senha-perfil']);
     $routes->post('perfil/alterar-senha', 'RedefinirSenhaController::atualizarPeloPerfil', ['as' => 'atualizar-senha-perfil']);
 });
 
@@ -18,3 +17,4 @@ $routes->post('logout', '\CodeIgniter\Shield\Controllers\LoginController::logout
 $routes->get('forgot-password', 'RedefinirSenhaController::solicitar', ['filter' => 'redefinicaoSenha']);
 $routes->get('reset-password', 'RedefinirSenhaController::redefinir', ['filter' => ['session', 'redefinicaoSenha']]);
 $routes->post('reset-password', 'RedefinirSenhaController::atualizar', ['filter' => ['session', 'redefinicaoSenha']]);
+$routes->post('reset-password/cancelar', 'RedefinirSenhaController::cancelar', ['filter' => ['session', 'redefinicaoSenha']]);

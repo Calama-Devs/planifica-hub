@@ -445,6 +445,7 @@ class Auth extends ShieldAuth
         $session = session();
 
         if ($session->getTempdata('magicLogin') === true) {
+            $session->set('redefinicaoSenhaPendente', true);
             return $this->getUrl('reset-password');
         }
 
