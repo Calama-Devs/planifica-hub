@@ -28,4 +28,13 @@ class Services extends BaseService
 
         return new RedefinirSenhaService();
     }
+
+    public static function permissaoService(bool $getShared = true): \App\Services\PermissaoService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('permissaoService');
+        }
+
+        return new \App\Services\PermissaoService();
+    }
 }
