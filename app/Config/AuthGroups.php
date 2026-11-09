@@ -104,4 +104,51 @@ class AuthGroups extends ShieldAuthGroups
         'user'      => [],
         'beta'      => [],
     ];
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        $this->carregarPermissoes();
+    }
+
+    /**
+     * Identificadores de permissões nativas versionadas em código (imutáveis via banco).
+     */
+    private const PERMISSOES_NATIVAS = [
+        'contas.consultar',
+        'contas.criar',
+        'acessos.administrar',
+    ];
+
+    /**
+     * Mescla dinamicamente permissões ativas da tabela `permissoes`
+     * sem sobrescrever as permissões nativas versionadas em código (precedência de código).
+     */
+    public function carregarPermissoes(): void
+    {
+        try {
+            $db = db_connect();
+
+            if ($db->tableExists('permissoes')) {
+                $permissoesAtivas = $db->table('permissoes')
+                    ->select('identificador, descricao')
+                    ->where('deleted_at', null)
+                    ->get()
+                    ->getResultArray();
+
+                foreach ($permissoesAtivas as $permissao) {
+                    $identificador = (string) $permissao['identificador'];
+
+                    if (in_array($identificador, self::PERMISSOES_NATIVAS, true)) {
+                        continue;
+                    }
+
+                    $this->permissions[$identificador] = (string) $permissao['descricao'];
+                }
+            }
+        } catch (\Throwable $e) {
+            log_message('warning', '[AuthGroups] Não foi possível carregar permissões do banco: ' . $e->getMessage());
+        }
+    }
 }

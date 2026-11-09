@@ -35,6 +35,15 @@
                 <span class="nav-link">Administração</span>
             </li>
 
+            <li class="nav-item menu-items <?= url_is('admin/permissoes*') ? 'active' : '' ?>">
+                <a class="nav-link" href="<?= site_url('admin/permissoes') ?>">
+                    <span class="menu-icon">
+                        <i class="mdi mdi-shield-key-outline text-warning" aria-hidden="true"></i>
+                    </span>
+                    <span class="menu-title">Permissões</span>
+                </a>
+            </li>
+
             <li class="nav-item menu-items <?= url_is('admin/acessos*') ? 'active' : '' ?>">
                 <a class="nav-link" href="<?= site_url('admin/acessos') ?>">
                     <span class="menu-icon">
