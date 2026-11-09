@@ -8,12 +8,12 @@ class Menu extends BaseConfig
 {
     /**
         * Catálago centralizado dos itens do menu principal
-        * 
+        *
         * Campos de cada item:
         * titulo: Texto exibidi no menu
         * rota: Nome da rota 'as' declarada em app/Config/Routes.php ou caminho relativo
         * padraoAtivo: Padrão avaliado por url_is() para destacar a página ativa
-        * icone: Classes CSS Ícone 
+        * icone: Classes CSS Ícone
         * permisao: null para qualquer usuário logado, ou string/lits de permissões do Shield
         */
     public array $itens = [
@@ -37,7 +37,7 @@ class Menu extends BaseConfig
 
     public function itensVisiveis(): array
     {
-        if(! auth()->loggedIn()) {
+        if (! auth()->loggedIn()) {
             return [];
         }
 
@@ -56,7 +56,7 @@ class Menu extends BaseConfig
             $url = route_to($item['rota']) !== false
                 ? url_to($item['rota'])
                 : site_url($item['rota']);
-            
+
             $visiveis[] = [
                 'titulo' => $item['titulo'],
                 'url'    => $url,
@@ -68,7 +68,7 @@ class Menu extends BaseConfig
         return $visiveis;
     }
 
-    public function usuarioPossuiAcesso($usuario, string|array|null $permissaoExigida): bool 
+    public function usuarioPossuiAcesso($usuario, string|array|null $permissaoExigida): bool
     {
         if ($permissaoExigida === null || $permissaoExigida === '') {
             return true;
