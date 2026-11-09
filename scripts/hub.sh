@@ -121,17 +121,48 @@ verificarConfiguracao() {
     [[ -f "$DIRETORIO_PROJETO/.env" && -r "$DIRETORIO_PROJETO/.env" ]] \
         || falhar "O .env precisa ser um arquivo legível pelo seu usuário."
 
-    # O .env não é um script Bash: nunca usar source/eval nem imprimir seu conteúdo.
-    if ! grep -Eq "^[[:space:]]*CI_ENVIRONMENT[[:space:]]*=[[:space:]]*(['\"]development['\"]|development)[[:space:]]*(#.*)?$" "$DIRETORIO_PROJETO/.env"; then
-        falhar "Configure CI_ENVIRONMENT = development no .env. Uso restrito ao desenvolvimento local."
-    fi
-    if grep -Eq "^[[:space:]]*DOCKER_BANCO_(SENHA|SENHA_ROOT)[[:space:]]*=[[:space:]]*['\"]?Preencha com a senha local no \\.env" "$DIRETORIO_PROJETO/.env"; then
-        falhar "Substitua os textos de exemplo de DOCKER_BANCO_SENHA e DOCKER_BANCO_SENHA_ROOT por senhas locais distintas."
-    fi
-
     # A validação nativa respeita a sintaxe do Compose. Sua saída pode conter segredos.
     compose config --quiet >/dev/null 2>&1 \
         || falhar "Configuração inválida. Confira a sintaxe do .env e preencha DOCKER_BANCO_NOME, DOCKER_BANCO_USUARIO, DOCKER_BANCO_SENHA e DOCKER_BANCO_SENHA_ROOT. Consulte o README."
+    verificarVariaveis
+}
+
+verificarVariaveis() {
+    local ambiente chave valor chaveAtual="" nome
+    local -A configuracao=()
+    # Usa os valores resolvidos pelo Compose, inclusive a prioridade do ambiente do terminal.
+    # Não executar o .env nem reproduzir a saída: ela contém credenciais.
+    ambiente="$(compose config --environment 2>/dev/null)" \
+        || falhar "Não foi possível validar as variáveis locais. Confira a sintaxe do .env e o Docker Compose."
+    while IFS= read -r valor; do
+        if [[ "$valor" =~ ^[a-zA-Z_][a-zA-Z0-9_.]*= ]]; then
+            chave="${valor%%=*}"
+            chaveAtual=""
+            case "$chave" in
+                CI_ENVIRONMENT|DOCKER_BANCO_NOME|DOCKER_BANCO_USUARIO|DOCKER_BANCO_SENHA|DOCKER_BANCO_SENHA_ROOT)
+                    configuracao["$chave"]="${valor#*=}"
+                    chaveAtual="$chave"
+                    ;;
+            esac
+        elif [[ -n "$chaveAtual" ]]; then
+            falhar "Configure CI_ENVIRONMENT e DOCKER_BANCO_* com valores em uma única linha no .env."
+        fi
+    done <<< "$ambiente"
+
+    [[ "${configuracao[CI_ENVIRONMENT]:-}" == development ]] \
+        || falhar "Configure CI_ENVIRONMENT = development no .env e confira variáveis exportadas no terminal. Uso restrito ao desenvolvimento local."
+    for nome in DOCKER_BANCO_NOME DOCKER_BANCO_USUARIO DOCKER_BANCO_SENHA DOCKER_BANCO_SENHA_ROOT; do
+        valor="${configuracao[$nome]:-}"
+        [[ ! "$valor" =~ ^[[:space:]]*$ ]] \
+            || falhar "Preencha $nome com um valor local não vazio no .env. Confira também variáveis exportadas no terminal."
+        if [[ "$nome" == DOCKER_BANCO_SENHA* && "$valor" == 'Preencha com a senha local no .env'* ]]; then
+            falhar "Substitua os textos de exemplo de DOCKER_BANCO_SENHA e DOCKER_BANCO_SENHA_ROOT por senhas locais distintas."
+        fi
+    done
+    [[ "${configuracao[DOCKER_BANCO_USUARIO]}" != root ]] \
+        || falhar "Configure DOCKER_BANCO_USUARIO com um usuário da aplicação diferente de root."
+    [[ "${configuracao[DOCKER_BANCO_SENHA]}" != "${configuracao[DOCKER_BANCO_SENHA_ROOT]}" ]] \
+        || falhar "Use senhas locais distintas em DOCKER_BANCO_SENHA e DOCKER_BANCO_SENHA_ROOT."
 }
 
 comando_ajuda() {

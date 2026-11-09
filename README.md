@@ -78,8 +78,9 @@ instalar PHP, Composer ou MySQL no computador.
 ### Atalho opcional com Bash
 
 O wrapper `scripts/hub.sh` utiliza o **mesmo `compose.yaml` e Dockerfile** dos
-comandos manuais abaixo. Requer Linux, Bash e o plugin `docker compose` com suporte
-a `up --wait`. Execute a partir da raiz do projeto:
+comandos manuais abaixo. Requer Linux, Bash 4 ou superior e o plugin
+`docker compose` com suporte a `up --wait` e `config --environment`. Execute a
+partir da raiz do projeto:
 
 A cada comando, uma das três artes de **PLANIFICA** é sorteada para o banner.
 As cores do banner são utilizadas somente no terminal, sem códigos ANSI na saída redirecionada.
@@ -101,7 +102,13 @@ nano .env
 Preencha as variáveis da tabela de configuração abaixo, incluindo senhas locais
 distintas no lugar dos textos de exemplo. O wrapper rejeita `.env` ausente,
 ilegível, sem `CI_ENVIRONMENT = development` ou inválido para o Compose, sem
-imprimir seu conteúdo. Nunca utilize `source .env`: ele não é um script Bash.
+imprimir seu conteúdo. Também recusa valores obrigatórios compostos apenas de
+espaços, usuário `root` para a aplicação e senhas iguais ou ainda com o texto do
+exemplo. Use valores em uma única linha para `CI_ENVIRONMENT` e `DOCKER_BANCO_*`.
+A verificação usa os valores resolvidos pelo Compose: variáveis exportadas no
+terminal têm prioridade sobre o `.env`. Nunca utilize `source .env`: ele não é
+um script Bash. `verificar` não testa a conexão com um banco já inicializado;
+preserve as credenciais originais de seus volumes.
 
 | Comando | Operação |
 |---|---|
@@ -180,6 +187,20 @@ Se ocorrer erro:
 - **Serviços ativos, mas erro de tabela inexistente no navegador:** em um banco
   novo, siga a etapa manual de migrations abaixo. O wrapper não prepara as tabelas.
 
+Após uma falha por porta ocupada, algumas versões do Docker podem deixar o
+container `app` sem conexão à rede interna. Se liberar a porta e repetir `iniciar`
+não recuperar o acesso ao banco, recrie **manualmente apenas a aplicação**, na
+raiz do projeto, usando a mesma configuração e preservando os volumes:
+
+```bash
+docker compose up --detach --wait --no-deps --force-recreate app
+```
+
+Faça isso somente com o banco local em execução e saudável. O container `app`
+será substituído; arquivos fora dos volumes ou da pasta montada não são
+preservados. Não remova os volumes nem recrie o banco para resolver esse erro.
+O wrapper não executa essa recuperação automaticamente.
+
 Os logs são os registros produzidos pela aplicação: não registre credenciais no
 código nem compartilhe logs sem revisão (manual 10.6 e 11.9).
 
@@ -197,6 +218,18 @@ Verifique a sintaxe do script, sem depender de um Docker instalado:
 bash -n scripts/hub.sh
 ```
 
+Os testes automatizados do wrapper usam o parser real do Docker Compose, com o
+acesso ao daemon simulado. Não exigem serviços em execução, não usam seu `.env`
+e não criam containers ou volumes:
+
+```bash
+bash tests/scripts/hub_test.sh
+```
+
+Esses testes não substituem a execução real do fluxo abaixo: construção da
+imagem, disponibilidade da aplicação, persistência e conflito de porta precisam
+ser conferidos com o Docker local.
+
 Para a validação manual em Linux, siga o fluxo acima, repita `iniciar` e confira que existe
 um único container `app`; consulte os logs, execute `parar` e confirme com `status`
 que os containers estão parados. Inicie novamente e confira que os volumes foram
@@ -206,7 +239,11 @@ instalação sem Docker continuam disponíveis.
 
 Confira também as mensagens para Docker indisponível, `.env` ausente e
 configurações incompletas em um ambiente local descartável, sem alterar suas
-configurações de trabalho. Para os atalhos de qualidade, valide a correção de
+configurações de trabalho. Inclua variáveis obrigatórias ausentes, vazias ou só
+com espaços, senhas de exemplo ou iguais, usuário `root`, ambiente diferente de
+`development` e variáveis exportadas que substituam os valores do arquivo.
+Confirme que o `.env` não é alterado e que nenhuma mensagem expõe credenciais.
+Para os atalhos de qualidade, valide a correção de
 um arquivo PHP fictício com `cs-fixer`, a análise com `stan` e a sequência de
 `check`, incluindo a interrupção em caso de falha. Registre os resultados e
 eventuais pendências no DevCore, sem incluir credenciais.
