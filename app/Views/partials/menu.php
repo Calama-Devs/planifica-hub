@@ -1,3 +1,6 @@
+<?php
+$itensMenu = config(\Config\Menu::class)->itensVisiveis();
+?>
 <nav class="sidebar sidebar-offcanvas" id="sidebar" aria-label="Menu principal de navegação">
     <div class="sidebar-brand-wrapper d-none d-lg-flex align-items-center justify-content-center fixed-top">
         <a href="<?= base_url('/') ?>">
@@ -11,23 +14,16 @@
             <span class="nav-link">Menu</span>
         </li>
 
-        <li class="nav-item menu-items <?= url_is('/') ? 'active' : '' ?>">
-            <a class="nav-link" href="<?= site_url('/') ?>">
-                <span class="menu-icon">
-                    <i class="mdi mdi-home text-primary" aria-hidden="true"></i>
-                </span>
-                <span class="menu-title">Dashboard</span>
-            </a>
-        </li>
-
-        <li class="nav-item menu-items <?= url_is('sobre*') ? 'active' : '' ?>">
-            <a class="nav-link" href="<?= site_url('sobre') ?>">
-                <span class="menu-icon">
-                    <i class="mdi mdi-information-outline text-info" aria-hidden="true"></i>
-                </span>
-                <span class="menu-title">Sobre</span>
-            </a>
-        </li>
+        <?php foreach ($itensMenu as $item) : ?>
+            <li class="nav-item menu-items <?= $item['ativo'] ? 'active' : '' ?>">
+                <a class="nav-link" href="<?= esc($item['url'], 'attr')?>">
+                    <span class="menu-icon">
+                        <i class="<?= esc($item['icone'], 'attr') ?>" aria-hidden="true"></i>
+                    </span>
+                    <span class="menu-title"><?= esc($item['titulo']) ?></span>
+                </a>
+            </li>
+        <?php endforeach?>
 
         <?php if (auth()->loggedIn() && auth()->user()->can('acessos.administrar')) : ?>
             <li class="nav-item nav-category">
