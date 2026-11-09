@@ -19,14 +19,12 @@ use CodeIgniter\Config\BaseService;
  */
 class Services extends BaseService
 {
-    /*
-     * public static function example($getShared = true)
-     * {
-     *     if ($getShared) {
-     *         return static::getSharedInstance('example');
-     *     }
-     *
-     *     return new \CodeIgniter\Example();
-     * }
-     */
+    public static function permissaoService(bool $getShared = true): \App\Services\PermissaoService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('permissaoService');
+        }
+
+        return new \App\Services\PermissaoService();
+    }
 }
