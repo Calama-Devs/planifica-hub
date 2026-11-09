@@ -15,7 +15,7 @@ class MenuPermissoesTest extends CIUnitTestCase
     use DatabaseTestTrait;
     use FeatureTestTrait;
     use AuthenticationTesting;
-    
+
     protected $namespace = [
         'CodeIgniter\Shield',
         'CodeIgniter\Settings',
