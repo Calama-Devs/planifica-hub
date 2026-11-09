@@ -42,24 +42,24 @@ class AuthGroups extends ShieldAuthGroups
      */
     public array $groups = [
         'superadmin' => [
-            'title'       => 'Super Admin',
-            'description' => 'Complete control of the site.',
+            'title'       => 'Administrador geral',
+            'description' => 'Pode executar as permissões administrativas cadastradas.',
         ],
         'admin' => [
-            'title'       => 'Admin',
-            'description' => 'Day to day administrators of the site.',
+            'title'       => 'Administrador de contas',
+            'description' => 'Pode consultar e criar contas, mas não administrar grupos e permissões.',
         ],
         'developer' => [
-            'title'       => 'Developer',
-            'description' => 'Site programmers.',
+            'title'       => 'Desenvolvedor',
+            'description' => 'Sem permissões administrativas configuradas.',
         ],
         'user' => [
-            'title'       => 'User',
-            'description' => 'General users of the site. Often customers.',
+            'title'       => 'Usuário',
+            'description' => 'Grupo padrão, sem permissões administrativas.',
         ],
         'beta' => [
-            'title'       => 'Beta User',
-            'description' => 'Has access to beta-level features.',
+            'title'       => 'Usuário beta',
+            'description' => 'Sem permissões configuradas no momento.',
         ],
     ];
 
@@ -104,4 +104,51 @@ class AuthGroups extends ShieldAuthGroups
         'user'      => [],
         'beta'      => [],
     ];
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        $this->carregarPermissoes();
+    }
+
+    /**
+     * Identificadores de permissões nativas versionadas em código (imutáveis via banco).
+     */
+    private const PERMISSOES_NATIVAS = [
+        'contas.consultar',
+        'contas.criar',
+        'acessos.administrar',
+    ];
+
+    /**
+     * Mescla dinamicamente permissões ativas da tabela `permissoes`
+     * sem sobrescrever as permissões nativas versionadas em código (precedência de código).
+     */
+    public function carregarPermissoes(): void
+    {
+        try {
+            $db = db_connect();
+
+            if ($db->tableExists('permissoes')) {
+                $permissoesAtivas = $db->table('permissoes')
+                    ->select('identificador, descricao')
+                    ->where('deleted_at', null)
+                    ->get()
+                    ->getResultArray();
+
+                foreach ($permissoesAtivas as $permissao) {
+                    $identificador = (string) $permissao['identificador'];
+
+                    if (in_array($identificador, self::PERMISSOES_NATIVAS, true)) {
+                        continue;
+                    }
+
+                    $this->permissions[$identificador] = (string) $permissao['descricao'];
+                }
+            }
+        } catch (\Throwable $e) {
+            log_message('warning', '[AuthGroups] Não foi possível carregar permissões do banco: ' . $e->getMessage());
+        }
+    }
 }

@@ -3,7 +3,11 @@
 <?= $this->section('titulo') ?>Acesso ao Sistema<?= $this->endSection() ?>
 
 <?= $this->section('conteudo') ?>
-<div class="content-wrapper full-page-wrapper auth login-2 login-bg p-0 d-flex flex-wrap align-items-stretch">
+<?php
+helper('autenticacao');
+$campoLogin = dados_campo_login();
+?>
+<main class="content-wrapper full-page-wrapper auth login-2 login-bg p-0 d-flex flex-wrap align-items-stretch">
     <!-- Formulário de Login-->
     <div class="card col-12 col-md-5 col-lg-4 d-flex flex-column justify-content-between p-4 p-xl-5 border-0 shadow-lg" style="min-height: 100vh; background-color: #191c24;">
         <div class="my-auto w-100">
@@ -25,46 +29,49 @@
                 <?= csrf_field() ?>
 
                 <div class="form-group mb-3">
-                    <label for="floatingEmailInput" class="form-label text-light fw-medium">
-                        E-mail <span class="text-danger">*</span>
+                    <label for="<?= esc($campoLogin['nome']) ?>" class="form-label text-light fw-medium">
+                        <?= esc($campoLogin['label']) ?> <span class="text-danger">*</span>
                     </label>
-                    <input type="email"
+                    <input type="<?= esc($campoLogin['tipo']) ?>"
                            class="form-control p_input text-light"
-                           id="floatingEmailInput"
-                           name="email"
-                           inputmode="email"
-                           autocomplete="email"
-                           placeholder="Digite seu e-mail"
-                           value="<?= old('email') ?>"
+                           id="<?= esc($campoLogin['nome']) ?>"
+                           name="<?= esc($campoLogin['nome']) ?>"
+                           inputmode="<?= esc($campoLogin['tipo']) ?>"
+                           autocomplete="<?= esc($campoLogin['nome']) ?>"
+                           placeholder="<?= esc($campoLogin['placeholder']) ?>"
+                           value="<?= esc(old($campoLogin['nome'])) ?>"
                            required
                            autofocus>
                 </div>
 
                 <div class="form-group mb-3">
-                    <label for="floatingPasswordInput" class="form-label text-light fw-medium">
+                    <label for="password" class="form-label text-light fw-medium">
                         Senha <span class="text-danger">*</span>
                     </label>
                     <input type="password"
                            class="form-control p_input text-light"
-                           id="floatingPasswordInput"
+                           id="password"
                            name="password"
-                           inputmode="text"
                            autocomplete="current-password"
                            placeholder="Digite sua senha"
                            required>
                 </div>
 
                 <div class="form-group d-flex align-items-center justify-content-between mb-4">
-                    <div class="form-check m-0 d-flex align-items-center">
-                        <input type="checkbox"
-                               name="remember"
-                               class="form-check-input"
-                               id="rememberMe"
-                               <?php if (old('remember')): ?> checked<?php endif ?>>
-                        <label class="form-check-label text-muted mb-0" for="rememberMe">
-                            Lembrar-me
-                        </label>
-                    </div>
+                    <?php if (setting('Auth.sessionConfig')['allowRemembering'] ?? false) : ?>
+                        <div class="form-check m-0 d-flex align-items-center">
+                            <input type="checkbox"
+                                   name="remember"
+                                   class="form-check-input"
+                                   id="remember"
+                                   <?php if (old('remember')) : ?> checked<?php endif ?>>
+                            <label class="form-check-label text-muted mb-0" for="remember">
+                                Lembrar-me
+                            </label>
+                        </div>
+                    <?php else : ?>
+                        <div></div>
+                    <?php endif ?>
                     <a href="<?= url_to('magic-link') ?>" class="forgot-pass text-primary small text-decoration-none">
                         Esqueceu a senha?
                     </a>
@@ -77,27 +84,27 @@
                 </div>
 
                 <!-- Feedback de Sessão / Erros -->
-                <?php if (session('error') !== null): ?>
+                <?php if (session('error') !== null) : ?>
                     <div class="alert alert-danger py-2 small mt-3 mb-0" role="alert">
                         <?= esc(session('error')) ?>
                     </div>
-                <?php elseif (session('errors') !== null): ?>
+                <?php elseif (session('errors') !== null) : ?>
                     <div class="alert alert-danger py-2 small mt-3 mb-0" role="alert">
-                        <?php if (is_array(session('errors'))): ?>
-                            <?php foreach (session('errors') as $error): ?>
+                        <?php if (is_array(session('errors'))) : ?>
+                            <?php foreach (session('errors') as $error) : ?>
                                 <?= esc($error) ?><br>
-                            <?php endforeach; ?>
-                        <?php else: ?>
+                            <?php endforeach ?>
+                        <?php else : ?>
                             <?= esc(session('errors')) ?>
-                        <?php endif; ?>
+                        <?php endif ?>
                     </div>
-                <?php endif; ?>
+                <?php endif ?>
 
-                <?php if (session('message') !== null): ?>
+                <?php if (session('message') !== null) : ?>
                     <div class="alert alert-success py-2 small mt-3 mb-0" role="alert">
                         <?= esc(session('message')) ?>
                     </div>
-                <?php endif; ?>
+                <?php endif ?>
             </form>
         </div>
 
@@ -124,5 +131,5 @@
             </div>
         </div>
     </div>
-</div>
+</main>
 <?= $this->endSection() ?>

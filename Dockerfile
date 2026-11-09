@@ -1,0 +1,48 @@
+FROM php:8.3-apache-bookworm
+
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public \
+    COMPOSER_ALLOW_SUPERUSER=1
+
+WORKDIR /var/www/html
+
+# A imagem base já fornece mbstring, SQLite e as extensões XML do PHPUnit.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libicu-dev \
+        libzip-dev \
+        unzip \
+    && docker-php-ext-install -j"$(nproc)" intl mysqli zip \
+    && pecl install pcov-1.0.12 \
+    && docker-php-ext-enable pcov \
+    && rm -rf /var/lib/apt/lists/* /tmp/pear
+
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+
+# Valida o vhost habilitado para não aceitar uma alteração silenciosa da imagem base.
+RUN a2enmod rewrite \
+    && sed -ri \
+        "s!^[[:space:]]*DocumentRoot[[:space:]]+.*!    DocumentRoot ${APACHE_DOCUMENT_ROOT}!" \
+        /etc/apache2/sites-available/000-default.conf \
+    && grep -Eq \
+        "^[[:space:]]*DocumentRoot[[:space:]]+${APACHE_DOCUMENT_ROOT}[[:space:]]*$" \
+        /etc/apache2/sites-enabled/000-default.conf
+
+# Mantém o cache das dependências quando apenas o código da aplicação muda.
+COPY composer.json composer.lock ./
+RUN composer install --no-interaction --prefer-dist --no-progress --no-autoloader --no-scripts
+
+COPY docker/php/desenvolvimento.ini ${PHP_INI_DIR}/conf.d/zz-desenvolvimento.ini
+COPY . .
+
+RUN composer dump-autoload --optimize --no-interaction \
+    && composer check-platform-reqs \
+    && mkdir -p build writable/cache writable/debugbar writable/logs writable/session writable/uploads \
+    && chown -R www-data:www-data writable build \
+    && chmod -R u+rwX writable build \
+    && apache2ctl -t
+
+EXPOSE 80
+
+ENTRYPOINT ["docker-php-entrypoint"]
+
+CMD ["apache2-foreground"]

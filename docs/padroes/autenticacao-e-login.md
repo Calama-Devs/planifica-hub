@@ -1,12 +1,12 @@
 # Padrão de Autenticação e Design da Tela de Login
 
-Este documento descreve o novo design da página de login do **PlanIFica**, sua conformidade com o **Manual Calama Devs** (capítulos 6, 9, 10, 11 e 15), a integração com o template oficial **Corona (Login-2 split-screen)** e o pacote **CodeIgniter Shield**.
+Este documento orienta a arquitetura visual e técnica da tela de login do **PlanIFica**, integrada nativamente ao **CodeIgniter Shield** e em total conformidade com o **Manual Calama Devs** (capítulos 6, 9, 10, 11 e 15), adotando o padrão **Corona (Login-2 split-screen)**.
 
 ---
 
-## 1. Arquitetura da Solução e Estrutura de Views
+## 1. Estrutura de Arquivos (Manual 9.3 e 10.3)
 
-A interface segue o padrão split-screen do template oficial Corona (`login-2`), dividindo a tela entre o formulário de login e a apresentação institucional do Calama Devs:
+A interface de autenticação é composta por um layout de tela cheia e uma View específica para o formulário de login no padrão split-screen:
 
 ```text
 app/Views/
@@ -24,9 +24,10 @@ app/Views/
 
 ## 2. Integração com o CodeIgniter Shield
 
-A view customizada é conectada ao Shield via configuração em `app/Config/Auth.php`:
+A substituição da view padrão de login do Shield é feita via configuração em `app/Config/Auth.php`, **sem qualquer alteração em arquivos do diretório `vendor/`**:
 
 ```php
+// app/Config/Auth.php
 public array $views = [
     'login'    => 'autenticacao/login',
     'register' => '\CodeIgniter\Shield\Views\register',
@@ -35,7 +36,7 @@ public array $views = [
 ];
 ```
 
-Mantendo o layout padrão do Shield intacto para telas não customizadas (como `register`), garantimos que não haja regressão funcional ou quebra de seções em outros fluxos.
+A view `app/Views/autenticacao/login.php` estende diretamente `layouts/autenticacao`, preservando o layout padrão do Shield para os demais fluxos (como `register`) e evitando regressões funcionais.
 
 ---
 
@@ -46,46 +47,45 @@ A tela adota a variante **login-2** do template oficial Corona:
 1. **Coluna Esquerda (Card de Login):**
    - Ocupa `col-12 col-md-5 col-lg-4` com altura de 100vh (`min-height: 100vh;`) e fundo escuro (`#191c24`).
    - Logomarca institucional do IFRO (`logo-ifro-mini.png`) e identificação "PlanIFica".
-   - Campo identificador dinâmico: adapta-se a `Auth.validFields` (`email`, `username` ou `login`).
+   - Campo identificador dinâmico: adapta-se a `Auth.validFields` (`email`, `username` ou `login`) via helper `autenticacao`.
    - Campo de senha seguro (sem repopulação por `old()`).
-   - Opção de "Lembrar-me" sempre visível e habilitada.
+   - Opção de "Lembrar-me" respeitando a configuração `Auth.sessionConfig['allowRemembering']`.
+   - Link "Esqueceu a senha?" direcionando para rota de recuperação do Shield.
    - Botão de submissão principal com ícone MDI (`mdi-login`).
-   - Link para o modal informativo sobre o projeto.
 
 2. **Coluna Direita (Informações do Projeto e Calama Devs):**
    - Ocupa `col-12 col-md-7 col-lg-8` em telas médias e grandes (`d-none d-md-flex`).
-   - Exibe como plano de fundo a imagem oficial de pôr-do-sol da ponte (`Login_bg.jpg`) via classe `.auth.login-bg`.
-   - Sobreposto à imagem, um card informativo simples e direto (`backdrop-filter: blur(8px)`) apresentando:
+   - Exibe como plano de fundo a imagem oficial (`Login_bg.jpg`) via classe `.auth.login-bg`.
+   - Sobreposto à imagem, um card informativo (`backdrop-filter: blur(8px)`) apresentando:
      - Identificação institucional do **IFRO Calama**.
-     - Descrição do propósito do sistema: gestão e consulta de horários acadêmicos e ensalamento.
-     - Informação sobre o desenvolvimento por alunos e professores do IFRO Campus Porto Velho Calama (time Calama Devs).
-
-3. **Modal Informativo (Acessível em Qualquer Dispositivo):**
-   - Modal com informações básicas sobre o desenvolvimento do PlanIFica pela equipe de estudantes e docentes.
+     - Descrição do propósito do sistema: gestão e organização de horários acadêmicos e ensalamento.
+     - Informação sobre o desenvolvimento por alunos do curso de Análise e Desenvolvimento de Sistemas para o IFRO Campus Porto Velho Calama (time Calama Devs).
 
 ---
 
-## 4. Segurança e Acessibilidade (Manual 9.9, 11.6, 11.6.1 e 15)
+## 4. Segurança e Acessibilidade (Manual 9.9, 11 e 16)
 
-- **Proteção CSRF:** Toda requisição POST inclui `<?= csrf_field() ?>` e meta tag `<?= csrf_meta() ?>`.
-- **Prevenção de XSS:** Toda saída de dados utiliza `esc()`.
-- **Proteção de Senha:** Campos de senha nunca reutilizam valores prévios (`old('password')` jamais é utilizado).
-- **Sem Enumeração de Contas:** Mensagens de erro de autenticação utilizam os textos genéricos providos pela sessão do Shield.
-- **Acessibilidade Semântica:** Todos os campos possuem `id`, `name` e `<label for="...">` associados, com indicadores claros de campos obrigatórios (`*`).
+- **Identificador Dinâmico do Shield:** O campo de acesso adapta-se dinamicamente às credenciais válidas configuradas em `setting('Auth.validFields')`. Quando configurado apenas para `email`, gera campo semântico `type="email"` com rótulo "E-mail"; caso configurado para `username`, gera campo textual com rótulo "Usuário"; para múltiplos campos, gera identificador "login", mantendo `name`, `id`, `type` e repopulação coerentes.
+- **Proteção CSRF (manual 11.3):** O formulário inclui obrigatoriamente `<?= csrf_field() ?>` e o cabeçalho do layout disponibiliza `<?= csrf_meta() ?>`.
+- **Prevenção de Enumeração de Contas:** As mensagens de erro e falha de login exibem retorno genérico do Shield sem detalhar se o e-mail ou usuário informado existe ou não na base de dados.
+- **Não Repopulação de Senha:** Em caso de erro na submissão, apenas o identificador de acesso pode ser repopulado. O campo de senha **nunca** repopula valor digitado anteriormente (`old('password')` nunca é usado).
+- **Escape de Saída Explícito (manual 11.6):** Todas as saídas dinâmicas utilizam escape explícito com `esc()`, incluindo o valor repopulado do identificador e os alertas de sessão.
+- **Acessibilidade Semântica (manual 9.9):** Todos os campos possuem `id`, `name` e `<label for="...">` associados, com indicadores claros de campos obrigatórios (`*`).
 
 ---
 
-## 5. Seleção Mínima de Assets e Versionamento (Manual 9.12, 9.13 e 25.4)
+## 5. Seleção Mínima de Assets, Versionamento e Performance (Manual 9.12, 9.13, 15.4 e 25.4)
 
 A interface reutiliza os assets homologados no projeto e adiciona estritamente o necessário para o design login-2:
 
-| Asset | Localização | Finalidade |
+| Tipo | Caminho do Arquivo | Finalidade |
 | :--- | :--- | :--- |
 | **Imagem de Fundo** | `public/assets/images/auth/Login_bg.jpg` | Background oficial do template Corona Login-2. |
-| **CSS de Ícones** | `public/assets/vendors/mdi/css/materialdesignicons.min.css` | Ícones de interface e ações. |
-| **CSS do Template** | `public/assets/css/modern-vertical/style.css` | Folha de estilos base do Corona Admin. |
-| **CSS Customizado**| `public/assets/css/custom.css` | Ajustes e classes do PlanIFica Hub. |
-| **JS Base** | `public/assets/vendors/js/vendor.bundle.base.js` | Bootstrap e utilitários para modais e interações. |
+| **CSS de Ícones** | `public/assets/vendor/mdi/css/materialdesignicons.min.css` | Ícones do sistema e ações. |
+| **CSS do Template** | `public/assets/css/modern-vertical/style.css` | Grid e componentes base do Bootstrap/Corona. |
+| **CSS Customizado**| `public/assets/css/custom.css` | Adaptações de contraste, checkbox acessível e fundo escuro. |
+| **Fontes** | `public/assets/fonts/Rubik/*` | Tipografia padrão do projeto. |
+| **Logomarca**| `public/assets/images/logo-ifro-mini.png` | Logomarca institucional do IFRO e favicon. |
 
-> **Versionamento contra Cache:** Conforme o Manual Calama Devs (`docs/padroes/frontend.md`), os arquivos de assets contam com sufixo dinâmico `?v=<?= filemtime(...) ?>` para prevenir que os clientes utilizem versões obsoletas em cache.
-
+> **Versionamento contra Cache (manual 9.12 e 9.13):** Conforme orientação do Manual Calama Devs (`docs/padroes/frontend.md`), os arquivos CSS são carregados com sufixo dinâmico baseado no timestamp de modificação (`?v=<?= filemtime(...) ?>`), prevenindo que clientes utilizem arquivos desatualizados em cache após novos deploys.
+> **Performance e Payload Mínimo:** O layout de autenticação não carrega scripts desnecessários globalmente, disponibilizando as seções `scripts` e `pageScripts` apenas quando uma tela específica demandar código JS.
