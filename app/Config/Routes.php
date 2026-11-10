@@ -16,6 +16,10 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
         $routes->post('salvar', 'PermissaoController::salvar', ['as' => 'permissoes.salvar']);
         $routes->get('editar/(:num)', 'PermissaoController::editar/$1', ['as' => 'permissoes.editar']);
         $routes->post('atualizar/(:num)', 'PermissaoController::atualizar/$1', ['as' => 'permissoes.atualizar']);
+        });
+        
+    $routes->group('admin/acessocontas', ['filter' => 'permission:acessos'], static function (RouteCollection $routes): void {
+        $routes->get('/', 'AcessoContaController::index', ['as' => 'acessocontas.index']);
     });
 });
 

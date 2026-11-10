@@ -27,4 +27,13 @@ class Services extends BaseService
 
         return new \App\Services\PermissaoService();
     }
+
+    public static function acessoService(bool $getShared = true): \App\Services\AcessoContaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('acessoService');
+        }
+
+        return new \App\Services\AcessoContaService();
+    }
 }
