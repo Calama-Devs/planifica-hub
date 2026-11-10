@@ -45,7 +45,8 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta = $this->get('login');
 
         $resposta->assertOK();
-        $resposta->assertSee('PlanIFica Hub');
+        $resposta->assertSee('PlanIFica');
+        $resposta->assertSee('Calama Devs');
         $resposta->assertSee('Entrar');
         $camposValidos = setting('Auth.validFields') ?? ['email'];
         if (count($camposValidos) > 1) {
@@ -60,6 +61,9 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta->assertSeeElement('input[name=' . $campoIdentificador . ']');
         $resposta->assertSeeElement('label[for=password]');
         $resposta->assertSeeElement('input[name=password]');
+        $resposta->assertSeeElement('input[name=' . csrf_token() . ']');
+        $resposta->assertSeeElement('button[type=submit]');
+        $resposta->assertSee('Esqueceu a senha?');
         $resposta->assertSee('assets/vendor/mdi/css/materialdesignicons.min.css');
         $resposta->assertSee('assets/css/modern-vertical/style.css');
         $resposta->assertSee('assets/css/custom.css');
