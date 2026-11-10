@@ -67,6 +67,12 @@ $campoLogin = dados_campo_login();
             </div>
         </form>
 
+        <div class="text-center mt-3">
+            <a href="<?= site_url('forgot-password') ?>" class="link-primary text-decoration-none">
+                Esqueceu sua senha?
+            </a>
+        </div>
+
         <div class="text-center mt-4">
             <small class="text-muted">IFRO Campus Porto Velho Calama &middot; Calama Devs</small>
         </div>
