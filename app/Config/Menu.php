@@ -33,53 +33,14 @@ class Menu extends BaseConfig
             'icone'         => 'mdi mdi-information-outline text-info',
             'permissao'     => null,
         ],
+
+        [
+            'categoria'     => 'Administração',
+            'titulo'        => 'Permissões',
+            'rota'          => 'admin/permissoes',
+            'padraoAtivo'   => 'admin/permissoes*',
+            'icone'         => 'mdi mdi-shield-key-outline text-warning',
+            'permissao'     => 'acessos.administrar',
+        ]
     ];
-
-    public function itensVisiveis(): array
-    {
-        if (! auth()->loggedIn()) {
-            return [];
-        }
-
-        $usuario = auth()->user();
-        if ($usuario === null) {
-            return [];
-        }
-
-        $visiveis = [];
-
-        foreach ($this->itens as $item) {
-            if (! $this->usuarioPossuiAcesso($usuario, $item['permissao'])) {
-                continue;
-            }
-
-            $url = route_to($item['rota']) !== false
-                ? url_to($item['rota'])
-                : site_url($item['rota']);
-
-            $visiveis[] = [
-                'titulo' => $item['titulo'],
-                'url'    => $url,
-                'icone'  => $item['icone'],
-                'ativo'  => url_is($item['padraoAtivo']),
-            ];
-        }
-
-        return $visiveis;
-    }
-
-    public function usuarioPossuiAcesso($usuario, string|array|null $permissaoExigida): bool
-    {
-        if ($permissaoExigida === null || $permissaoExigida === '') {
-            return true;
-        }
-
-        foreach ((array) $permissaoExigida as $permissao) {
-            if ($usuario->can($permissao)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }
