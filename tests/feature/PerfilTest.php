@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserModel;
+use CodeIgniter\Shield\Test\AuthenticationTesting;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
@@ -13,6 +14,7 @@ final class PerfilTest extends CIUnitTestCase
 {
     use DatabaseTestTrait;
     use FeatureTestTrait;
+    use AuthenticationTesting;
 
     protected $namespace = [
         'CodeIgniter\Shield',
@@ -52,8 +54,11 @@ final class PerfilTest extends CIUnitTestCase
         auth()->login($usuarioAtual);
 
         $resposta = $this->enviarFormulario([
-            'nome' => 'nome.atualizado',
-            'id'   => (string) $outroUsuario->id,
+            'nome'        => 'nome.atualizado',
+            'id'          => (string) $outroUsuario->id,
+            'email'       => 'adulterado@example.com',
+            'groups'      => ['admin'],
+            'permissions' => ['acessos.administrar'],
         ]);
 
         $resposta->assertRedirect();
@@ -65,6 +70,23 @@ final class PerfilTest extends CIUnitTestCase
             'id'       => $outroUsuario->id,
             'username' => 'usuario.outro',
         ]);
+        $this->seeInDatabase('auth_identities', [
+            'user_id' => $usuarioAtual->id,
+            'secret'  => 'perfil1@example.com',
+        ]);
+        $this->dontSeeInDatabase('auth_identities', [
+            'user_id' => $usuarioAtual->id,
+            'secret'  => 'adulterado@example.com',
+        ]);
+
+        auth()->logout();
+        $usuarioAtualizado = model(UserModel::class)->findById($usuarioAtual->id);
+        $paginaPerfil      = $this->actingAs($usuarioAtualizado)->get('perfil');
+        $paginaPerfil->assertOK();
+        $this->assertStringContainsString(
+            'navbar-profile-name">nome.atualizado</p>',
+            $paginaPerfil->getBody(),
+        );
     }
 
     public function testRejeitaNomeForaDasRegrasConfiguradas(): void
@@ -99,6 +121,21 @@ final class PerfilTest extends CIUnitTestCase
         $this->seeInDatabase('users', [
             'id'       => $outroUsuario->id,
             'username' => 'usuario.existente',
+        ]);
+    }
+
+    public function testRejeitaNomeIgualAoNomeAtual(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
+        $resposta = $this->enviarFormulario(['nome' => 'usuario.teste']);
+
+        $resposta->assertRedirect();
+        $resposta->assertSessionHas('errors');
+        $this->seeInDatabase('users', [
+            'id'       => $usuario->id,
+            'username' => 'usuario.teste',
         ]);
     }
 

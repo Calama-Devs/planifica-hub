@@ -14,6 +14,16 @@ class PerfilService
      */
     public function atualizarNome(User $usuario, string $nome): array
     {
+        if ($nome === $usuario->username) {
+            return [
+                'sucesso'  => false,
+                'tipo'     => 'validacao',
+                'codigo'   => 'PERFIL_NOME_SEM_ALTERACAO',
+                'mensagem' => 'Informe um nome diferente do atual.',
+                'erros'    => ['nome' => 'Informe um nome diferente do atual.'],
+            ];
+        }
+
         $validacao = $this->obterValidacaoNome($usuario);
 
         if (! $validacao->run(['nome' => $nome])) {
