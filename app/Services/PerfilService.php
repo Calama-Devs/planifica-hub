@@ -14,7 +14,9 @@ class PerfilService
      */
     public function atualizarNome(User $usuario, string $nome): array
     {
-        if ($nome === $usuario->username) {
+        $nome = trim($nome);
+
+        if ($nome === trim($usuario->username)) {
             return [
                 'sucesso'  => false,
                 'tipo'     => 'validacao',

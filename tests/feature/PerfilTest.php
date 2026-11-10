@@ -139,6 +139,50 @@ final class PerfilTest extends CIUnitTestCase
         ]);
     }
 
+    public function testRejeitaNomeAtualComEspacosExtras(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
+        $resposta = $this->enviarFormulario(['nome' => ' usuario.teste ']);
+
+        $resposta->assertRedirect();
+        $resposta->assertSessionHas('errors');
+        $this->seeInDatabase('users', [
+            'id'       => $usuario->id,
+            'username' => 'usuario.teste',
+        ]);
+    }
+
+    public function testRemoveEspacosExtrasDeNomeValidoAntesDeSalvar(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
+        $resposta = $this->enviarFormulario(['nome' => ' nome.atualizado ']);
+
+        $resposta->assertRedirect();
+        $this->seeInDatabase('users', [
+            'id'       => $usuario->id,
+            'username' => 'nome.atualizado',
+        ]);
+    }
+
+    public function testRejeitaNomeComApenasEspacos(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
+        $resposta = $this->enviarFormulario(['nome' => '   ']);
+
+        $resposta->assertRedirect();
+        $resposta->assertSessionHas('errors');
+        $this->seeInDatabase('users', [
+            'id'       => $usuario->id,
+            'username' => 'usuario.teste',
+        ]);
+    }
+
     public function testAceitaRegrasConfiguradasComClosures(): void
     {
         $usuario = $this->criarUsuario('usuario.teste');
