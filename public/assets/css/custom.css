@@ -126,6 +126,13 @@ html, body {
     border-radius: 8px;
 }
 
+/* Tabelas da administração de acessos: o tema não deixa as células quebrarem linha, e a coluna de ação
+   saía da área visível em telas de 1024 px. Com a quebra, as colunas se ajustam e a ação continua à vista. */
+.tabela-acessos th,
+.tabela-acessos td {
+    white-space: normal;
+}
+
 /* Checkbox visível e acessível no tema escuro (Login e Formulários) */
 .form-check .form-check-input {
     position: relative !important;

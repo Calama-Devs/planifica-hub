@@ -12,15 +12,15 @@ complementar de autoload do CodeIgniter; não é necessário alterá-lo.
 
 | Diretório | Namespace ou finalidade | Situação atual |
 |---|---|---|
-| `app/Controllers/` | `App\Controllers` | Existente: `BaseController.php` e `Home.php` |
-| `app/Models/` | `App\Models` | Existente, sem Models próprias |
-| `app/Services/` | `App\Services` | Criar somente quando houver regra de negócio que justifique |
+| `app/Controllers/` | `App\Controllers` | Existente: `BaseController.php`, `Home.php` e `AcessoController.php` |
+| `app/Models/` | `App\Models` | Existente: `AuditoriaPermissaoModel.php`; a autenticação usa as Models do Shield |
+| `app/Services/` | `App\Services` | Existente: `PermissaoDiretaService.php`; criar novos somente quando houver regra de negócio que justifique |
 | `app/Filters/` | `App\Filters` | Existente, sem Filters próprios; autenticação usa o Shield |
 | `app/Config/` | `Config` | Configurações do CodeIgniter e do Shield |
 | `app/Views/layouts/` | Layouts compartilhados | Existente: `principal.php` |
-| `app/Views/partials/` | Componentes reutilizáveis | Existente: menu, cabeçalho, mensagens e rodapé |
+| `app/Views/partials/` | Componentes reutilizáveis | Existente: menu, cabeçalho, mensagens, paginação e rodapé |
 | `app/Views/home/` | Telas do contexto inicial | Existente: `index.php` e `sobre.php` |
-| `app/Views/<contexto>/` | Telas de cada contexto | Criar somente com demanda aprovada |
+| `app/Views/<contexto>/` | Telas de cada contexto | Existente: `acesso/`; criar novas somente com demanda aprovada |
 | `public/assets/` | Arquivos públicos estáticos | Organização descrita abaixo |
 
 Os diretórios de suporte do appstarter, como `Database/`, `Helpers/`,
@@ -61,7 +61,9 @@ seguem a convenção de sufixos descrita acima.
   matriz de permissões do Shield. Essas configurações não implicam a
   existência de telas administrativas.
 - `app/Config/Routes.php` registra as rotas do Shield e protege `/` e `/sobre`
-  com o filtro `session`. O logout permanece exclusivamente por POST.
+  com o filtro `session`. As rotas de `admin/acessos` ficam no mesmo grupo e
+  somam o filtro `permission:acessos.administrar`. O logout permanece
+  exclusivamente por POST.
   `app/Config/Filters.php` e `Security.php` mantêm a proteção CSRF global
   baseada em sessão.
 
@@ -71,6 +73,9 @@ seguem a convenção de sufixos descrita acima.
 |---|---|---|
 | GET | `/` | `Home::index`, exige autenticação e apresenta o dashboard |
 | GET | `/sobre` | `Home::sobre`, exige autenticação e reutiliza o layout |
+| GET | `/admin/acessos` | `AcessoController::index`, exige a permissão `acessos.administrar` e lista as contas |
+| GET | `/admin/acessos/{id}/permissoes` | `AcessoController::permissoes`, exige `acessos.administrar` e mostra as permissões herdadas, diretas e efetivas da conta |
+| POST | `/admin/acessos/{id}/permissoes/conceder`, `/revogar` | `AcessoController::conceder` e `revogar`, exigem `acessos.administrar` e CSRF, e alteram só permissões diretas |
 | GET / POST | `/register` | Formulário e cadastro pelo Shield |
 | GET / POST | `/login` | Formulário e autenticação pelo Shield |
 | POST | `/logout` | Encerra a sessão pelo Shield, com CSRF; GET não é permitido |
