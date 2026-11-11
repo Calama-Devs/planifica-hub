@@ -11,7 +11,6 @@ use CodeIgniter\Shield\Authentication\Authenticators\Session;
 class RedefinicaoSenhaFilter implements FilterInterface
 {
     private const ROTAS_MAGIC_LINK = [
-        'forgot-password',
         'login/magic-link',
         'login/verify-magic-link',
     ];

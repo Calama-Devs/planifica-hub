@@ -72,7 +72,7 @@ $campoLogin = dados_campo_login();
                     <?php else : ?>
                         <div></div>
                     <?php endif ?>
-                    <a href="<?= site_url('forgot-password') ?>" class="forgot-pass text-primary small text-decoration-none">
+                    <a href="<?= esc(url_to('magic-link'), 'attr') ?>" class="forgot-pass text-primary small text-decoration-none">
                         Esqueceu a senha?
                     </a>
                 </div>

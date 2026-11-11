@@ -262,7 +262,7 @@ final class AutenticacaoTest extends CIUnitTestCase
 
     public function testExibeSolicitacaoDeRedefinicaoComTokenCsrf(): void
     {
-        $resposta = $this->get('forgot-password');
+        $resposta = $this->get('login/magic-link');
 
         $resposta->assertOK();
         $resposta->assertSeeElement('input[name=' . csrf_token() . ']');
@@ -385,7 +385,7 @@ final class AutenticacaoTest extends CIUnitTestCase
     {
         $this->cadastrarUsuario();
 
-        $resposta = $this->withSession($_SESSION)->get('forgot-password');
+        $resposta = $this->withSession($_SESSION)->get('login/magic-link');
 
         $resposta->assertRedirectTo(site_url('/'));
         $resposta->assertSessionHas('error');

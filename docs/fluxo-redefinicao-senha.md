@@ -6,7 +6,7 @@ O sistema oferece dois fluxos distintos para definir uma nova senha.
 
 No perfil, o usuário autenticado acessa `/perfil/alterar-senha`, informa a senha atual, a nova senha e a confirmação. A senha atual é validada antes da alteração e a sessão é encerrada somente após a troca ser concluída com sucesso.
 
-Quando não possui acesso à conta, o usuário solicita um magic link em `/forgot-password`. O link cria uma sessão temporária na qual não é exigida a senha atual. Durante essa sessão, o acesso fica restrito à tela de redefinição e ao logout. Após definir a nova senha, o usuário retorna ao login.
+Quando não possui acesso à conta, o usuário solicita um magic link em `/login/magic-link`, pela rota nomeada `magic-link` do Shield. O link cria uma sessão temporária na qual não é exigida a senha atual. Durante essa sessão, o acesso fica restrito à tela de redefinição e ao logout. Após definir a nova senha, o usuário retorna ao login.
 
 A nova senha passa pelas validações do Shield e também deve conter letra maiúscula, letra minúscula, número e caractere especial. Emojis não são permitidos.
 

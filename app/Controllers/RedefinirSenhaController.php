@@ -17,11 +17,6 @@ class RedefinirSenhaController extends BaseController
         $this->redefinirSenhaService = $redefinirSenhaService;
     }
 
-    public function solicitar(): string|RedirectResponse
-    {
-        return view('redefinirsenha/solicitar');
-    }
-
     public function redefinir(): string|RedirectResponse
     {
         if (!$this->possuiAcessoTemporario()) {
