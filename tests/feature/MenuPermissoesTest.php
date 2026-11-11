@@ -38,6 +38,7 @@ class MenuPermissoesTest extends CIUnitTestCase
         $resposta->assertSee('Dashboard');
         $resposta->assertSee('Sobre');
         $resposta->assertDontSee('Contas');
+        $resposta->assertDontSee('Permissões');
     }
 
     public function testExibeItemRestritoParaPerfilComPermissaoEfetiva(): void
@@ -65,6 +66,21 @@ class MenuPermissoesTest extends CIUnitTestCase
         $resposta->assertSee('Contas');
     }
 
+    public function testNaoDuplicaCabecalhoDeCategoriaEmItensConsecutivos(): void
+    {
+        $this->adicionarItemProtegidoAoMenu();
+        $superadmin = $this->criarUsuarioNoGrupo('superadmin');
+
+        $itens = service('menu')->filtrarItensVisiveis($superadmin);
+
+        $categoriasRenderizadas = array_values(array_filter(
+            array_column($itens, 'categoria'),
+            static fn (?string $categoria): bool => $categoria === 'Administração'
+        ));
+
+        $this->assertCount(1, $categoriasRenderizadas);
+    }
+
     public function testUrlDiretaContinuaProtegidaParaUsuarioSemPermissao(): void
     {
         $this->adicionarItemProtegidoAoMenu();
@@ -80,6 +96,7 @@ class MenuPermissoesTest extends CIUnitTestCase
     {
         $menu = config(Menu::class);
         $menu->itens[] = [
+            'categoria'   => 'Administração',
             'titulo'      => 'Contas',
             'rota'        => 'contas',
             'padraoAtivo' => 'contas*',
@@ -93,6 +110,12 @@ class MenuPermissoesTest extends CIUnitTestCase
         return $this->withRoutes([
             ['GET', '/', 'Home::index', ['as' => 'dashboard', 'filter' => 'session']],
             ['GET', 'sobre', 'Home::sobre', ['as' => 'sobre', 'filter' => 'session']],
+            [
+                'GET',
+                'admin/permissoes',
+                'PermissaoController::index',
+                ['as' => 'permissoes.index', 'filter' => 'permission:acessos.administrar'],
+            ],
             [
                 'GET',
                 'contas',
