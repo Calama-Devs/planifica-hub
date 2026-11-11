@@ -1,5 +1,5 @@
 <?php
-$itensMenu = config(\Config\Menu::class)->itensVisiveis();
+$itensMenu = $itensMenu ?? [];
 ?>
 <nav class="sidebar sidebar-offcanvas" id="sidebar" aria-label="Menu principal de navegação">
     <div class="sidebar-brand-wrapper d-none d-lg-flex align-items-center justify-content-center fixed-top">
@@ -15,6 +15,12 @@ $itensMenu = config(\Config\Menu::class)->itensVisiveis();
         </li>
 
         <?php foreach ($itensMenu as $item) : ?>
+            <?php if ($item['categoria'] !== null) : ?>
+                <li class="nav-item nav-category">
+                    <span class="nav-link"><?= esc($item['categoria']) ?></span>
+                </li>
+            <?php endif ?>
+            
             <li class="nav-item menu-items <?= $item['ativo'] ? 'active' : '' ?>">
                 <a class="nav-link" href="<?= esc($item['url'], 'attr')?>">
                     <span class="menu-icon">
@@ -24,20 +30,5 @@ $itensMenu = config(\Config\Menu::class)->itensVisiveis();
                 </a>
             </li>
         <?php endforeach?>
-
-        <?php if (auth()->loggedIn() && auth()->user()->can('acessos.administrar')) : ?>
-            <li class="nav-item nav-category">
-                <span class="nav-link">Administração</span>
-            </li>
-
-            <li class="nav-item menu-items <?= url_is('admin/permissoes*') ? 'active' : '' ?>">
-                <a class="nav-link" href="<?= site_url('admin/permissoes') ?>">
-                    <span class="menu-icon">
-                        <i class="mdi mdi-shield-key-outline text-warning" aria-hidden="true"></i>
-                    </span>
-                    <span class="menu-title">Permissões</span>
-                </a>
-            </li>
-        <?php endif ?>
     </ul>
 </nav>
