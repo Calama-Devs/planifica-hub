@@ -26,7 +26,7 @@ class Menu extends BaseConfig
             'permissao'     => null,
         ],
 
-         [
+        [
             'titulo'        => 'Sobre',
             'rota'          => 'sobre',
             'padraoAtivo'   => 'sobre*',
@@ -41,6 +41,6 @@ class Menu extends BaseConfig
             'padraoAtivo'   => 'admin/permissoes*',
             'icone'         => 'mdi mdi-shield-key-outline text-warning',
             'permissao'     => 'acessos.administrar',
-        ]
+        ],
     ];
 }

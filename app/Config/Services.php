@@ -2,7 +2,7 @@
 
 namespace Config;
 
-use app\Services\MenuService;
+use App\Services\MenuService;
 use CodeIgniter\Config\BaseService;
 
 /**

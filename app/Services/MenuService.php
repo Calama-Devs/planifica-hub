@@ -1,20 +1,20 @@
 <?php
 
-namespace app\Services;
+namespace App\Services;
 
 use CodeIgniter\Shield\Entities\User;
 use Config\Menu;
 
-class MenuService 
+class MenuService
 {
     private Menu $menuConfig;
-    
-    public function __construct(?Menu $menuConfig = null) 
+
+    public function __construct(?Menu $menuConfig = null)
     {
         $this->menuConfig = $menuConfig ?? config(Menu::class);
     }
 
-     public function itensVisiveis(?User $usuario = null): array
+    public function itensVisiveis(?User $usuario = null): array
     {
         if ($usuario === null) {
             if (! auth()->loggedIn()) {
@@ -29,11 +29,9 @@ class MenuService
         }
 
         return $this->filtrarItensVisiveis($usuario);
-
-        
     }
 
-    public function filtrarItensVisiveis(User $usuario): array 
+    public function filtrarItensVisiveis(User $usuario): array
     {
         $visiveis = [];
 
