@@ -4,6 +4,7 @@ namespace App\Services;
 
 use CodeIgniter\Shield\Entities\User;
 use Config\Menu;
+use Throwable;
 
 class MenuService
 {
@@ -49,20 +50,25 @@ class MenuService
                 $ultimaCategoria = $categoriaItem;
             }
 
-            $url = route_to($item['rota']) !== false
-                ? url_to($item['rota'])
-                : site_url($item['rota']);
-
             $visiveis[] = [
                 'categoria' => $exibirCategoria,
                 'titulo'    => $item['titulo'],
-                'url'       => $url,
+                'url'       => $this->resolverUrl($item['rota']),
                 'icone'     => $item['icone'],
                 'ativo'     => url_is($item['padraoAtivo']),
             ];
         }
 
         return $visiveis;
+    }
+
+    private function resolverUrl(string $rota): string
+    {
+        try {
+            return url_to($rota);
+        } catch (Throwable) {
+            return site_url($rota);
+        }
     }
 
     private function usuarioPossuiAcesso(User $usuario, string|array|null $permissaoExigida): bool
