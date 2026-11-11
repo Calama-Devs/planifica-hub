@@ -10,10 +10,6 @@ $itensMenu = $itensMenu ?? [];
     </div>
 
     <ul class="nav">
-        <li class="nav-item nav-category">
-            <span class="nav-link">Menu</span>
-        </li>
-
         <?php foreach ($itensMenu as $item) : ?>
             <?php if ($item['categoria'] !== null) : ?>
                 <li class="nav-item nav-category">

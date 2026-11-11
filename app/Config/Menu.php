@@ -20,6 +20,7 @@ class Menu extends BaseConfig
     public array $itens = [
 
         [
+            'categoria'     => 'Menu',
             'titulo'        => 'Dashboard',
             'rota'          => 'dashboard',
             'padraoAtivo'   => '/',
@@ -28,6 +29,7 @@ class Menu extends BaseConfig
         ],
 
         [
+            'categoria'     => 'Menu',
             'titulo'        => 'Sobre',
             'rota'          => 'sobre',
             'padraoAtivo'   => 'sobre*',

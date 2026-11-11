@@ -34,10 +34,19 @@ class MenuService
     public function filtrarItensVisiveis(User $usuario): array
     {
         $visiveis = [];
+        $ultimaCategoria = null;
 
         foreach ($this->menuConfig->itens as $item) {
             if (! $this->usuarioPossuiAcesso($usuario, $item['permissao'])) {
                 continue;
+            }
+
+            $categoriaItem = isset($item['categoria']) ? trim($item['categoria']) : null;
+            $exibirCategoria = null;
+
+            if ($categoriaItem !== null && $categoriaItem !== '' && $categoriaItem !== $ultimaCategoria) {
+                $exibirCategoria = $categoriaItem;
+                $ultimaCategoria = $categoriaItem;
             }
 
             $url = route_to($item['rota']) !== false
@@ -45,7 +54,7 @@ class MenuService
                 : site_url($item['rota']);
 
             $visiveis[] = [
-                'categoria' => $item['categoria'] ?? null,
+                'categoria' => $exibirCategoria,
                 'titulo'    => $item['titulo'],
                 'url'       => $url,
                 'icone'     => $item['icone'],
