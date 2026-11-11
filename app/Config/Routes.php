@@ -10,6 +10,8 @@ $routes->group('', ['filter' => ['session', 'redefinicaoSenha']], static functio
     $routes->get('sobre', 'Home::sobre', ['as' => 'sobre']);
     $routes->post('perfil/alterar-senha', 'RedefinirSenhaController::atualizarPeloPerfil', ['as' => 'atualizar-senha-perfil']);
     $routes->post('sobre', 'Home::testarValidacao', ['as' => 'sobre.testar']);
+    $routes->get('perfil', 'PerfilController::index', ['as' => 'perfil']);
+    $routes->post('perfil', 'PerfilController::atualizar', ['as' => 'perfil.atualizar']);
 
     $routes->group('admin/permissoes', ['filter' => 'permission:acessos.administrar'], static function (RouteCollection $routes): void {
         $routes->get('/', 'PermissaoController::index', ['as' => 'permissoes.index']);
