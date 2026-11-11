@@ -4,7 +4,7 @@ namespace App\Services;
 
 use CodeIgniter\Shield\Entities\User;
 use Config\Menu;
-use Throwable;
+use CodeIgniter\Router\Exceptions\RouterException;
 
 class MenuService
 {
@@ -66,7 +66,16 @@ class MenuService
     {
         try {
             return url_to($rota);
-        } catch (Throwable) {
+        } catch (RouterException $e) {
+            log_message(
+                'warning',
+                'MenuService: falha ao resolver rota nomeada "{rota}". Usando fallback site_url(). Detalhe: {erro}',
+                [
+                    'rota' => $rota,
+                    'erro' => $e->getMessage(),
+                ]
+            );
+
             return site_url($rota);
         }
     }
