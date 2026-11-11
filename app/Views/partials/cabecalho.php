@@ -21,6 +21,16 @@
                         </div>
                     </a>
                     <div class="dropdown-menu dropdown-menu-end navbar-dropdown preview-list" aria-labelledby="profileDropdown">
+                        <a class="dropdown-item preview-item" href="<?= url_to('perfil') ?>">
+                            <div class="preview-thumbnail">
+                                <div class="preview-icon bg-dark rounded-circle">
+                                    <i class="mdi mdi-account-edit text-primary" aria-hidden="true"></i>
+                                </div>
+                            </div>
+                            <div class="preview-item-content">
+                                <p class="preview-subject mb-1">Meu perfil</p>
+                            </div>
+                        </a>
                         <form action="<?= url_to('logout') ?>" method="post">
                             <?= csrf_field() ?>
                             <button type="submit" id="botao-sair" class="dropdown-item preview-item">
