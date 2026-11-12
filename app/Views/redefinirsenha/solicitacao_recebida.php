@@ -34,7 +34,7 @@
         </div>
 
         <footer class="recuperacao-senha-rodape">
-            <a class="recuperacao-senha-link" href="<?= url_to('magic-link') ?>">Enviar outro link</a>
+            <a class="recuperacao-senha-link" href="<?= url_to('solicitar-redefinicao') ?>">Enviar outro link</a>
             <span aria-hidden="true"> · </span>
             <a class="recuperacao-senha-link" href="<?= url_to('login') ?>">Voltar para o login</a>
         </footer>
