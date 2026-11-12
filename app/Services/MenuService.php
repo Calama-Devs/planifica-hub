@@ -37,12 +37,16 @@ class MenuService
         $visiveis = [];
         $ultimaCategoria = null;
 
-        foreach ($this->menuConfig->itens as $item) {
-            if (! $this->usuarioPossuiAcesso($usuario, $item['permissao'])) {
+        foreach ($this->menuConfig->itens as $indice => $item) {
+            if (! $this->itemValido($item, $indice)) {
                 continue;
             }
 
-            $categoriaItem = isset($item['categoria']) ? trim($item['categoria']) : null;
+            if (! $this->usuarioPossuiAcesso($usuario, $item['permissao'] ?? null)) {
+                continue;
+            }
+
+            $categoriaItem = isset($item['categoria']) && is_string($item['categoria']) ? trim($item['categoria']) : null;
             $exibirCategoria = null;
 
             if ($categoriaItem !== null && $categoriaItem !== '' && $categoriaItem !== $ultimaCategoria) {
@@ -60,6 +64,28 @@ class MenuService
         }
 
         return $visiveis;
+    }
+
+    private function itemValido(array $item, int $indice): bool
+    {
+        $camposObrigatorios = ['titulo', 'rota', 'padraoAtivo', 'icone'];
+
+        foreach ($camposObrigatorios as $campo) {
+            if (! isset($item[$campo]) || ! is_string($item[$campo]) || trim($item[$campo]) === '') {
+                log_message(
+                    'warning',
+                    'MenuService: item de menu no indice {indice} ignorado por ausência ou invalidez do campo obrigatório "{campo}".',
+                    [
+                        'indice' => $indice,
+                        'campo'  => $campo,
+                    ]
+                );
+
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function resolverUrl(string $rota): string
