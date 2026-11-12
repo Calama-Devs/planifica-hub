@@ -3,7 +3,7 @@
 namespace Config;
 
 use App\Services\MenuService;
-
+use Config\Menu;
 use App\Services\PerfilService;
 use App\Services\PermissaoDiretaService;
 use App\Services\PermissaoService;
