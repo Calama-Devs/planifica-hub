@@ -71,7 +71,7 @@
                                 <tr>
                                     <td align="center" bgcolor="#0090e7" style="border-radius: 6px;">
                                         <a
-                                            href="<?= esc(url_to('verify-magic-link') . '?token=' . rawurlencode($token), 'attr') ?>"
+                                            href="<?= esc(($urlVerificacao ?? url_to('verify-magic-link')) . '?token=' . rawurlencode($token), 'attr') ?>"
                                             style="background-color: #0090e7; border: 1px solid #0090e7;
                                                 border-radius: 6px; color: #ffffff; display: block;
                                                 font-family: Arial, Helvetica, sans-serif; font-size: 15px;
@@ -83,21 +83,6 @@
                                     </td>
                                 </tr>
                             </table>
-
-                            <p style="color: #aeb4c4; font-size: 13px; margin: 24px 0 8px;">
-                                Se o botão não funcionar, copie e cole o endereço abaixo no navegador:
-                            </p>
-                            <p
-                                style="font-size: 13px; line-height: 1.6; margin: 0; overflow-wrap: anywhere;
-                                    word-break: break-all;"
-                            >
-                                <a
-                                    href="<?= esc(url_to('verify-magic-link') . '?token=' . rawurlencode($token), 'attr') ?>"
-                                    style="color: #0090e7; text-decoration: underline;"
-                                >
-                                    <?= esc(url_to('verify-magic-link') . '?token=' . rawurlencode($token)) ?>
-                                </a>
-                            </p>
 
                             <table
                                 role="presentation"
