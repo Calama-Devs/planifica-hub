@@ -17,10 +17,47 @@ class RedefinirSenhaController extends BaseController
         $this->redefinirSenhaService = $redefinirSenhaService;
     }
 
+    public function solicitar(): string
+    {
+        return view('redefinirsenha/solicitar', ['rotaEnvio' => 'enviar-redefinicao']);
+    }
+
+    public function enviar(): string|RedirectResponse
+    {
+        if (! $this->validate(['email' => 'required|valid_email'])) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        $this->redefinirSenhaService->solicitarRedefinicao((string) $this->request->getPost('email'));
+
+        return view('redefinirsenha/solicitacao_recebida');
+    }
+
+    public function verificar(): RedirectResponse
+    {
+        $resultado = $this->redefinirSenhaService->validarTokenRedefinicao(
+            $this->request->getGet('token')
+        );
+
+        if (! $resultado['sucesso']) {
+            return redirect()
+                ->route('solicitar-redefinicao')
+                ->with('error', 'Não foi possível concluir a redefinição de senha. Solicite um novo link.');
+        }
+
+        /** @var \CodeIgniter\Shield\Entities\User $usuario */
+        $usuario = $resultado['usuario'];
+        auth()->login($usuario);
+        session()->set('redefinicaoSenhaPendente', true);
+        session()->setTempdata('acessoRedefinicaoSenha', true, setting('Auth.magicLinkLifetime'));
+
+        return redirect()->to(site_url('reset-password'));
+    }
+
     public function redefinir(): string|RedirectResponse
     {
         if (!$this->possuiAcessoTemporario()) {
-            return redirect()->route('magic-link');
+            return redirect()->route('solicitar-redefinicao');
         }
 
         return view('redefinirsenha/redefinir');
@@ -40,7 +77,7 @@ class RedefinirSenhaController extends BaseController
     public function atualizar(): RedirectResponse
     {
         if (!$this->possuiAcessoTemporario()) {
-            return redirect()->route('magic-link');
+            return redirect()->route('solicitar-redefinicao');
         }
 
         $usuario = auth()->user();
@@ -49,8 +86,8 @@ class RedefinirSenhaController extends BaseController
             $this->encerrarSessaoTemporaria();
 
             return redirect()
-                ->route('magic-link')
-                ->with('error', 'Usuário não encontrado ou desativado.');
+                ->route('solicitar-redefinicao')
+                ->with('error', 'Não foi possível concluir a redefinição de senha. Solicite um novo link.');
         }
 
         $resultado = $this->redefinirSenhaService->redefinir(
@@ -122,14 +159,16 @@ class RedefinirSenhaController extends BaseController
 
     private function possuiAcessoTemporario(): bool
     {
-        return auth()->loggedIn() && session()->getTempdata('magicLogin') === true;
+        return auth()->loggedIn()
+            && session()->get('redefinicaoSenhaPendente') === true
+            && session()->getTempdata('acessoRedefinicaoSenha') === true;
     }
 
     private function encerrarSessaoTemporaria(): void
     {
-        session()->removeTempdata('magicLogin');
         session()->removeTempdata('beforeLoginUrl');
         session()->remove('redefinicaoSenhaPendente');
+        session()->removeTempdata('acessoRedefinicaoSenha');
         auth()->logout();
     }
 }
