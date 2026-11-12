@@ -64,14 +64,6 @@ class RedefinirSenhaService
                     'A senha atual informada está incorreta.'
                 );
             }
-
-            if ($senhas->verify($senhaNova, $identidade->secret2)) {
-                return $this->erro(
-                    'validacao',
-                    'NOVA_SENHA_IGUAL_ATUAL',
-                    'A nova senha deve ser diferente da senha atual.'
-                );
-            }
         } catch (Throwable $erro) {
             log_message(
                 'error',
@@ -198,7 +190,7 @@ class RedefinirSenhaService
                 Session::ID_TYPE_EMAIL_PASSWORD
             );
 
-            if ($identidade === null) {
+            if ($identidade === null || ! is_string($identidade->secret2)) {
                 log_message(
                     'error',
                     '[RedefinirSenhaService::redefinir] Usuário {id} não possui identidade email_password.',
@@ -212,7 +204,17 @@ class RedefinirSenhaService
                 );
             }
 
-            $senhas    = service('passwords');
+            /** @var Passwords $senhas */
+            $senhas = service('passwords');
+
+            if ($senhas->verify($senha, $identidade->secret2)) {
+                return $this->erro(
+                    'validacao',
+                    'NOVA_SENHA_IGUAL_ATUAL',
+                    'A nova senha deve ser diferente da senha atual.'
+                );
+            }
+
             $hashSenha = $senhas->hash($senha);
 
             if (! is_string($hashSenha)) {
@@ -288,38 +290,6 @@ class RedefinirSenhaService
                 'SENHA_RECUSADA_PELO_SHIELD',
                 $this->traduzirMotivoShield($resultadoShield->reason())
             );
-        }
-
-        if (!preg_match('/[A-Z]/', $senha)) {
-            return $this->erro(
-                'validacao',
-                'SENHA_SEM_MAIUSCULA',
-                'A senha deve conter pelo menos uma letra maiúscula.'
-            );
-        }
-
-        if (!preg_match('/[a-z]/', $senha)) {
-            return $this->erro(
-                'validacao',
-                'SENHA_SEM_MINUSCULA',
-                'A senha deve conter pelo menos uma letra minúscula.'
-            );
-        }
-
-        if (!preg_match('/[0-9]/', $senha)) {
-            return $this->erro('validacao', 'SENHA_SEM_NUMERO', 'A senha deve conter pelo menos um número.');
-        }
-
-        if (!preg_match('/[^a-zA-Z0-9]/', $senha)) {
-            return $this->erro(
-                'validacao',
-                'SENHA_SEM_CARACTERE_ESPECIAL',
-                'A senha deve conter pelo menos um caractere especial.'
-            );
-        }
-
-        if (preg_match('/[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]/u', $senha)) {
-            return $this->erro('validacao', 'SENHA_COM_EMOJI', 'A senha não pode conter emojis.');
         }
 
         return [
