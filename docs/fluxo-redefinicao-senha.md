@@ -8,6 +8,8 @@ No perfil, o usuário autenticado acessa `/perfil/alterar-senha`, informa a senh
 
 Quando não possui acesso à conta, o usuário solicita a recuperação em `/recuperar-senha`. O sistema cria um token `magic-link-reset`, separado do Magic Link nativo do Shield, e envia um link temporário de uso único. Após validá-lo, o ID do usuário fica em um `tempdata` temporário, utilizado exclusivamente pela redefinição e pelo cancelamento. Esse acesso não cria uma sessão autenticada nem libera outras funcionalidades. Após definir a nova senha, o usuário retorna ao login.
 
+Nos dois fluxos, a conta precisa estar ativa, com `users.active = 1`. Contas com valor diferente de `1` não podem solicitar, validar ou concluir a redefinição de senha, nem alterar a senha pelo perfil.
+
 A nova senha passa pelas validações do Shield e deve ser diferente da senha anterior.
 
 > A rota `POST /recuperar-senha` utiliza o filtro nativo `auth-rates` do Shield para limitar as solicitações por endereço IP. Essa medida reduz tentativas automatizadas e o abuso do envio de e-mails, mas não elimina completamente a possibilidade de inferir contas por diferenças no tempo de resposta. A mensagem exibida permanece genérica para não revelar se o e-mail está cadastrado.
