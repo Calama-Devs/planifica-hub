@@ -75,6 +75,12 @@
                 return;
             }
 
+            if (requisicao.status === 401 || requisicao.status === 403) {
+                window.location.reload();
+
+                return;
+            }
+
             atualizarCsrf(resposta);
             exibirErro(resposta && resposta.mensagem ? resposta.mensagem :
                 'Não foi possível concluir. Recarregue a página e tente novamente.');
