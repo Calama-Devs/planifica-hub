@@ -35,7 +35,7 @@
                 </div>
             <?php endif ?>
 
-            <form action="<?= url_to('magic-link') ?>" method="post" data-envio-unico="true">
+            <form action="<?= url_to('enviar-redefinicao') ?>" method="post" data-envio-unico="true">
                 <?= csrf_field() ?>
 
                 <div class="form-floating mb-4">
