@@ -24,6 +24,17 @@
         alerta.text(mensagem).removeClass('d-none').trigger('focus');
     }
 
+    function redirecionarSeNecessario(resposta) {
+        if (!resposta || !resposta.redirecionamento) {
+            return false;
+        }
+
+        formulario[0].reset();
+        window.location.assign(resposta.redirecionamento);
+
+        return true;
+    }
+
     modal.on('shown.bs.modal', function () {
         $('#perfil-senha-atual').trigger('focus');
     }).on('hide.bs.modal', function (evento) {
@@ -51,15 +62,25 @@
             data: formulario.serialize(),
             dataType: 'json'
         }).done(function (resposta) {
-            atualizarCsrf(resposta);
-            if (resposta.sucesso && resposta.redirecionamento) {
-                formulario[0].reset();
-                window.location.assign(resposta.redirecionamento);
+            if (redirecionarSeNecessario(resposta)) {
                 return;
             }
+
+            atualizarCsrf(resposta);
             exibirErro(resposta.mensagem || 'Não foi possível alterar a senha.');
         }).fail(function (requisicao) {
             var resposta = requisicao.responseJSON;
+
+            if (redirecionarSeNecessario(resposta)) {
+                return;
+            }
+
+            if (requisicao.status === 401 || requisicao.status === 403) {
+                window.location.reload();
+
+                return;
+            }
+
             atualizarCsrf(resposta);
             exibirErro(resposta && resposta.mensagem ? resposta.mensagem :
                 'Não foi possível concluir. Recarregue a página e tente novamente.');

@@ -67,9 +67,8 @@
                 </div>
 
                 <p class="recuperacao-senha-regras mb-4">
-                    Use pelo menos <?= esc((string) config('Auth')->minimumPasswordLength) ?> caracteres, incluindo
-                    letra maiúscula, letra minúscula, número e caractere especial. Não use emojis, senhas comuns
-                    nem informações do seu usuário ou e-mail.
+                    Use pelo menos <?= esc((string) config('Auth')->minimumPasswordLength) ?> caracteres. A nova senha
+                    deve ser diferente da anterior e não pode ser comum nem conter informações do seu usuário ou e-mail.
                 </p>
 
                 <div class="d-grid">
@@ -89,7 +88,7 @@
             </form>
 
             <div class="recuperacao-senha-aviso">
-                Após a alteração, sua sessão será encerrada e você deverá entrar com a nova senha.
+                Após a alteração, entre com sua nova senha no próximo acesso.
             </div>
         </div>
 

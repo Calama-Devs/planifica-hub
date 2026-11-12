@@ -26,8 +26,8 @@
                             autocomplete="new-password" required>
                     </div>
                     <p id="regras-senha-perfil" class="text-muted small">
-                        Use pelo menos <?= esc((string) config('Auth')->minimumPasswordLength) ?> caracteres, com letra
-                        maiúscula, minúscula, número e caractere especial. Não use emojis, senhas comuns nem dados pessoais.
+                        Use pelo menos <?= esc((string) config('Auth')->minimumPasswordLength) ?> caracteres. A nova senha
+                        deve ser diferente da atual e não pode ser comum nem conter dados pessoais.
                     </p>
                     <p class="mb-0">Após a alteração, você deverá entrar com a nova senha.</p>
                 </div>

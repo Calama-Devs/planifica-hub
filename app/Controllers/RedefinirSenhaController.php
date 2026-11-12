@@ -5,6 +5,8 @@ namespace App\Controllers;
 use App\Services\RedefinirSenhaService;
 use CodeIgniter\HTTP\RedirectResponse;
 use CodeIgniter\HTTP\ResponseInterface;
+use CodeIgniter\Shield\Entities\User;
+use CodeIgniter\Shield\Models\UserModel;
 
 class RedefinirSenhaController extends BaseController
 {
@@ -22,7 +24,7 @@ class RedefinirSenhaController extends BaseController
         return view('redefinirsenha/solicitar', ['rotaEnvio' => 'enviar-redefinicao']);
     }
 
-    public function enviar(): string|RedirectResponse
+    public function enviar(): RedirectResponse
     {
         if (! $this->validate(['email' => 'required|valid_email'])) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
@@ -30,6 +32,11 @@ class RedefinirSenhaController extends BaseController
 
         $this->redefinirSenhaService->solicitarRedefinicao((string) $this->request->getPost('email'));
 
+        return redirect()->route('confirmacao-redefinicao');
+    }
+
+    public function confirmacao(): string
+    {
         return view('redefinirsenha/solicitacao_recebida');
     }
 
@@ -47,16 +54,20 @@ class RedefinirSenhaController extends BaseController
 
         /** @var \CodeIgniter\Shield\Entities\User $usuario */
         $usuario = $resultado['usuario'];
-        auth()->login($usuario);
-        session()->set('redefinicaoSenhaPendente', true);
-        session()->setTempdata('acessoRedefinicaoSenha', true, setting('Auth.magicLinkLifetime'));
+        session()->setTempdata(
+            'redefinicaoSenhaUsuarioId',
+            (int) $usuario->id,
+            setting('Auth.magicLinkLifetime')
+        );
 
         return redirect()->to(site_url('reset-password'));
     }
 
     public function redefinir(): string|RedirectResponse
     {
-        if (!$this->possuiAcessoTemporario()) {
+        if ($this->buscarUsuarioRedefinicao() === null) {
+            $this->removerAutorizacaoTemporaria();
+
             return redirect()->route('solicitar-redefinicao');
         }
 
@@ -65,25 +76,21 @@ class RedefinirSenhaController extends BaseController
 
     public function cancelar(): RedirectResponse
     {
-        if (!$this->possuiAcessoTemporario()) {
+        if (session()->getTempdata('redefinicaoSenhaUsuarioId') === null) {
             return redirect()->to(site_url('/'));
         }
 
-        $this->encerrarSessaoTemporaria();
+        $this->removerAutorizacaoTemporaria();
 
         return redirect()->route('login');
     }
 
     public function atualizar(): RedirectResponse
     {
-        if (!$this->possuiAcessoTemporario()) {
-            return redirect()->route('solicitar-redefinicao');
-        }
+        $usuario = $this->buscarUsuarioRedefinicao();
 
-        $usuario = auth()->user();
-
-        if ($usuario === null || (int) $usuario->active !== 1) {
-            $this->encerrarSessaoTemporaria();
+        if ($usuario === null) {
+            $this->removerAutorizacaoTemporaria();
 
             return redirect()
                 ->route('solicitar-redefinicao')
@@ -100,7 +107,7 @@ class RedefinirSenhaController extends BaseController
             return redirect()->back()->with('error', $resultado['mensagem']);
         }
 
-        $this->encerrarSessaoTemporaria();
+        $this->removerAutorizacaoTemporaria();
 
         return redirect()
             ->route('login')
@@ -109,15 +116,6 @@ class RedefinirSenhaController extends BaseController
 
     public function atualizarPeloPerfil(): ResponseInterface
     {
-        if ($this->possuiAcessoTemporario() || session()->get('redefinicaoSenhaPendente') === true) {
-            return $this->responderPerfil([
-                'sucesso' => false,
-                'tipo' => 'permissao',
-                'codigo' => 'SESSAO_TEMPORARIA',
-                'mensagem' => 'Utilize a página de recuperação de senha.',
-            ], 403);
-        }
-
         $usuario = auth()->user();
 
         if ($usuario === null || (int) $usuario->active !== 1) {
@@ -128,7 +126,8 @@ class RedefinirSenhaController extends BaseController
                 'tipo' => 'permissao',
                 'codigo' => 'USUARIO_INDISPONIVEL',
                 'mensagem' => 'Sessão indisponível. Entre novamente.',
-            ], 403);
+                'redirecionamento' => url_to('login'),
+            ], 403, true);
         }
 
         $resultado = $this->redefinirSenhaService->alterarPeloPerfil(
@@ -146,29 +145,48 @@ class RedefinirSenhaController extends BaseController
 
         session()->setFlashdata('success', 'Senha alterada com sucesso. Acesse com sua nova senha.');
 
-        return $this->responderPerfil($resultado + ['redirecionamento' => url_to('login')]);
+        return $this->responderPerfil(
+            $resultado + ['redirecionamento' => url_to('login')],
+            200,
+            true
+        );
     }
 
     /** @param array<string, mixed> $resultado */
-    private function responderPerfil(array $resultado, int $status = 200): ResponseInterface
-    {
-        return $this->response->setStatusCode($status)->setJSON($resultado + [
-            'csrf' => ['nome' => csrf_token(), 'hash' => csrf_hash()],
-        ]);
+    private function responderPerfil(
+        array $resultado,
+        int $status = 200,
+        bool $sessaoEncerrada = false
+    ): ResponseInterface {
+        if (! $sessaoEncerrada) {
+            $resultado['csrf'] = ['nome' => csrf_token(), 'hash' => csrf_hash()];
+        }
+
+        return $this->response->setStatusCode($status)->setJSON($resultado);
     }
 
-    private function possuiAcessoTemporario(): bool
+    private function buscarUsuarioRedefinicao(): ?User
     {
-        return auth()->loggedIn()
-            && session()->get('redefinicaoSenhaPendente') === true
-            && session()->getTempdata('acessoRedefinicaoSenha') === true;
+        $usuarioId = session()->getTempdata('redefinicaoSenhaUsuarioId');
+
+        if (! is_int($usuarioId) || $usuarioId < 1) {
+            return null;
+        }
+
+        /** @var UserModel $modeloUsuario */
+        $modeloUsuario = model(UserModel::class);
+
+        $usuario = $modeloUsuario->findById($usuarioId);
+
+        if ($usuario === null || (int) $usuario->active !== 1) {
+            return null;
+        }
+
+        return $usuario;
     }
 
-    private function encerrarSessaoTemporaria(): void
+    private function removerAutorizacaoTemporaria(): void
     {
-        session()->removeTempdata('beforeLoginUrl');
-        session()->remove('redefinicaoSenhaPendente');
-        session()->removeTempdata('acessoRedefinicaoSenha');
-        auth()->logout();
+        session()->removeTempdata('redefinicaoSenhaUsuarioId');
     }
 }
