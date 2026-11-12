@@ -10,6 +10,8 @@ Quando não possui acesso à conta, o usuário solicita a recuperação em `/rec
 
 A nova senha passa pelas validações do Shield e deve ser diferente da senha anterior.
 
+> A rota `POST /recuperar-senha` utiliza o filtro nativo `auth-rates` do Shield para limitar as solicitações por endereço IP. Essa medida reduz tentativas automatizadas e o abuso do envio de e-mails, mas não elimina completamente a possibilidade de inferir contas por diferenças no tempo de resposta. A mensagem exibida permanece genérica para não revelar se o e-mail está cadastrado.
+
 ## Finalidade dos tokens
 
 O Magic Link nativo do Shield mantém o tipo `magic-link` e o redirecionamento normal de login. A recuperação usa exclusivamente `magic-link-reset`, persistido em `auth_identities` com a mesma expiração configurada para o Magic Link. A finalidade é validada no token antes de criar a autorização temporária, para que o link funcione em outro navegador ou dispositivo sem liberar outras funcionalidades.
