@@ -111,8 +111,8 @@ class Filters extends BaseFilters
     public array $filters = [
         'redefinicaoSenha' => [
             'before' => [
-                'login/magic-link',
-                'login/verify-magic-link',
+                'recuperar-senha',
+                'recuperar-senha/*',
             ],
         ],
     ];
