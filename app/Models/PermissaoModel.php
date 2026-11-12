@@ -20,7 +20,6 @@ class PermissaoModel extends Model
         'origem',
         'created_by',
         'updated_by',
-        'deleted_by',
     ];
 
     protected $useTimestamps = true;

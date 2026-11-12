@@ -42,12 +42,6 @@ class CriarTabelaPermissoes extends Migration
                 'unsigned'   => true,
                 'null'       => true,
             ],
-            'deleted_by' => [
-                'type'       => 'INT',
-                'constraint' => 11,
-                'unsigned'   => true,
-                'null'       => true,
-            ],
             'created_at' => [
                 'type' => 'DATETIME',
                 'null' => true,
@@ -66,7 +60,6 @@ class CriarTabelaPermissoes extends Migration
         $this->forge->addUniqueKey('identificador');
         $this->forge->addForeignKey('created_by', 'users', 'id', 'CASCADE', 'SET NULL');
         $this->forge->addForeignKey('updated_by', 'users', 'id', 'CASCADE', 'SET NULL');
-        $this->forge->addForeignKey('deleted_by', 'users', 'id', 'CASCADE', 'SET NULL');
         $this->forge->createTable('permissoes', true);
     }
 
