@@ -10,9 +10,9 @@ use CodeIgniter\Shield\Authentication\Authenticators\Session;
 
 class RedefinicaoSenhaFilter implements FilterInterface
 {
-    private const ROTAS_MAGIC_LINK = [
-        'login/magic-link',
-        'login/verify-magic-link',
+    private const ROTAS_RECUPERACAO = [
+        'recuperar-senha',
+        'recuperar-senha/verificar',
     ];
 
     private const ROTAS_PERMITIDAS_DURANTE_REDEFINICAO = [
@@ -36,32 +36,26 @@ class RedefinicaoSenhaFilter implements FilterInterface
             return null;
         }
 
-        $temSessao  = $autenticador->loggedIn() || $autenticador->isPending();
-        $magicLogin = session()->getTempdata('magicLogin') === true;
+        $temSessao             = $autenticador->loggedIn() || $autenticador->isPending();
+        $redefinicaoPendente = session()->get('redefinicaoSenhaPendente') === true;
+        $acessoTemporario     = session()->getTempdata('acessoRedefinicaoSenha') === true;
 
-        if ($magicLogin && $autenticador->loggedIn()) {
-            session()->set('redefinicaoSenhaPendente', true);
-        }
-
-        if (session()->get('redefinicaoSenhaPendente') === true && !$magicLogin) {
+        if ($redefinicaoPendente && (! $acessoTemporario || ! $autenticador->loggedIn())) {
             auth()->logout();
-            session()->remove(['redefinicaoSenhaPendente', 'beforeLoginUrl']);
+            session()->remove('redefinicaoSenhaPendente');
+            session()->removeTempdata('acessoRedefinicaoSenha');
+            session()->removeTempdata('beforeLoginUrl');
 
             return redirect()->to(site_url('login'));
         }
 
-        if ($magicLogin && ! $autenticador->loggedIn()) {
-            session()->removeTempdata('magicLogin');
-            $magicLogin = false;
-        }
-
-        if ($magicLogin && ! in_array($caminho, self::ROTAS_PERMITIDAS_DURANTE_REDEFINICAO, true)) {
+        if ($redefinicaoPendente && ! in_array($caminho, self::ROTAS_PERMITIDAS_DURANTE_REDEFINICAO, true)) {
             return redirect()
                 ->to(site_url('reset-password'))
                 ->with('error', 'Conclua a redefinicao da senha antes de acessar outra pagina.');
         }
 
-        if (!$magicLogin && $temSessao && in_array($caminho, self::ROTAS_MAGIC_LINK, true)) {
+        if (! $redefinicaoPendente && $temSessao && in_array($caminho, self::ROTAS_RECUPERACAO, true)) {
             return redirect()
                 ->to(site_url('/'))
                 ->with('error', 'Encerre a sessao atual antes de solicitar outro link de redefinicao.');
