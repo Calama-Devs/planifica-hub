@@ -226,13 +226,18 @@ final class AutenticacaoTest extends CIUnitTestCase
     private function executarAlteracaoPeloPerfil(
         string $senhaAtual,
         string $senhaNova,
-        string $confirmacao
+        string $confirmacao,
+        ?string $csrf = null
     ): TestResponse {
-        return $this->enviarFormulario('perfil/alterar-senha', [
+        $campos = [
             'senha-atual' => $senhaAtual,
             'senha-nova' => $senhaNova,
             'confirmar-senha-nova' => $confirmacao,
-        ]);
+        ];
+
+        $campos[csrf_token()] = $csrf ?? csrf_hash();
+
+        return $this->withSession($_SESSION)->post('perfil/alterar-senha', $campos);
     }
 
     private function buscarHashDaSenha(string $email = 'teste@example.com'): string
@@ -318,6 +323,25 @@ final class AutenticacaoTest extends CIUnitTestCase
 
         $confirmacao->assertOK();
         $confirmacao->assertSee('Verifique seu e-mail');
+    }
+
+    public function testLimitaSolicitacoesDeRedefinicaoPorIp(): void
+    {
+        service('throttler')->remove(md5(service('request')->getIPAddress()));
+
+        for ($tentativa = 1; $tentativa <= 10; $tentativa++) {
+            $resposta = $this->enviarFormulario('recuperar-senha', [
+                'email' => 'inexistente' . $tentativa . '@example.com',
+            ]);
+
+            $resposta->assertRedirectTo('/recuperar-senha/enviado');
+        }
+
+        $resposta = $this->enviarFormulario('recuperar-senha', [
+            'email' => 'inexistente11@example.com',
+        ]);
+
+        $resposta->assertStatus(429);
     }
 
     public function testMantemRedirecionamentoNativoDoMagicLink(): void
@@ -618,6 +642,7 @@ final class AutenticacaoTest extends CIUnitTestCase
 
         $resposta->assertOK();
         $resposta->assertJSONFragment(['sucesso' => true, 'redirecionamento' => url_to('login')]);
+        $this->assertArrayNotHasKey('csrf', json_decode($resposta->getJSON(), true));
         $resposta->assertSessionHas('success');
         $this->assertFalse(password_verify($senhaAnterior, $this->buscarHashDaSenha()));
         $this->assertTrue(password_verify($senhaNova, $this->buscarHashDaSenha()));
@@ -801,6 +826,8 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->ativarUsuarioAutenticado();
         $hashAnterior = $this->buscarHashDaSenha();
 
+        $csrf = csrf_hash();
+
         foreach (
             [
             ['', 'NovaSenha@123', 'NovaSenha@123', 'SENHA_ATUAL_OBRIGATORIA'],
@@ -808,14 +835,15 @@ final class AutenticacaoTest extends CIUnitTestCase
             [$this->senha, 'curta', 'curta', 'SENHA_RECUSADA_PELO_SHIELD'],
             ] as [$atual, $nova, $confirmacao, $codigo]
         ) {
-            $tokenAnterior = csrf_hash();
-            $resposta = $this->executarAlteracaoPeloPerfil($atual, $nova, $confirmacao);
+            $tokenAnterior = $csrf;
+            $resposta = $this->executarAlteracaoPeloPerfil($atual, $nova, $confirmacao, $csrf);
 
             $resposta->assertStatus(422);
             $resposta->assertJSONFragment(['sucesso' => false, 'codigo' => $codigo]);
             $json = json_decode($resposta->getJSON(), true);
             $this->assertSame(csrf_hash(), $json['csrf']['hash']);
             $this->assertNotSame($tokenAnterior, $json['csrf']['hash']);
+            $csrf = $json['csrf']['hash'];
             $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
             $this->assertTrue(auth()->loggedIn());
             $resposta->assertSessionMissing('_ci_old_input');
@@ -833,6 +861,8 @@ final class AutenticacaoTest extends CIUnitTestCase
 
         $resposta->assertStatus(403);
         $resposta->assertJSONFragment(['codigo' => 'USUARIO_INDISPONIVEL']);
+        $resposta->assertJSONFragment(['redirecionamento' => url_to('login')]);
+        $this->assertArrayNotHasKey('csrf', json_decode($resposta->getJSON(), true));
         $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
         $this->assertFalse(auth()->loggedIn());
     }
