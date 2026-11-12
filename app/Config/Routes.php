@@ -33,6 +33,9 @@ $routes->group('', ['filter' => ['session', 'redefinicaoSenha']], static functio
 service('auth')->routes($routes, ['except' => ['logout']]);
 $routes->post('logout', '\CodeIgniter\Shield\Controllers\LoginController::logoutAction', ['as' => 'logout']);
 
+$routes->get('recuperar-senha', 'RedefinirSenhaController::solicitar', ['as' => 'solicitar-redefinicao', 'filter' => 'redefinicaoSenha']);
+$routes->post('recuperar-senha', 'RedefinirSenhaController::enviar', ['as' => 'enviar-redefinicao', 'filter' => 'redefinicaoSenha']);
+$routes->get('recuperar-senha/verificar', 'RedefinirSenhaController::verificar', ['as' => 'verificar-redefinicao', 'filter' => 'redefinicaoSenha']);
 $routes->get('reset-password', 'RedefinirSenhaController::redefinir', ['filter' => ['session', 'redefinicaoSenha']]);
 $routes->post('reset-password', 'RedefinirSenhaController::atualizar', ['filter' => ['session', 'redefinicaoSenha']]);
 $routes->post('reset-password/cancelar', 'RedefinirSenhaController::cancelar', ['filter' => ['session', 'redefinicaoSenha']]);
