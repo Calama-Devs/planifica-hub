@@ -184,16 +184,16 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->withSession($_SESSION)->get('logout');
     }
 
-    private function criarUsuario(): User
+    private function criarUsuario(string $email = 'teste@example.com', string $nomeUsuario = 'usuario.teste'): User
     {
         $usuarios = model(UserModel::class);
-        $usuario  = new User(['username' => 'usuario.teste']);
+        $usuario  = new User(['username' => $nomeUsuario]);
         $usuarios->save($usuario);
 
         /** @var User $usuario */
         $usuario = $usuarios->findById($usuarios->getInsertID());
         $usuario->createEmailIdentity([
-            'email'    => 'teste@example.com',
+            'email'    => $email,
             'password' => $this->senha,
         ]);
 
@@ -235,12 +235,12 @@ final class AutenticacaoTest extends CIUnitTestCase
         ]);
     }
 
-    private function buscarHashDaSenha(): string
+    private function buscarHashDaSenha(string $email = 'teste@example.com'): string
     {
         $identidade = $this->db
             ->table('auth_identities')
             ->select('secret2')
-            ->where('secret', 'teste@example.com')
+            ->where('secret', $email)
             ->get()
             ->getRowArray();
 
@@ -264,8 +264,16 @@ final class AutenticacaoTest extends CIUnitTestCase
 
     private function iniciarRedefinicaoTemporaria(): void
     {
-        session()->set('redefinicaoSenhaPendente', true);
-        session()->setTempdata('acessoRedefinicaoSenha', true, setting('Auth.magicLinkLifetime'));
+        $usuario = auth()->user();
+
+        $this->assertNotNull($usuario);
+
+        auth()->logout();
+        session()->setTempdata(
+            'redefinicaoSenhaUsuarioId',
+            (int) $usuario->id,
+            setting('Auth.magicLinkLifetime')
+        );
     }
 
     public function testExibeSolicitacaoDeRedefinicaoComTokenCsrf(): void
@@ -300,6 +308,18 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->post('recuperar-senha', ['email' => 'teste@example.com']);
     }
 
+    public function testRedirecionaConfirmacaoAposSolicitarRedefinicao(): void
+    {
+        $resposta = $this->enviarFormulario('recuperar-senha', ['email' => 'teste@example.com']);
+
+        $resposta->assertRedirectTo('/recuperar-senha/enviado');
+
+        $confirmacao = $this->withSession($_SESSION)->get('recuperar-senha/enviado');
+
+        $confirmacao->assertOK();
+        $confirmacao->assertSee('Verifique seu e-mail');
+    }
+
     public function testMantemRedirecionamentoNativoDoMagicLink(): void
     {
         $redirecionamento = config(\Config\Auth::class)->loginRedirect();
@@ -331,9 +351,8 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta = $this->get('recuperar-senha/verificar?token=' . $token);
 
         $resposta->assertRedirectTo('/reset-password');
-        $this->assertTrue(auth()->loggedIn());
-        $this->assertTrue(session()->get('redefinicaoSenhaPendente'));
-        $this->assertTrue(session()->getTempdata('acessoRedefinicaoSenha'));
+        $this->assertFalse(auth()->loggedIn());
+        $this->assertSame((int) $usuario->id, session()->getTempdata('redefinicaoSenhaUsuarioId'));
         $this->dontSeeInDatabase('auth_identities', ['type' => 'magic-link-reset', 'secret' => $token]);
         $this->seeInDatabase('auth_identities', ['type' => 'magic-link', 'secret' => 'token-login-nativo']);
     }
@@ -375,7 +394,11 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->cadastrarUsuario();
         $hashAnterior = $this->buscarHashDaSenha();
 
-        $resposta = $this->executarRedefinicao('NovaSenha@123', 'NovaSenha@123');
+        $resposta = $this->enviarFormulario('reset-password', [
+            'senha-nova' => 'NovaSenha@123',
+            'confirmar-senha-nova' => 'NovaSenha@123',
+            'usuario_id' => '999999',
+        ]);
 
         $resposta->assertRedirectTo('/recuperar-senha');
         $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
@@ -428,17 +451,30 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
     }
 
-    public function testMantemValidacaoAdicionalDeLetraMaiuscula(): void
+    public function testAceitaSenhaSemMaiusculaQuandoAprovadaPeloShield(): void
+    {
+        $this->cadastrarUsuario();
+        $this->ativarUsuarioAutenticado();
+        $this->iniciarRedefinicaoTemporaria();
+
+        $resposta = $this->executarRedefinicao('nova-senha@123', 'nova-senha@123');
+
+        $resposta->assertRedirectTo('/login');
+        $resposta->assertSessionHas('success');
+        $this->assertTrue(password_verify('nova-senha@123', $this->buscarHashDaSenha()));
+    }
+
+    public function testRecusaSenhaAnteriorNaRedefinicao(): void
     {
         $this->cadastrarUsuario();
         $this->ativarUsuarioAutenticado();
         $this->iniciarRedefinicaoTemporaria();
         $hashAnterior = $this->buscarHashDaSenha();
 
-        $resposta = $this->executarRedefinicao('nova-senha@123', 'nova-senha@123');
+        $resposta = $this->executarRedefinicao($this->senha, $this->senha);
 
         $resposta->assertRedirect();
-        $resposta->assertSessionHas('error', 'A senha deve conter pelo menos uma letra maiúscula.');
+        $resposta->assertSessionHas('error', 'A nova senha deve ser diferente da senha atual.');
         $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
     }
 
@@ -470,38 +506,39 @@ final class AutenticacaoTest extends CIUnitTestCase
         ]);
     }
 
-    public function testImpedeSolicitarMagicLinkComSessaoAutenticada(): void
+    public function testPermiteSolicitarRecuperacaoComSessaoAutenticada(): void
     {
         $this->cadastrarUsuario();
 
         $resposta = $this->withSession($_SESSION)->get('recuperar-senha');
 
-        $resposta->assertRedirectTo(site_url('/'));
-        $resposta->assertSessionHas('error');
+        $resposta->assertOK();
+        $this->assertTrue(auth()->loggedIn());
     }
 
-    public function testImpedeVerificarMagicLinkComSessaoAutenticada(): void
+    public function testRecusaTokenInvalidoSemEncerrarSessaoAutenticada(): void
     {
         $this->cadastrarUsuario();
 
         $resposta = $this->withSession($_SESSION)->get('recuperar-senha/verificar?token=invalido');
 
-        $resposta->assertRedirectTo(site_url('/'));
+        $resposta->assertRedirectTo('/recuperar-senha');
         $resposta->assertSessionHas('error');
+        $this->assertTrue(auth()->loggedIn());
     }
 
-    public function testRestringeSessaoDoMagicLinkARedefinicao(): void
+    public function testAutorizacaoTemporariaNaoLiberaRotaProtegida(): void
     {
-        $this->cadastrarUsuario();
-        $this->iniciarRedefinicaoTemporaria();
+        $usuario = $this->criarUsuario();
+        session()->setTempdata('redefinicaoSenhaUsuarioId', (int) $usuario->id, setting('Auth.magicLinkLifetime'));
 
         $resposta = $this->withSession($_SESSION)->get('/');
 
-        $resposta->assertRedirectTo(site_url('reset-password'));
-        $resposta->assertSessionHas('error');
+        $resposta->assertRedirectTo(site_url('login'));
+        $this->assertFalse(auth()->loggedIn());
     }
 
-    public function testPermiteTelaDeRedefinicaoNaSessaoDoMagicLink(): void
+    public function testPermiteRedefinicaoComAutorizacaoTemporariaSemAutenticacao(): void
     {
         $this->cadastrarUsuario();
         $this->iniciarRedefinicaoTemporaria();
@@ -509,13 +546,7 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta = $this->withSession($_SESSION)->get('reset-password');
 
         $resposta->assertOK();
-        $resposta->assertDontSeeElement('input[name=senha-atual]');
-        $resposta->assertDontSeeElement('div[id=modal-alterar-senha]');
-        $resposta->assertSee('Voltar para o login');
-        $resposta->assertSeeElement('input[name=senha-nova]');
-        $resposta->assertSeeElement('form[data-envio-unico=true]');
-        $resposta->assertSeeElement('button[data-texto-processando=Salvando...]');
-        $resposta->assertSeeElement('script[data-script-envio-unico=true]');
+        $this->assertFalse(auth()->loggedIn());
     }
 
     public function testExibeAlteracaoPeloPerfilComSenhaAtual(): void
@@ -609,7 +640,7 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->assertTrue(auth()->loggedIn());
     }
 
-    public function testRedefineSenhaEEncerraSessao(): void
+    public function testRedefineSenhaERemoveAutorizacaoTemporaria(): void
     {
         $this->cadastrarUsuario();
         $this->ativarUsuarioAutenticado();
@@ -621,7 +652,7 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta->assertRedirectTo('/login');
         $this->assertTrue(password_verify($senhaNova, $this->buscarHashDaSenha()));
         $this->assertFalse(auth()->loggedIn());
-        $this->assertNull(session()->getTempdata('acessoRedefinicaoSenha'));
+        $this->assertNull(session()->getTempdata('redefinicaoSenhaUsuarioId'));
         $resposta->assertSessionHas('success');
     }
 
@@ -641,20 +672,66 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->withSession($_SESSION)->post('perfil/alterar-senha', ['senha-atual' => $this->senha]);
     }
 
-    public function testMagicLinkNaoPodeAlterarPeloPerfil(): void
+    public function testRedefinicaoPreservaSessaoDeOutraConta(): void
     {
-        $this->cadastrarUsuario();
+        $usuarioAutenticado = $this->cadastrarUsuario();
         $this->ativarUsuarioAutenticado();
-        $this->iniciarRedefinicaoTemporaria();
-        $hashAnterior = $this->buscarHashDaSenha();
+        $usuarioRedefinicao = $this->criarUsuario('alvo@example.com', 'usuario.alvo');
+        $senhaAutenticada   = $this->buscarHashDaSenha();
+        $senhaRedefinicao   = $this->buscarHashDaSenha('alvo@example.com');
+        $token              = bin2hex(random_bytes(20));
 
-        $resposta = $this->executarAlteracaoPeloPerfil($this->senha, 'NovaSenha@123', 'NovaSenha@123');
+        $this->db->table('users')->where('id', $usuarioRedefinicao->id)->update(['active' => 1]);
+        model(UserIdentityModel::class)->insert([
+            'user_id' => $usuarioRedefinicao->id,
+            'type'    => 'magic-link-reset',
+            'secret'  => $token,
+            'expires' => Time::now()->addHours(1),
+        ]);
 
-        $resposta->assertRedirectTo(site_url('reset-password'));
-        $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
+        $this->withSession($_SESSION)->get('recuperar-senha/verificar?token=' . $token)
+            ->assertRedirectTo('/reset-password');
+
+        $this->assertTrue(auth()->loggedIn());
+        $this->assertSame($usuarioAutenticado->id, auth()->user()?->id);
+        $this->assertSame(
+            (int) $usuarioRedefinicao->id,
+            session()->getTempdata('redefinicaoSenhaUsuarioId')
+        );
+
+        $resposta = $this->enviarFormulario('reset-password', [
+            'senha-nova' => 'NovaSenha@123',
+            'confirmar-senha-nova' => 'NovaSenha@123',
+            'usuario_id' => (string) $usuarioAutenticado->id,
+        ]);
+
+        $resposta->assertRedirectTo('/login');
+        $this->assertTrue(auth()->loggedIn());
+        $this->assertSame($usuarioAutenticado->id, auth()->user()?->id);
+        $this->assertSame($senhaAutenticada, $this->buscarHashDaSenha());
+        $this->assertFalse(password_verify('NovaSenha@123', $senhaRedefinicao));
+        $this->assertTrue(password_verify('NovaSenha@123', $this->buscarHashDaSenha('alvo@example.com')));
+        $this->assertNull(session()->getTempdata('redefinicaoSenhaUsuarioId'));
     }
 
-    public function testRetornaAoLoginELimpaSessaoTemporariaSemMudarSenha(): void
+    public function testCancelarRedefinicaoPreservaSessaoAutenticada(): void
+    {
+        $usuario = $this->cadastrarUsuario();
+        session()->setTempdata(
+            'redefinicaoSenhaUsuarioId',
+            (int) $usuario->id,
+            setting('Auth.magicLinkLifetime')
+        );
+
+        $resposta = $this->enviarFormulario('reset-password/cancelar', []);
+
+        $resposta->assertRedirectTo('/login');
+        $this->assertTrue(auth()->loggedIn());
+        $this->assertSame($usuario->id, auth()->user()?->id);
+        $this->assertNull(session()->getTempdata('redefinicaoSenhaUsuarioId'));
+    }
+
+    public function testCancelarRemoveAutorizacaoTemporariaSemMudarSenha(): void
     {
         $this->cadastrarUsuario();
         $this->iniciarRedefinicaoTemporaria();
@@ -665,9 +742,8 @@ final class AutenticacaoTest extends CIUnitTestCase
 
         $resposta->assertRedirectTo('/login');
         $this->assertFalse(auth()->loggedIn());
-        $this->assertNull(session()->getTempdata('acessoRedefinicaoSenha'));
-        $this->assertNull(session()->getTempdata('beforeLoginUrl'));
-        $this->assertNull(session()->get('redefinicaoSenhaPendente'));
+        $this->assertNull(session()->getTempdata('redefinicaoSenhaUsuarioId'));
+        $this->assertSame(site_url('sobre'), session()->getTempdata('beforeLoginUrl'));
         $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
         $this->withSession($_SESSION)->get('sobre')->assertRedirectTo('/login');
     }
@@ -712,7 +788,7 @@ final class AutenticacaoTest extends CIUnitTestCase
     {
         $this->cadastrarUsuario();
         $this->iniciarRedefinicaoTemporaria();
-        session()->removeTempdata('acessoRedefinicaoSenha');
+        session()->removeTempdata('redefinicaoSenhaUsuarioId');
 
         $this->withSession($_SESSION)->get('sobre')->assertRedirectTo(site_url('login'));
 
