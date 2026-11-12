@@ -6,22 +6,20 @@ O sistema oferece dois fluxos distintos para definir uma nova senha.
 
 No perfil, o usuário autenticado acessa `/perfil/alterar-senha`, informa a senha atual, a nova senha e a confirmação. A senha atual é validada antes da alteração e a sessão é encerrada somente após a troca ser concluída com sucesso.
 
-Quando não possui acesso à conta, o usuário solicita um magic link em `/login/magic-link`, pela rota nomeada `magic-link` do Shield. O link cria uma sessão temporária na qual não é exigida a senha atual. Durante essa sessão, o acesso fica restrito à tela de redefinição e ao logout. Após definir a nova senha, o usuário retorna ao login.
+Quando não possui acesso à conta, o usuário solicita a recuperação em `/recuperar-senha`. O sistema cria um token `magic-link-reset`, separado do Magic Link nativo do Shield, e envia um link temporário de uso único. Após validá-lo, uma sessão temporária permite somente a redefinição, o cancelamento e o logout. Após definir a nova senha, o usuário retorna ao login.
 
 A nova senha passa pelas validações do Shield e também deve conter letra maiúscula, letra minúscula, número e caractere especial. Emojis não são permitidos.
 
-## Dívida técnica: finalidade do Magic Link
+## Finalidade dos tokens
 
-O Shield usa a marca temporária `magicLogin` para qualquer autenticação realizada por Magic Link. No estado atual do PlanificaHub, todo Magic Link é tratado intencionalmente como recuperação de senha e direcionado para `/reset-password`.
-
-Isso atende ao fluxo atualmente disponível, mas impede usar Magic Link no futuro como uma forma independente de login sem senha. Caso esse segundo uso seja necessário, a finalidade do link deverá ser persistida e diferenciada no próprio fluxo ou token, com ajustes em `loginRedirect()` e no filtro de redefinição. Uma flag temporária criada antes do envio do e-mail não é suficiente, pois o usuário pode abrir o link em outro navegador ou dispositivo.
+O Magic Link nativo do Shield mantém o tipo `magic-link` e o redirecionamento normal de login. A recuperação usa exclusivamente `magic-link-reset`, persistido em `auth_identities` com a mesma expiração configurada para o Magic Link. A finalidade é validada no token antes de criar a sessão temporária, para que o link funcione em outro navegador ou dispositivo sem liberar outras funcionalidades.
 
 ## Onde estão os arquivos
 
 | Arquivo | Finalidade |
 | --- | --- |
 | `app/Config/Routes.php` | Define as rotas do perfil, da solicitação e da redefinição de senha. |
-| `app/Config/Auth.php` | Configura o magic link, os redirecionamentos e as views utilizadas pelo Shield. |
+| `app/Config/Auth.php` | Configura as views e as regras de senha utilizadas pelo Shield. |
 | `app/Config/Services.php` | Registra a factory compartilhada do serviço de redefinição de senha. |
 | `app/Filters/RedefinicaoSenhaFilter.php` | Restringe a navegação durante a sessão temporária. |
 | `app/Controllers/RedefinirSenhaController.php` | Coordena a troca pelo perfil e a redefinição por magic link. |
@@ -30,8 +28,8 @@ Isso atende ao fluxo atualmente disponível, mas impede usar Magic Link no futur
 | `app/Views/redefinirsenha/solicitar.php` | Formulário para solicitar o magic link. |
 | `app/Views/redefinirsenha/solicitacao_recebida.php` | Confirma o envio do link. |
 | `app/Views/redefinirsenha/redefinir.php` | Formulário para informar a nova senha. |
-| `app/Views/redefinirsenha/alterar_pelo_perfil.php` | View do método de alteração de senha pelo perfil. |
-| `app/Views/redefinirsenha/mensagem_email.php` | Modelo do e-mail enviado ao usuário. |
+| `app/Views/partials/modal_alterar_senha.php` | Modal de alteração de senha pelo perfil. |
+| `app/Views/redefinirsenha/mensagem_email.php` | Modelo do e-mail para links nativos e de recuperação. |
 | `public/assets/css/recuperacao-senha.css` | Estilos das telas de recuperação de senha. |
 | `tests/feature/AutenticacaoTest.php` | Testes automatizados do fluxo de autenticação e redefinição. |
 | `tests/feature/HomeTest.php` | Testa a opção do perfil e o acesso ao formulário de alteração de senha. |
