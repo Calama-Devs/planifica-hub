@@ -126,7 +126,8 @@ class RedefinirSenhaController extends BaseController
                 'tipo' => 'permissao',
                 'codigo' => 'USUARIO_INDISPONIVEL',
                 'mensagem' => 'Sessão indisponível. Entre novamente.',
-            ], 403);
+                'redirecionamento' => url_to('login'),
+            ], 403, true);
         }
 
         $resultado = $this->redefinirSenhaService->alterarPeloPerfil(
@@ -144,15 +145,24 @@ class RedefinirSenhaController extends BaseController
 
         session()->setFlashdata('success', 'Senha alterada com sucesso. Acesse com sua nova senha.');
 
-        return $this->responderPerfil($resultado + ['redirecionamento' => url_to('login')]);
+        return $this->responderPerfil(
+            $resultado + ['redirecionamento' => url_to('login')],
+            200,
+            true
+        );
     }
 
     /** @param array<string, mixed> $resultado */
-    private function responderPerfil(array $resultado, int $status = 200): ResponseInterface
-    {
-        return $this->response->setStatusCode($status)->setJSON($resultado + [
-            'csrf' => ['nome' => csrf_token(), 'hash' => csrf_hash()],
-        ]);
+    private function responderPerfil(
+        array $resultado,
+        int $status = 200,
+        bool $sessaoEncerrada = false
+    ): ResponseInterface {
+        if (! $sessaoEncerrada) {
+            $resultado['csrf'] = ['nome' => csrf_token(), 'hash' => csrf_hash()];
+        }
+
+        return $this->response->setStatusCode($status)->setJSON($resultado);
     }
 
     private function buscarUsuarioRedefinicao(): ?User
