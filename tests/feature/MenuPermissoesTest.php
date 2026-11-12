@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use CodeIgniter\Config\Factories;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\Shield\Test\AuthenticationTesting;
@@ -24,7 +25,14 @@ class MenuPermissoesTest extends CIUnitTestCase
     protected function setUp(): void
     {
         $this->resetServices();
+        Factories::injectMock('config', Menu::class, new Menu());
         parent::setUp();
+    }
+
+    protected function tearDown(): void
+    {
+        Factories::injectMock('config', Menu::class, new Menu());
+        parent::tearDown();
     }
 
     public function testExibeApenasItensPublicosParaPerfilSemPermissaoAdministrativa(): void
