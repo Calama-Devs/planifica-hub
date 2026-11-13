@@ -3,6 +3,7 @@
 namespace App\Database\Migrations;
 
 use CodeIgniter\Database\Migration;
+use CodeIgniter\Database\Config as Database;
 use RuntimeException;
 
 class CriarEventosAuditoria extends Migration
@@ -57,7 +58,7 @@ class CriarEventosAuditoria extends Migration
 
     public function down(): void
     {
-        if (!$this->db->tableExists('eventos_auditoria')) {
+        if (!Database::connect($this->DBGroup)->tableExists('eventos_auditoria')) {
             return;
         }
 
