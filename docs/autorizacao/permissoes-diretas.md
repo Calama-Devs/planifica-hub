@@ -23,7 +23,7 @@ A operação só escreve em `auth_permissions_users` e na trilha `auditoria_perm
 A página de uma conta tem dois cartões e um só formulário.
 
 - **Cartão da conta:** nome, e-mail e grupos da conta, o botão **Salvar permissões**, a nota de que as alterações valem na hora e ficam na auditoria, e o quadro "Como ler esta tela".
-- **Cartão das permissões:** as permissões do catálogo em **caixas de seleção**, em duas colunas e agrupadas por categoria, que é o trecho do identificador antes do ponto (`contas.consultar` fica em "Contas"). As categorias seguem a ordem alfabética.
+- **Cartão das permissões:** as permissões do catálogo em **caixas de seleção**, em duas colunas e agrupadas por categoria, que é o trecho do identificador antes do ponto (`contas.consultar` fica em "Contas"). As categorias seguem a ordem alfabética do contexto, e as permissões de cada uma seguem a ordem do catálogo, alfabética pelo identificador.
 - **Caixa marcada:** é o vínculo **direto** da conta. A caixa nunca representa o acesso herdado.
 - **Selos:** **Herdada de** (um por grupo que concede a permissão) e **Acesso efetivo** (a conta pode usar a permissão, venha de onde vier). Uma permissão só herdada aparece com a caixa desmarcada e os dois selos.
 - **Permissão crítica:** tem um ícone de alerta vermelho, porque quem a tem pode administrar o acesso de outras contas. Hoje só `acessos.administrar` é crítica; para destacar outra, acrescente o identificador em `PERMISSOES_CRITICAS` no `PermissaoDiretaService`.
@@ -97,7 +97,7 @@ Depois de qualquer um dos caminhos, reabra a página de permissões da conta e c
 ## 6. Garantias da Operação
 
 - **Persiste só vínculos diretos:** usa `User::addPermission()` e `User::removePermission()` do Shield. Não usa `syncGroups()`, `syncPermissions()` nem grava `AuthGroups.matrix` pelo `setting()`.
-- **Salvar é tudo ou nada:** `PermissaoDiretaService::sincronizar()` compara as caixas marcadas com o que a conta tem e aplica as diferenças, concedendo as que faltam e revogando as que sobraram, pelas mesmas regras de `conceder()` e `revogar()`. Tudo acontece numa só transação: se qualquer mudança falhar, nenhuma é gravada.
+- **Salvar é tudo ou nada:** `PermissaoDiretaService::sincronizar()` compara as caixas marcadas com o que a conta tem e aplica as diferenças, concedendo as que faltam e revogando as que sobraram. Cada mudança grava o vínculo e a auditoria como em `conceder()` e `revogar()`, mas tudo acontece numa única transação aberta por `sincronizar()`, sem transações internas: se qualquer mudança falhar, nenhuma é gravada.
 - **Seleção validada:** o campo `permissoes[]` precisa ser uma lista de textos de até 100 caracteres; qualquer outro formato é recusado ("A seleção de permissões é inválida.") sem gravar nada. Cada identificador é conferido contra o catálogo no Service.
 - **Autor sempre da sessão:** o operador vem de `auth()->id()` no Controller. O formulário não tem campo de autor, e campos extras enviados à mão são ignorados.
 - **Vínculo e auditoria na mesma transação:** se a auditoria falhar, o vínculo também não é gravado, e o operador vê "Não foi possível concluir a operação" sem detalhe técnico. O detalhe vai para o log, sem dados pessoais.

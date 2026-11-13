@@ -7,6 +7,7 @@ namespace Tests\Database;
 use App\Models\AuditoriaPermissaoModel;
 use App\Services\PermissaoDiretaService;
 use App\Services\PermissaoService;
+use ArrayObject;
 use CodeIgniter\Pager\Pager;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserModel;
@@ -547,6 +548,42 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
         $this->seeNumRecords(0, 'auditoria_permissoes', []);
     }
 
+    public function testSincronizarGravaTudoNumaUnicaTransacaoSemTransacoesInternas(): void
+    {
+        $conta         = $this->criarConta('conta.alvo', 'user', ['contas.consultar']);
+        $profundidades = new ArrayObject();
+        $servico       = new PermissaoDiretaService(null, $this->auditoriaQueAnotaAProfundidade($profundidades));
+
+        $resultado = $servico->sincronizar($conta->id, ['contas.criar', 'acessos.administrar'], $this->operador->id);
+
+        // Três mudanças gravadas, todas dentro da transação única do lote: profundidade 1, nunca 2.
+        $this->assertTrue($resultado['sucesso']);
+        $this->assertSame([1, 1, 1], $profundidades->getArrayCopy());
+        $this->assertSame(0, $this->db->transDepth);
+    }
+
+    public function testConsultarOrdenaAsCategoriasPeloContexto(): void
+    {
+        $catalogo = new PermissaoService();
+
+        // Cadastradas fora da ordem alfabética de propósito.
+        foreach (['contabilidade.emitir', 'auditoria.consultar'] as $identificador) {
+            $cadastro = $catalogo->cadastrarPermissao([
+                'identificador' => $identificador,
+                'descricao'     => 'Permissao de teste para a ordem das categorias',
+            ], $this->operador->id);
+
+            $this->assertTrue($cadastro['sucesso']);
+        }
+
+        $conta = $this->criarConta('conta.alvo', 'user');
+
+        $this->assertSame(
+            ['Acessos', 'Auditoria', 'Contabilidade', 'Contas'],
+            array_column($this->servico->consultar($conta->id)['categorias'], 'titulo'),
+        );
+    }
+
     public function testPermissaoCadastradaNaTelaDePermissoesEntraNaCategoriaDoSeuContexto(): void
     {
         $cadastro = (new PermissaoService())->cadastrarPermissao([
@@ -772,6 +809,31 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
             public function registrar(int $usuarioId, string $permissao, string $acao, int $operadorId): bool
             {
                 throw new RuntimeException('Falha simulada na auditoria.');
+            }
+        };
+    }
+
+    /**
+     * Auditoria que anota a profundidade da transação a cada registro: prova quantas transações há abertas.
+     *
+     * @param ArrayObject<int, int> $profundidades
+     */
+    private function auditoriaQueAnotaAProfundidade(ArrayObject $profundidades): AuditoriaPermissaoModel
+    {
+        return new class ($profundidades) extends AuditoriaPermissaoModel {
+            /**
+             * @param ArrayObject<int, int> $profundidades
+             */
+            public function __construct(private readonly ArrayObject $profundidades)
+            {
+                parent::__construct();
+            }
+
+            public function registrar(int $usuarioId, string $permissao, string $acao, int $operadorId): bool
+            {
+                $this->profundidades[] = db_connect()->transDepth;
+
+                return parent::registrar($usuarioId, $permissao, $acao, $operadorId);
             }
         };
     }

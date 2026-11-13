@@ -22,8 +22,9 @@ use Throwable;
  * cache na própria entidade, por isso o efeito real é sempre calculado sobre a
  * conta recarregada do banco.
  *
- * A tela salva as caixas marcadas de uma vez (`sincronizar()`), que concede e
- * revoga pelas mesmas regras de `conceder()` e `revogar()`, numa transação só.
+ * A tela salva as caixas marcadas de uma vez (`sincronizar()`): o vínculo e a
+ * auditoria de cada mudança são gravados do mesmo jeito que em `conceder()` e
+ * `revogar()`, mas todos numa única transação, sem transações internas.
  */
 class PermissaoDiretaService
 {
@@ -197,8 +198,8 @@ class PermissaoDiretaService
 
     /**
      * Deixa as permissões diretas da conta exatamente como as marcadas: concede as que faltam e revoga as que
-     * sobraram. É tudo ou nada: cada mudança passa por conceder() e revogar() (mesmas regras, mesma auditoria)
-     * dentro de uma só transação, e qualquer falha desfaz todas.
+     * sobraram. É tudo ou nada: o vínculo e a auditoria de cada mudança são gravados por gravar(), a mesma
+     * gravação de conceder() e revogar(), dentro de uma só transação, e qualquer falha desfaz todas.
      *
      * @param list<string> $marcadas Identificadores das caixas marcadas. O vínculo direto que a conta já tem e
      *                               não vier aqui é revogado, inclusive o que está fora do catálogo.
@@ -256,7 +257,7 @@ class PermissaoDiretaService
             ];
         }
 
-        $falha = $this->gravarMudancas($contaId, $concedidas, $revogadas, $operadorId);
+        $falha = $this->gravarMudancas($conta, $concedidas, $revogadas, $operadorId);
 
         return $falha ?? $this->descreverSincronizacao($contaId, $concedidas, $revogadas);
     }
@@ -280,15 +281,7 @@ class PermissaoDiretaService
         $dona = $this->banco->transDepth === 1;
 
         try {
-            if ($acao === AuditoriaPermissaoModel::ACAO_CONCEDIDA) {
-                $conta->addPermission($permissao);
-            } else {
-                $conta->removePermission($permissao);
-            }
-
-            if (! $this->auditoria->registrar($contaId, $permissao, $acao, $operadorId)) {
-                throw new RuntimeException('A auditoria não foi gravada.');
-            }
+            $this->gravar($conta, $permissao, $acao, $operadorId);
 
             // Par do transBegin(): em transação externa só baixa a profundidade,
             // e o COMMIT de verdade continua com quem abriu a transação.
@@ -325,77 +318,75 @@ class PermissaoDiretaService
     }
 
     /**
-     * Grava as mudanças numa transação só. Cada conceder() e revogar() participa dela, e quem decide COMMIT ou
-     * ROLLBACK de verdade é este método (ou o chamador, se já houver uma transação aberta).
+     * Grava uma permissão direta e a auditoria dela, sem abrir transação: quem chama é o dono da transação
+     * (persistir(), para uma permissão, ou gravarMudancas(), para várias). Lança exceção se algo não for gravado.
+     */
+    private function gravar(User $conta, string $permissao, string $acao, int $operadorId): void
+    {
+        if ($acao === AuditoriaPermissaoModel::ACAO_CONCEDIDA) {
+            $conta->addPermission($permissao);
+        } else {
+            $conta->removePermission($permissao);
+        }
+
+        if (! $this->auditoria->registrar((int) $conta->id, $permissao, $acao, $operadorId)) {
+            throw new RuntimeException('A auditoria não foi gravada.');
+        }
+    }
+
+    /**
+     * Grava todas as mudanças numa única transação, da qual este método é o dono: nada aqui abre transação
+     * interna. Se o chamador já tinha aberto uma transação, esta participa dela, e o COMMIT ou o ROLLBACK de
+     * verdade fica com ele.
      *
      * @param list<string> $concedidas
      * @param list<string> $revogadas
      *
-     * @return array<string, mixed>|null A primeira falha, ou nulo quando tudo foi gravado.
+     * @return array{
+     *     sucesso: bool,
+     *     tipo: string,
+     *     codigo: string,
+     *     mensagem: string
+     * }|null A falha, ou nulo se tudo foi gravado.
      */
-    private function gravarMudancas(int $contaId, array $concedidas, array $revogadas, int $operadorId): ?array
+    private function gravarMudancas(User $conta, array $concedidas, array $revogadas, int $operadorId): ?array
     {
         $this->banco->transBegin();
         // Sem transação externa, esta é a transação mais externa e cabe a este método desfazer tudo se algo falhar.
         $dona = $this->banco->transDepth === 1;
 
         try {
-            $falha = $this->aplicarMudancas($contaId, $concedidas, $revogadas, $operadorId);
+            foreach ($concedidas as $permissao) {
+                $this->gravar($conta, $permissao, AuditoriaPermissaoModel::ACAO_CONCEDIDA, $operadorId);
+            }
+
+            foreach ($revogadas as $permissao) {
+                $this->gravar($conta, $permissao, AuditoriaPermissaoModel::ACAO_REVOGADA, $operadorId);
+            }
+
+            $this->banco->transCommit();
+
+            return null;
         } catch (Throwable $erro) {
+            $this->banco->transRollback();
+
+            if ($dona) {
+                // Mesma razão do persistir(): no modo estrito, a marca de falha só pode ser limpa pela transação dona.
+                $this->banco->resetTransStatus();
+            }
+
             log_message('error', 'Falha ao salvar permissões diretas: conta {conta}, operador {operador}: {erro}', [
-                'conta'    => $contaId,
+                'conta'    => (int) $conta->id,
                 'operador' => $operadorId,
                 'erro'     => $erro->getMessage(),
             ]);
 
-            $falha = $this->falha(
+            return $this->falha(
                 'inesperado',
                 'PERMISSAO_DIRETA_ERRO_PERSISTENCIA',
                 'Não foi possível concluir a operação. Tente novamente.',
             );
         }
-
-        if ($falha === null) {
-            $this->banco->transCommit();
-
-            return null;
-        }
-
-        $this->banco->transRollback();
-
-        if ($dona) {
-            // Mesma razão do persistir(): no modo estrito, a marca de falha só pode ser limpa pela transação dona.
-            $this->banco->resetTransStatus();
-        }
-
-        return $falha;
-    }
-
-    /**
-     * @param list<string> $concedidas
-     * @param list<string> $revogadas
-     *
-     * @return array<string, mixed>|null O retorno da primeira operação que falhou, ou nulo se todas deram certo.
-     */
-    private function aplicarMudancas(int $contaId, array $concedidas, array $revogadas, int $operadorId): ?array
-    {
-        foreach ($concedidas as $permissao) {
-            $resultado = $this->conceder($contaId, $permissao, $operadorId);
-
-            if (! $resultado['sucesso']) {
-                return $resultado;
-            }
-        }
-
-        foreach ($revogadas as $permissao) {
-            $resultado = $this->revogar($contaId, $permissao, $operadorId);
-
-            if (! $resultado['sucesso']) {
-                return $resultado;
-            }
-        }
-
-        return null;
     }
 
     /**
@@ -598,8 +589,8 @@ class PermissaoDiretaService
     }
 
     /**
-     * Junta as permissões por contexto, o trecho antes do ponto (`contas.consultar` fica em "Contas"), mantendo
-     * a ordem do catálogo.
+     * Junta as permissões por contexto, o trecho antes do ponto (`contas.consultar` fica em "Contas"). As
+     * categorias saem em ordem alfabética do contexto, e as permissões de cada uma, na ordem em que chegam.
      *
      * @param list<array<string, mixed>> $permissoes
      *
@@ -614,6 +605,8 @@ class PermissaoDiretaService
 
             $porContexto[$contexto][] = $permissao;
         }
+
+        ksort($porContexto);
 
         $categorias = [];
 
