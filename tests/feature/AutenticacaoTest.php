@@ -863,7 +863,18 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta->assertJSONFragment(['codigo' => 'USUARIO_INDISPONIVEL']);
         $resposta->assertJSONFragment(['redirecionamento' => url_to('login')]);
         $this->assertArrayNotHasKey('csrf', json_decode($resposta->getJSON(), true));
+        $mensagemContaInativa = 'Sua conta está inativa e sua sessão foi encerrada. '
+            . 'Entre em contato com o administrador.';
+        $resposta->assertSessionHas('error', $mensagemContaInativa);
         $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
         $this->assertFalse(auth()->loggedIn());
+
+        $paginaLogin = $this->withSession($_SESSION)->get('login');
+
+        $paginaLogin->assertSee($mensagemContaInativa);
+        $this->assertLessThan(
+            strpos($paginaLogin->getBody(), '<form'),
+            strpos($paginaLogin->getBody(), $mensagemContaInativa)
+        );
     }
 }
