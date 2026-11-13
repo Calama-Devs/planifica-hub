@@ -20,13 +20,15 @@ A operação só escreve em `auth_permissions_users` e na trilha `auditoria_perm
 
 ### 1.2 Como É a Tela
 
-A página de uma conta tem dois cartões e um só formulário.
+A página de uma conta tem um cabeçalho e dois cartões, sob um só formulário.
 
-- **Cartão da conta:** nome, e-mail e grupos da conta, o botão **Salvar permissões**, a nota de que as alterações valem na hora e ficam na auditoria, e o quadro "Como ler esta tela".
-- **Cartão das permissões:** as permissões do catálogo em **caixas de seleção**, em duas colunas e agrupadas por categoria, que é o trecho do identificador antes do ponto (`contas.consultar` fica em "Contas"). As categorias seguem a ordem alfabética do contexto, e as permissões de cada uma seguem a ordem do catálogo, alfabética pelo identificador.
+- **Cabeçalho:** o caminho "Acessos / conta", com o link de volta à lista, e o título "Conta: nome".
+- **Cartão da conta:** conta, e-mail e grupos, o botão **Salvar permissões**, o link **Voltar**, a nota de que as alterações valem na hora e ficam na auditoria, e o quadro "Como ler esta tela".
+- **Cartão das permissões:** as permissões do catálogo em **caixas de seleção**, em duas colunas e agrupadas por categoria, que é o trecho do identificador antes do ponto (`contas.consultar` fica em "Contas"). As categorias seguem a ordem alfabética do contexto, e as permissões de cada uma seguem a ordem do catálogo, alfabética pelo identificador. Cada linha é compacta: a caixa, a descrição da permissão e um ícone de informação, cujo tooltip mostra o identificador (`Identificador: contas.consultar`). Quem usa leitor de tela ouve o identificador junto da caixa.
 - **Caixa marcada:** é o vínculo **direto** da conta. A caixa nunca representa o acesso herdado.
-- **Selos:** **Herdada de** (um por grupo que concede a permissão) e **Acesso efetivo** (a conta pode usar a permissão, venha de onde vier). Uma permissão só herdada aparece com a caixa desmarcada e os dois selos.
-- **Permissão crítica:** tem um ícone de alerta vermelho, porque quem a tem pode administrar o acesso de outras contas. Hoje só `acessos.administrar` é crítica; para destacar outra, acrescente o identificador em `PERMISSOES_CRITICAS` no `PermissaoDiretaService`.
+- **Herdada de:** linha de apoio, abaixo da descrição, com o grupo que concede a permissão (uma linha por grupo).
+- **Acesso efetivo:** ícone verde ao lado da descrição, quando a conta pode usar a permissão, venha de onde vier. Uma permissão só herdada aparece com a caixa desmarcada, a linha "Herdada de" e o ícone verde.
+- **Permissão crítica:** tem um ícone de alerta vermelho antes da descrição, porque quem a tem pode administrar o acesso de outras contas. Hoje só `acessos.administrar` é crítica; para destacar outra, acrescente o identificador em `PERMISSOES_CRITICAS` no `PermissaoDiretaService`.
 - **marcar todas** e **desmarcar:** ficam no topo da lista e agem só nas permissões do catálogo. "Marcar todas" não marca as críticas, que precisam ser escolhidas uma a uma. Nada é gravado até clicar em **Salvar permissões**.
 - **Fora do catálogo:** vínculos diretos que o catálogo não lista mais aparecem marcados numa categoria própria, e os atalhos acima não mexem neles: cada um é desmarcado à mão. Desmarque e salve para revogá-los.
 
@@ -48,7 +50,7 @@ A página de uma conta tem dois cartões e um só formulário.
 1. Entre com uma conta que tenha `acessos.administrar` e abra **Administração > Acessos**.
 2. Na linha da conta, clique em **Permissões**.
 3. Marque a caixa da permissão desejada (pode marcar várias) e clique em **Salvar permissões**.
-4. A página recarrega com uma mensagem, por exemplo "Permissões diretas salvas: 1 concedida.". Confira que a caixa ficou marcada e que o selo **Acesso efetivo** aparece.
+4. A página recarrega com uma mensagem, por exemplo "Permissões diretas salvas: 1 concedida.". Confira que a caixa ficou marcada e que o ícone verde de **acesso efetivo** aparece ao lado da descrição.
 
 **Regras da concessão:**
 
@@ -72,13 +74,13 @@ A página de uma conta tem dois cartões e um só formulário.
 
 ## 5. Quando o Acesso Persiste por Herança
 
-Revogar a permissão direta remove **somente o vínculo direto**. Se um grupo da conta concede a mesma permissão, o acesso efetivo continua, e a tela avisa com a mensagem amarela e com o selo **Herdada de**, que lista os grupos.
+Revogar a permissão direta remove **somente o vínculo direto**. Se um grupo da conta concede a mesma permissão, o acesso efetivo continua, e a tela avisa com a mensagem amarela e com a linha **Herdada de**, que lista os grupos.
 
 **Exemplo (dados fictícios):** a conta `conta.teste` está no grupo `admin` e recebeu `contas.consultar` como direta. Ao desmarcar a caixa e salvar, a mensagem amarela diz que a conta continua com acesso a `contas.consultar (Administrador de contas)`, e a permissão passa a mostrar:
 
-| Caixa | Selos |
+| Caixa | O que aparece na linha |
 |---|---|
-| Desmarcada | Herdada de Administrador de contas, Acesso efetivo |
+| Desmarcada | A linha "Herdada de Administrador de contas" e o ícone verde de acesso efetivo |
 
 Para realmente retirar o acesso, escolha o caminho que corresponde ao que se quer. Do menor para o maior impacto:
 
@@ -92,7 +94,7 @@ Para realmente retirar o acesso, escolha o caminho que corresponde ao que se que
 2. **Alterar a matriz do grupo.** Afeta **todas** as contas do grupo. É mudança de código em `$matrix` (`app/Config/AuthGroups.php`): exige issue própria, revisão de segurança (manual 11.10) e a marcação "Altera permissões ou regras de acesso" na descrição da entrega (`docs/padroes/permissoes.md`, passo 8). Não use este caminho para resolver o caso de uma conta só.
 3. **Manter o acesso.** Se a conta exerce o papel do grupo, o acesso herdado é legítimo, e a revogação apenas limpou um vínculo direto redundante.
 
-Depois de qualquer um dos caminhos, reabra a página de permissões da conta e confira o selo **Acesso efetivo**: ele é calculado com o `can()` do Shield, a mesma regra que o filtro de rota aplica.
+Depois de qualquer um dos caminhos, reabra a página de permissões da conta e confira o ícone de **acesso efetivo**: ele é calculado com o `can()` do Shield, a mesma regra que o filtro de rota aplica.
 
 ## 6. Garantias da Operação
 
@@ -145,10 +147,10 @@ Ao testar uma rota depois de uma alteração, **recarregue a conta do banco** an
 
 1. Suba o MySQL do XAMPP, rode `php spark migrate --all` e `php spark serve`. Abra `http://localhost:8080/index.php/login`.
 2. Prepare duas contas com dados fictícios (manual 11.9), pelo CLI do Shield: uma no grupo `superadmin` e outra no grupo `user` (por exemplo, `conta.teste`). A senha é pedida no terminal.
-3. Entre como `superadmin`, abra **Administração > Acessos > conta.teste > Permissões**, marque `acessos.administrar` e clique em **Salvar permissões**. Confira a caixa marcada e o selo "Acesso efetivo".
+3. Entre como `superadmin`, abra **Administração > Acessos > conta.teste > Permissões**, marque `acessos.administrar` e clique em **Salvar permissões**. Confira a caixa marcada e o ícone verde de acesso efetivo.
 4. Em **janela anônima**, entre como `conta.teste`: o item "Acessos" aparece no menu e `/admin/acessos` abre.
 5. Como `superadmin`, desmarque a permissão e salve. Na janela anônima, atualize: `/admin/acessos` redireciona para `/` com a mensagem de erro.
-6. Caso de herança: coloque `conta.teste` no grupo `admin` (`php spark shield:user addgroup -n conta.teste -g admin`), marque `contas.consultar` e salve; depois desmarque e salve. A mensagem é amarela, e a permissão mostra a caixa desmarcada, o selo "Herdada de Administrador de contas" e o selo "Acesso efetivo".
+6. Caso de herança: coloque `conta.teste` no grupo `admin` (`php spark shield:user addgroup -n conta.teste -g admin`), marque `contas.consultar` e salve; depois desmarque e salve. A mensagem é amarela, e a permissão mostra a caixa desmarcada, a linha "Herdada de Administrador de contas" e o ícone verde de acesso efetivo.
 7. Teste os atalhos: "marcar todas" marca as permissões do catálogo, menos a crítica; "desmarcar" limpa as do catálogo. Nenhum dos dois mexe nas caixas de "Fora do catálogo". Saia da página sem salvar e confira que nada mudou.
 8. Marque duas permissões e desmarque uma, e salve de uma vez: a mensagem resume o que mudou (por exemplo, "2 concedidas e 1 revogada") e a auditoria ganha uma linha para cada mudança.
 9. Confira a trilha de auditoria com a consulta da seção 7.
