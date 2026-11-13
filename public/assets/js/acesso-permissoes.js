@@ -13,4 +13,11 @@
     $('#desmarcar-todas').on('click', function () {
         $caixasDoCatalogo.prop('checked', false);
     });
+
+    // O identificador de cada permissão fica no ícone de informação, como tooltip do Bootstrap.
+    if (window.bootstrap && window.bootstrap.Tooltip) {
+        $('#form-permissoes-diretas [data-bs-toggle="tooltip"]').each(function () {
+            new window.bootstrap.Tooltip(this);
+        });
+    }
 })(jQuery);

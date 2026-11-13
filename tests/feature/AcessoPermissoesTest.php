@@ -124,6 +124,7 @@ final class AcessoPermissoesTest extends CIUnitTestCase
         $resposta->assertSee('Permissões da conta');
         $resposta->assertSee('conta.alvo');
         $resposta->assertSee('Administrador de contas');
+        $resposta->assertSee('Como ler esta tela');
         // A caixa marcada é o vínculo direto: contas.consultar (também herdada) e acessos.administrar.
         // contas.criar a conta só herda, então a caixa fica desmarcada.
         $this->assertTrue($this->caixaMarcada($corpo, 'contas.consultar'));
@@ -132,6 +133,40 @@ final class AcessoPermissoesTest extends CIUnitTestCase
         $this->assertSame(2, substr_count($corpo, 'Herdada de Administrador de contas'));
         // As três valem de fato: duas pelo grupo (uma delas também direta) e uma só direta.
         $this->assertSame(3, substr_count($corpo, 'Acesso efetivo</span>'));
+        // O ícone de acesso efetivo aparece nas mesmas três e em nenhuma outra.
+        $this->assertSame(3, substr_count($corpo, 'title="Acesso efetivo"'));
+    }
+
+    public function testPaginaTemMigalhaETituloComOIdentificadorDaConta(): void
+    {
+        $alvo = $this->criarConta('conta.alvo', 'user');
+
+        $corpo = $this->textoDaResposta($this->abrir($this->superadmin, $this->rotaPermissoes($alvo)));
+
+        $this->assertStringContainsString('Conta: conta.alvo</h1>', $corpo);
+        $this->assertMatchesRegularExpression(
+            '#<li class="breadcrumb-item"><a href="[^"]*admin/acessos"[^>]*>Acessos</a></li>\s*'
+            . '<li class="breadcrumb-item active" aria-current="page">conta\.alvo</li>#',
+            $corpo,
+        );
+    }
+
+    public function testIdentificadorFicaNoTooltipEACaixaApontaParaSuaDescricao(): void
+    {
+        $alvo = $this->criarConta('conta.alvo', 'admin', ['contas.consultar']);
+
+        $corpo = $this->textoDaResposta($this->abrir($this->superadmin, $this->rotaPermissoes($alvo)));
+
+        // O identificador não fica solto na lista: vai no tooltip do ícone de informação, um por permissão.
+        $this->assertSame(1, substr_count($corpo, 'title="Identificador: contas.consultar"'));
+        $this->assertSame(3, substr_count($corpo, 'data-bs-toggle="tooltip"'));
+        // Quem usa leitor de tela ouve a descrição (identificador, herança e acesso efetivo) junto da caixa.
+        $this->assertStringContainsString(
+            'aria-describedby="detalhe-contas.consultar"',
+            $this->tagDaCaixa($corpo, 'contas.consultar'),
+        );
+        $this->assertSame(1, substr_count($corpo, 'id="detalhe-contas.consultar"'));
+        $this->assertStringContainsString('Identificador contas.consultar.', $corpo);
     }
 
     public function testPaginaAgrupaPorCategoriaEMarcaAPermissaoCritica(): void
