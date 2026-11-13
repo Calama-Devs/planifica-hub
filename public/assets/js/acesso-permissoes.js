@@ -1,12 +1,14 @@
 (function ($) {
     'use strict';
 
-    // Leva a permissão escolhida para o modal de confirmação da revogação.
-    // Os dados vêm do servidor: texto sempre com .text() (manual 9.7 e 11.6).
-    $('#modal-revogar-permissao').on('show.bs.modal', function (evento) {
-        var permissao = String($(evento.relatedTarget).data('permissao') || '');
+    var $caixas = $('#form-permissoes-diretas .permissao-direta');
 
-        $('#revogar-permissao-valor').val(permissao);
-        $('#revogar-permissao-nome').text(permissao);
+    // "marcar todas" deixa de fora as permissões críticas: elas precisam ser marcadas uma a uma.
+    $('#marcar-todas').on('click', function () {
+        $caixas.not('[data-critica]').prop('checked', true);
+    });
+
+    $('#desmarcar-todas').on('click', function () {
+        $caixas.prop('checked', false);
     });
 })(jQuery);

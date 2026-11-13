@@ -161,3 +161,14 @@ html, body {
     user-select: none;
     padding-left: 0 !important;
 }
+
+/* Cabecalho de cada categoria na lista de permissoes da conta (administracao de acessos). */
+.categoria-permissoes {
+    border-bottom: 1px solid #2c2e33;
+    color: #6c7293;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    text-transform: uppercase;
+}

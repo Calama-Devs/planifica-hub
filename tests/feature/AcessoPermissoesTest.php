@@ -55,9 +55,9 @@ final class AcessoPermissoesTest extends CIUnitTestCase
     {
         $alvo = $this->criarConta('conta.alvo', 'user');
         $this->novaRequisicao();
-        $campos = [csrf_token() => csrf_hash(), 'permissao' => 'contas.consultar'];
+        $campos = [csrf_token() => csrf_hash(), 'permissoes' => ['contas.consultar']];
 
-        $resposta = $this->withSession($_SESSION)->post($this->rotaPermissoes($alvo) . '/conceder', $campos);
+        $resposta = $this->withSession($_SESSION)->post($this->rotaPermissoes($alvo), $campos);
 
         $resposta->assertRedirectTo(site_url('login'));
         $this->dontSeeInDatabase('auth_permissions_users', ['user_id' => $alvo->id]);
@@ -84,16 +84,13 @@ final class AcessoPermissoesTest extends CIUnitTestCase
         $admin = $this->criarConta('conta.admin', 'admin');
         $alvo  = $this->criarConta('conta.alvo', 'user', ['contas.criar']);
 
+        // Marcar uma caixa a mais e desmarcar a que a conta tem: as duas mudanças seriam recusadas.
         $concessao = $this->enviar(
             $admin,
-            $this->rotaPermissoes($alvo) . '/conceder',
-            ['permissao' => 'contas.consultar'],
+            $this->rotaPermissoes($alvo),
+            ['permissoes' => ['contas.criar', 'contas.consultar']],
         );
-        $revogacao = $this->enviar(
-            $admin,
-            $this->rotaPermissoes($alvo) . '/revogar',
-            ['permissao' => 'contas.criar'],
-        );
+        $revogacao = $this->enviar($admin, $this->rotaPermissoes($alvo));
 
         $concessao->assertRedirectTo(rtrim(site_url('/'), '/'));
         $revogacao->assertRedirectTo(rtrim(site_url('/'), '/'));
@@ -116,7 +113,7 @@ final class AcessoPermissoesTest extends CIUnitTestCase
         $resposta->assertSee('Administrador de contas');
     }
 
-    public function testPaginaMostraPermissoesHerdadasDiretasEEfetivas(): void
+    public function testPaginaMostraAsCaixasComHerdadaDiretaEEfetiva(): void
     {
         $alvo = $this->criarConta('conta.alvo', 'admin', ['contas.consultar', 'acessos.administrar']);
 
@@ -127,13 +124,32 @@ final class AcessoPermissoesTest extends CIUnitTestCase
         $resposta->assertSee('Permissões da conta');
         $resposta->assertSee('conta.alvo');
         $resposta->assertSee('Administrador de contas');
-        $resposta->assertSee('contas.criar');
-        // contas.consultar é direta e também herdada; acessos.administrar é só direta.
-        $this->assertSame(1, substr_count($corpo, 'também herdada'));
-        // As duas diretas oferecem "Revogar"; contas.criar, que a conta só herda, oferece "Conceder".
-        $this->assertSame(2, substr_count($corpo, 'data-bs-target="#modal-revogar-permissao"'));
-        $this->assertStringContainsString('name="permissao" value="contas.criar"', $corpo);
-        $this->assertStringNotContainsString('name="permissao" value="contas.consultar"', $corpo);
+        // A caixa marcada é o vínculo direto: contas.consultar (também herdada) e acessos.administrar.
+        // contas.criar a conta só herda, então a caixa fica desmarcada.
+        $this->assertTrue($this->caixaMarcada($corpo, 'contas.consultar'));
+        $this->assertTrue($this->caixaMarcada($corpo, 'acessos.administrar'));
+        $this->assertFalse($this->caixaMarcada($corpo, 'contas.criar'));
+        $this->assertSame(2, substr_count($corpo, 'Herdada de Administrador de contas'));
+        // As três valem de fato: duas pelo grupo (uma delas também direta) e uma só direta.
+        $this->assertSame(3, substr_count($corpo, 'Acesso efetivo</span>'));
+    }
+
+    public function testPaginaAgrupaPorCategoriaEMarcaAPermissaoCritica(): void
+    {
+        $alvo = $this->criarConta('conta.alvo', 'user');
+
+        $corpo = $this->textoDaResposta($this->abrir($this->superadmin, $this->rotaPermissoes($alvo)));
+
+        $this->assertSame(2, substr_count($corpo, 'class="categoria-permissoes"'));
+        $this->assertLessThan(
+            strpos($corpo, '>Contas</legend>'),
+            strpos($corpo, '>Acessos</legend>'),
+            'As categorias seguem a ordem alfabética do catálogo.',
+        );
+        // Só acessos.administrar é crítica: um aviso para quem lê e um atributo para o "marcar todas" pular.
+        $this->assertSame(1, substr_count($corpo, 'Permissão crítica:'));
+        $this->assertSame(1, substr_count($corpo, 'data-critica'));
+        $this->assertSame(2, substr_count($corpo, 'id="marcar-todas"') + substr_count($corpo, 'id="desmarcar-todas"'));
     }
 
     public function testConcedeEAuditaPelaTelaSemMexerEmGruposNemNaMatriz(): void
@@ -143,8 +159,8 @@ final class AcessoPermissoesTest extends CIUnitTestCase
 
         $resposta = $this->enviar(
             $this->superadmin,
-            $this->rotaPermissoes($alvo) . '/conceder',
-            ['permissao' => 'contas.consultar'],
+            $this->rotaPermissoes($alvo),
+            ['permissoes' => ['contas.consultar']],
         );
 
         $resposta->assertRedirectTo(url_to('acessos.permissoes', $alvo->id));
@@ -165,11 +181,8 @@ final class AcessoPermissoesTest extends CIUnitTestCase
     {
         $alvo = $this->criarConta('conta.alvo', 'user', ['contas.consultar']);
 
-        $resposta = $this->enviar(
-            $this->superadmin,
-            $this->rotaPermissoes($alvo) . '/revogar',
-            ['permissao' => 'contas.consultar'],
-        );
+        // Todas as caixas desmarcadas: o navegador não envia o campo `permissoes`.
+        $resposta = $this->enviar($this->superadmin, $this->rotaPermissoes($alvo));
 
         $resposta->assertRedirectTo(url_to('acessos.permissoes', $alvo->id));
         $resposta->assertSessionHas('success');
@@ -182,6 +195,87 @@ final class AcessoPermissoesTest extends CIUnitTestCase
         ]);
     }
 
+    public function testSalvaVariasMudancasDeUmaVezEAuditaCadaUma(): void
+    {
+        $alvo = $this->criarConta('conta.alvo', 'user', ['contas.consultar']);
+
+        $resposta = $this->enviar(
+            $this->superadmin,
+            $this->rotaPermissoes($alvo),
+            ['permissoes' => ['contas.criar', 'acessos.administrar']],
+        );
+
+        $resposta->assertSessionHas('success', 'Permissões diretas salvas: 2 concedidas e 1 revogada.');
+        $this->seeNumRecords(2, 'auth_permissions_users', ['user_id' => $alvo->id]);
+        $this->seeInDatabase('auth_permissions_users', ['user_id' => $alvo->id, 'permission' => 'contas.criar']);
+        $this->seeInDatabase('auth_permissions_users', ['user_id' => $alvo->id, 'permission' => 'acessos.administrar']);
+        $this->dontSeeInDatabase('auth_permissions_users', [
+            'user_id'    => $alvo->id,
+            'permission' => 'contas.consultar',
+        ]);
+        $this->seeNumRecords(3, 'auditoria_permissoes', [
+            'usuario_id' => $alvo->id,
+            'created_by' => $this->superadmin->id,
+        ]);
+    }
+
+    public function testSalvarSemMudancaNaoGravaNada(): void
+    {
+        $alvo = $this->criarConta('conta.alvo', 'user', ['contas.consultar']);
+
+        $resposta = $this->enviar(
+            $this->superadmin,
+            $this->rotaPermissoes($alvo),
+            ['permissoes' => ['contas.consultar']],
+        );
+
+        $resposta->assertSessionHas('success', 'Nenhuma alteração: as permissões diretas da conta já estavam assim.');
+        $this->seeNumRecords(1, 'auth_permissions_users', ['user_id' => $alvo->id]);
+        $this->seeNumRecords(0, 'auditoria_permissoes', []);
+    }
+
+    public function testAutorDaAuditoriaEhSempreQuemEstaLogado(): void
+    {
+        $outro = $this->criarConta('outra.conta', 'superadmin');
+        $alvo  = $this->criarConta('conta.alvo', 'user');
+
+        // Campos extras tentando apontar outro autor: o formulário não tem esse dado, e o Controller o ignora.
+        $this->enviar($this->superadmin, $this->rotaPermissoes($alvo), [
+            'permissoes'  => ['contas.consultar'],
+            'operador_id' => (string) $outro->id,
+            'created_by'  => (string) $outro->id,
+        ])->assertSessionHas('success');
+
+        $this->seeInDatabase('auditoria_permissoes', [
+            'usuario_id' => $alvo->id,
+            'created_by' => $this->superadmin->id,
+        ]);
+        $this->dontSeeInDatabase('auditoria_permissoes', ['created_by' => $outro->id]);
+    }
+
+    public function testPaginaMostraVinculoForaDoCatalogoEOSalvarRevogaQuandoDesmarcado(): void
+    {
+        $alvo = $this->criarConta('conta.alvo', 'user');
+        $this->hasInDatabase('auth_permissions_users', [
+            'user_id'    => $alvo->id,
+            'permission' => 'relatorios.antigo',
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        $corpo = $this->textoDaResposta($this->abrir($this->superadmin, $this->rotaPermissoes($alvo)));
+
+        $this->assertStringContainsString('Fora do catálogo', $corpo);
+        $this->assertTrue($this->caixaMarcada($corpo, 'relatorios.antigo'));
+
+        // Salvar com a caixa marcada mantém o vínculo; sem ela, revoga.
+        $this->enviar($this->superadmin, $this->rotaPermissoes($alvo), ['permissoes' => ['relatorios.antigo']])
+            ->assertSessionHas('success', 'Nenhuma alteração: as permissões diretas da conta já estavam assim.');
+        $this->seeInDatabase('auth_permissions_users', ['user_id' => $alvo->id, 'permission' => 'relatorios.antigo']);
+
+        $this->enviar($this->superadmin, $this->rotaPermissoes($alvo))->assertSessionHas('success');
+        $this->dontSeeInDatabase('auth_permissions_users', ['user_id' => $alvo->id]);
+    }
+
     // Efeito real: a conta passa a acessar a rota depois da concessão e perde o acesso depois da revogação.
 
     public function testContaGanhaEPerdeAcessoARotaConformeAsAlteracoes(): void
@@ -191,24 +285,19 @@ final class AcessoPermissoesTest extends CIUnitTestCase
 
         $this->abrir($alvo, 'admin/acessos')->assertRedirectTo(rtrim(site_url('/'), '/'));
 
-        $this->enviar($this->superadmin, $rota . '/conceder', ['permissao' => 'acessos.administrar'])
+        $this->enviar($this->superadmin, $rota, ['permissoes' => ['acessos.administrar']])
             ->assertSessionHas('success');
         $this->abrir($alvo, 'admin/acessos')->assertOK();
 
-        $this->enviar($this->superadmin, $rota . '/revogar', ['permissao' => 'acessos.administrar'])
-            ->assertSessionHas('success');
+        $this->enviar($this->superadmin, $rota)->assertSessionHas('success');
         $this->abrir($alvo, 'admin/acessos')->assertRedirectTo(rtrim(site_url('/'), '/'));
     }
 
-    public function testRevogarNaoTiraOAcessoQueVemDoGrupo(): void
+    public function testDesmarcarNaoTiraOAcessoQueVemDoGrupo(): void
     {
         $alvo = $this->criarConta('conta.alvo', 'superadmin', ['acessos.administrar']);
 
-        $resposta = $this->enviar(
-            $this->superadmin,
-            $this->rotaPermissoes($alvo) . '/revogar',
-            ['permissao' => 'acessos.administrar'],
-        );
+        $resposta = $this->enviar($this->superadmin, $this->rotaPermissoes($alvo));
 
         $resposta->assertSessionHas('warning');
         $this->dontSeeInDatabase('auth_permissions_users', ['user_id' => $alvo->id]);
@@ -217,7 +306,7 @@ final class AcessoPermissoesTest extends CIUnitTestCase
 
         $pagina = $this->abrir($this->superadmin, $this->rotaPermissoes($alvo));
         $pagina->assertSee('Administrador geral');
-        $this->assertSame(0, substr_count($pagina->getBody(), 'data-bs-target="#modal-revogar-permissao"'));
+        $this->assertFalse($this->caixaMarcada($this->textoDaResposta($pagina), 'acessos.administrar'));
     }
 
     // Validação de entrada
@@ -226,25 +315,44 @@ final class AcessoPermissoesTest extends CIUnitTestCase
     {
         $alvo = $this->criarConta('conta.alvo', 'user');
 
+        // Uma permissão válida junto com uma que não existe: nada é gravado (tudo ou nada).
         $resposta = $this->enviar(
             $this->superadmin,
-            $this->rotaPermissoes($alvo) . '/conceder',
-            ['permissao' => 'contas.excluir'],
+            $this->rotaPermissoes($alvo),
+            ['permissoes' => ['contas.consultar', 'contas.excluir']],
         );
 
-        $resposta->assertSessionHas('error');
+        $resposta->assertSessionHas('error', 'Há permissão informada que não está cadastrada.');
         $this->dontSeeInDatabase('auth_permissions_users', ['user_id' => $alvo->id]);
         $this->seeNumRecords(0, 'auditoria_permissoes', []);
     }
 
-    public function testRecusaPermissaoEmBranco(): void
+    /**
+     * @param array<string, mixed> $campos
+     */
+    #[DataProvider('selecoesInvalidas')]
+    public function testRecusaSelecaoComFormatoInvalido(array $campos): void
     {
-        $alvo = $this->criarConta('conta.alvo', 'user');
+        $alvo = $this->criarConta('conta.alvo', 'user', ['contas.consultar']);
 
-        $resposta = $this->enviar($this->superadmin, $this->rotaPermissoes($alvo) . '/conceder', ['permissao' => '']);
+        $resposta = $this->enviar($this->superadmin, $this->rotaPermissoes($alvo), $campos);
 
-        $resposta->assertSessionHas('error', 'Informe a permissão que deseja alterar.');
+        $resposta->assertSessionHas('error', 'A seleção de permissões é inválida.');
+        $this->seeInDatabase('auth_permissions_users', ['user_id' => $alvo->id, 'permission' => 'contas.consultar']);
         $this->seeNumRecords(0, 'auditoria_permissoes', []);
+    }
+
+    /**
+     * @return array<string, list<array<string, mixed>>>
+     */
+    public static function selecoesInvalidas(): array
+    {
+        return [
+            'texto em vez de lista'      => [['permissoes' => 'contas.consultar']],
+            'item em branco'             => [['permissoes' => ['']]],
+            'item que também é lista'    => [['permissoes' => [['contas.consultar']]]],
+            'item maior que o permitido' => [['permissoes' => [str_repeat('a', 101)]]],
+        ];
     }
 
     public function testRecusaPostSemTokenCsrf(): void
@@ -254,7 +362,7 @@ final class AcessoPermissoesTest extends CIUnitTestCase
         $this->expectException(SecurityException::class);
 
         $this->actingAs($this->superadmin)
-            ->post($this->rotaPermissoes($alvo) . '/conceder', ['permissao' => 'contas.consultar']);
+            ->post($this->rotaPermissoes($alvo), ['permissoes' => ['contas.consultar']]);
     }
 
     // Cenários 6, 7 e 8: URLs e verbos não declarados, conta que não existe
@@ -270,20 +378,34 @@ final class AcessoPermissoesTest extends CIUnitTestCase
     {
         $resposta = $this->enviar(
             $this->superadmin,
-            'admin/acessos/999999/permissoes/conceder',
-            ['permissao' => 'contas.consultar'],
+            'admin/acessos/999999/permissoes',
+            ['permissoes' => ['contas.consultar']],
         );
 
         $resposta->assertSessionHas('error');
         $this->seeNumRecords(0, 'auditoria_permissoes', []);
     }
 
-    public function testAlterarPorGetDevolve404(): void
+    #[DataProvider('rotasRemovidas')]
+    public function testRotasAntigasDeConcessaoEDeRevogacaoDevolvem404(string $acao): void
     {
         $alvo = $this->criarConta('conta.alvo', 'user');
         $this->expectException(PageNotFoundException::class);
 
-        $this->abrir($this->superadmin, $this->rotaPermissoes($alvo) . '/conceder');
+        $rota = $this->rotaPermissoes($alvo) . '/' . $acao;
+
+        $this->enviar($this->superadmin, $rota, ['permissao' => 'contas.consultar']);
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    public static function rotasRemovidas(): array
+    {
+        return [
+            'conceder' => ['conceder'],
+            'revogar'  => ['revogar'],
+        ];
     }
 
     public function testUrlSemRotaDeclaradaDevolve404(): void
@@ -375,7 +497,7 @@ final class AcessoPermissoesTest extends CIUnitTestCase
     /**
      * Envia um formulário com o token CSRF, gerado antes do actingAs() (docs/autorizacao/rotas-protegidas.md, 8.2).
      *
-     * @param array<string, string> $campos
+     * @param array<string, mixed> $campos
      */
     private function enviar(User $conta, string $rota, array $campos = []): TestResponse
     {
@@ -398,5 +520,17 @@ final class AcessoPermissoesTest extends CIUnitTestCase
     private function textoDaResposta(TestResponse $resposta): string
     {
         return html_entity_decode($resposta->getBody(), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+
+    /**
+     * Diz se a caixa da permissão veio marcada na página (`$corpo` vem de `textoDaResposta()`).
+     */
+    private function caixaMarcada(string $corpo, string $permissao): bool
+    {
+        $achou = preg_match('/<input[^>]*value="' . preg_quote($permissao, '/') . '"[^>]*>/', $corpo, $caixa);
+
+        $this->assertSame(1, $achou, "A caixa de {$permissao} não está na página.");
+
+        return preg_match('/\schecked(\s|>)/', $caixa[0]) === 1;
     }
 }
