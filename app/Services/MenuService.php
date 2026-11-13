@@ -46,6 +46,12 @@ class MenuService
                 continue;
             }
 
+            $url = $this->resolverUrl($item['rota']);
+
+            if ($url === null) {
+                continue;
+            }
+
             $categoriaItem = isset($item['categoria']) && is_string($item['categoria']) ? trim($item['categoria']) : null;
             $exibirCategoria = null;
 
@@ -88,21 +94,21 @@ class MenuService
         return true;
     }
 
-    private function resolverUrl(string $rota): string
+    private function resolverUrl(string $rota): ?string
     {
         try {
             return url_to($rota);
         } catch (RouterException $e) {
             log_message(
                 'warning',
-                'MenuService: falha ao resolver rota nomeada "{rota}". Usando fallback site_url(). Detalhe: {erro}',
+                'MenuService: falha ao resolver rota nomeada "{rota}". Detalhe: {erro}',
                 [
                     'rota' => $rota,
                     'erro' => $e->getMessage(),
                 ]
             );
 
-            return site_url($rota);
+            return null;
         }
     }
 
