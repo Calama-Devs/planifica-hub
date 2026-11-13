@@ -43,6 +43,7 @@ class MenuPermissoesTest extends CIUnitTestCase
         $resposta->assertSee('Sobre');
         $resposta->assertDontSee('Contas');
         $resposta->assertDontSee('Permissões');
+        $resposta->assertDontSee('Acessos');
     }
 
     public function testExibeItemRestritoParaPerfilComPermissaoEfetiva(): void
@@ -56,6 +57,7 @@ class MenuPermissoesTest extends CIUnitTestCase
         $resposta->assertSee('Sobre');
         $resposta->assertSee('Administração');
         $resposta->assertSee('Permissões');
+        $resposta->assertSee('Acessos');
     }
 
     public function testExibeItemRestritoQuandoUsuarioPossuiPermissaoDireta(): void
@@ -87,6 +89,7 @@ class MenuPermissoesTest extends CIUnitTestCase
 
     public function testNaoDuplicaCabecalhoDeCategoriaEmItensConsecutivos(): void
     {
+        service('routes')->loadRoutes();
         $this->adicionarItemProtegidoAoMenu();
         $superadmin = $this->criarUsuarioNoGrupo('superadmin');
 

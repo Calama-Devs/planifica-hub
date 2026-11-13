@@ -63,7 +63,7 @@ class MenuService
             $visiveis[] = [
                 'categoria' => $exibirCategoria,
                 'titulo'    => $item['titulo'],
-                'url'       => $this->resolverUrl($item['rota']),
+                'url'       => $url,
                 'icone'     => $item['icone'],
                 'ativo'     => url_is($item['padraoAtivo']),
             ];
