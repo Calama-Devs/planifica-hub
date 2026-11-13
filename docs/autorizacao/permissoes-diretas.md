@@ -27,8 +27,8 @@ A página de uma conta tem dois cartões e um só formulário.
 - **Caixa marcada:** é o vínculo **direto** da conta. A caixa nunca representa o acesso herdado.
 - **Selos:** **Herdada de** (um por grupo que concede a permissão) e **Acesso efetivo** (a conta pode usar a permissão, venha de onde vier). Uma permissão só herdada aparece com a caixa desmarcada e os dois selos.
 - **Permissão crítica:** tem um ícone de alerta vermelho, porque quem a tem pode administrar o acesso de outras contas. Hoje só `acessos.administrar` é crítica; para destacar outra, acrescente o identificador em `PERMISSOES_CRITICAS` no `PermissaoDiretaService`.
-- **marcar todas** e **desmarcar:** ficam no topo da lista. "Marcar todas" não marca as críticas, que precisam ser escolhidas uma a uma; "desmarcar" limpa todas. Nada é gravado até clicar em **Salvar permissões**.
-- **Fora do catálogo:** vínculos diretos que o catálogo não lista mais aparecem marcados numa categoria própria; desmarque e salve para revogá-los.
+- **marcar todas** e **desmarcar:** ficam no topo da lista e agem só nas permissões do catálogo. "Marcar todas" não marca as críticas, que precisam ser escolhidas uma a uma. Nada é gravado até clicar em **Salvar permissões**.
+- **Fora do catálogo:** vínculos diretos que o catálogo não lista mais aparecem marcados numa categoria própria, e os atalhos acima não mexem neles: cada um é desmarcado à mão. Desmarque e salve para revogá-los.
 
 ## 2. Onde Fica e Quem Acessa
 
@@ -149,7 +149,7 @@ Ao testar uma rota depois de uma alteração, **recarregue a conta do banco** an
 4. Em **janela anônima**, entre como `conta.teste`: o item "Acessos" aparece no menu e `/admin/acessos` abre.
 5. Como `superadmin`, desmarque a permissão e salve. Na janela anônima, atualize: `/admin/acessos` redireciona para `/` com a mensagem de erro.
 6. Caso de herança: coloque `conta.teste` no grupo `admin` (`php spark shield:user addgroup -n conta.teste -g admin`), marque `contas.consultar` e salve; depois desmarque e salve. A mensagem é amarela, e a permissão mostra a caixa desmarcada, o selo "Herdada de Administrador de contas" e o selo "Acesso efetivo".
-7. Teste os atalhos: "marcar todas" marca tudo, menos a permissão crítica; "desmarcar" limpa as caixas. Saia da página sem salvar e confira que nada mudou.
+7. Teste os atalhos: "marcar todas" marca as permissões do catálogo, menos a crítica; "desmarcar" limpa as do catálogo. Nenhum dos dois mexe nas caixas de "Fora do catálogo". Saia da página sem salvar e confira que nada mudou.
 8. Marque duas permissões e desmarque uma, e salve de uma vez: a mensagem resume o que mudou (por exemplo, "2 concedidas e 1 revogada") e a auditoria ganha uma linha para cada mudança.
 9. Confira a trilha de auditoria com a consulta da seção 7.
 10. Descreva na entrega quais contas e quais URLs foram testadas.

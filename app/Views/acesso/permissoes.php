@@ -68,7 +68,7 @@
                                 <?php foreach ($categoria['permissoes'] as $permissao) : ?>
                                     <div class="col-md-6 mb-3">
                                         <div class="form-check">
-                                            <input type="checkbox" class="form-check-input permissao-direta"
+                                            <input type="checkbox" class="form-check-input permissao-catalogo"
                                                    id="permissao-<?= esc($permissao['identificador'], 'attr') ?>"
                                                    name="permissoes[]" value="<?= esc($permissao['identificador'], 'attr') ?>"
                                                    <?= $permissao['direta'] ? 'checked' : '' ?>
@@ -99,12 +99,12 @@
                     <?php if (! empty($foraDoCatalogo)) : ?>
                         <fieldset class="mb-0">
                             <legend class="categoria-permissoes">Fora do catálogo</legend>
-                            <p class="text-muted">A conta ainda tem estas permissões diretas, mas o catálogo não as lista mais. Elas continuam valendo até serem desmarcadas e salvas.</p>
+                            <p class="text-muted">A conta ainda tem estas permissões diretas, mas o catálogo não as lista mais. Elas continuam valendo até serem desmarcadas e salvas. Os atalhos "marcar todas" e "desmarcar" não mexem nelas.</p>
                             <div class="row">
                                 <?php foreach ($foraDoCatalogo as $identificador) : ?>
                                     <div class="col-md-6 mb-3">
                                         <div class="form-check">
-                                            <input type="checkbox" class="form-check-input permissao-direta"
+                                            <input type="checkbox" class="form-check-input"
                                                    id="permissao-<?= esc($identificador, 'attr') ?>"
                                                    name="permissoes[]" value="<?= esc($identificador, 'attr') ?>" checked>
                                             <label class="form-check-label" for="permissao-<?= esc($identificador, 'attr') ?>">
@@ -124,5 +124,5 @@
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
-<script src="<?= base_url('assets/js/acesso-permissoes.js') ?>"></script>
+<script src="<?= base_url('assets/js/acesso-permissoes.js') ?>?v=<?= filemtime(FCPATH . 'assets/js/acesso-permissoes.js') ?>"></script>
 <?= $this->endSection() ?>

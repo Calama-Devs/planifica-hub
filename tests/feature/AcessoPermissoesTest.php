@@ -150,6 +150,10 @@ final class AcessoPermissoesTest extends CIUnitTestCase
         $this->assertSame(1, substr_count($corpo, 'Permissão crítica:'));
         $this->assertSame(1, substr_count($corpo, 'data-critica'));
         $this->assertSame(2, substr_count($corpo, 'id="marcar-todas"') + substr_count($corpo, 'id="desmarcar-todas"'));
+        // Os atalhos agem só nas caixas do catálogo, que levam a classe `permissao-catalogo`: as três do catálogo.
+        $this->assertSame(3, substr_count($corpo, 'permissao-catalogo'));
+        // O script vai com a data do arquivo na URL, para o navegador não reaproveitar uma versão antiga em cache.
+        $this->assertMatchesRegularExpression('#assets/js/acesso-permissoes\.js\?v=\d+#', $corpo);
     }
 
     public function testConcedeEAuditaPelaTelaSemMexerEmGruposNemNaMatriz(): void
@@ -266,6 +270,9 @@ final class AcessoPermissoesTest extends CIUnitTestCase
 
         $this->assertStringContainsString('Fora do catálogo', $corpo);
         $this->assertTrue($this->caixaMarcada($corpo, 'relatorios.antigo'));
+        // "marcar todas" e "desmarcar" não mexem nela: só as caixas do catálogo levam a classe dos atalhos.
+        $this->assertStringNotContainsString('permissao-catalogo', $this->tagDaCaixa($corpo, 'relatorios.antigo'));
+        $this->assertStringContainsString('permissao-catalogo', $this->tagDaCaixa($corpo, 'contas.consultar'));
 
         // Salvar com a caixa marcada mantém o vínculo; sem ela, revoga.
         $this->enviar($this->superadmin, $this->rotaPermissoes($alvo), ['permissoes' => ['relatorios.antigo']])
@@ -527,10 +534,18 @@ final class AcessoPermissoesTest extends CIUnitTestCase
      */
     private function caixaMarcada(string $corpo, string $permissao): bool
     {
+        return preg_match('/\schecked(\s|>)/', $this->tagDaCaixa($corpo, $permissao)) === 1;
+    }
+
+    /**
+     * A tag `<input>` da caixa da permissão, para conferir seus atributos (`$corpo` vem de `textoDaResposta()`).
+     */
+    private function tagDaCaixa(string $corpo, string $permissao): string
+    {
         $achou = preg_match('/<input[^>]*value="' . preg_quote($permissao, '/') . '"[^>]*>/', $corpo, $caixa);
 
         $this->assertSame(1, $achou, "A caixa de {$permissao} não está na página.");
 
-        return preg_match('/\schecked(\s|>)/', $caixa[0]) === 1;
+        return $caixa[0];
     }
 }
