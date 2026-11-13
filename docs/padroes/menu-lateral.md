@@ -43,7 +43,7 @@ public array $permissions = [
 ### Passo 2: Rota nomeada e protegida: 
 Dentro do grupo protegido pelo filtro `session` em `app/Config/Routes.php`, registre a rota com alias (`as`) e com o filtro `permission:` correspondente:
    ```php
-   $routes->group('', ['filter' => 'session'], static function (RouteCollection$routes): void {
+   $routes->group('', ['filter' => 'session'], static function (RouteCollection $routes): void {
     // ... outras rotas ...
 
     $routes->group('admin/contas', ['filter' => 'permission:contas.consultar'], static function (RouteCollection $routes): void {$routes->get('/', 'ContaController::index', ['as' => 'contas.index']);
