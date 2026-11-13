@@ -161,3 +161,40 @@ html, body {
     user-select: none;
     padding-left: 0 !important;
 }
+
+/* Tela de permissões da conta (administração de acessos). O cinza do tema (#6c7293) fica apagado sobre o
+   cartão escuro, então o texto de apoio usa branco com transparência, que mantém o contraste. */
+.permissoes-conta .texto-apoio,
+.permissoes-conta .categoria-permissoes {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.permissoes-conta .texto-apoio strong {
+    color: #fff;
+    font-weight: 500;
+}
+
+/* Título de cada categoria da lista de permissões. O legend continua flutuante, como no Bootstrap, para
+   ficar abaixo da linha da categoria e não sobre ela. */
+.permissoes-conta .categoria-permissoes {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.75rem;
+    padding: 0;
+    text-transform: uppercase;
+}
+
+/* O rótulo fica em linha para os ícones de informação e de acesso efetivo virem logo depois do texto. */
+.permissoes-conta .form-check-label {
+    color: #fff;
+    display: inline;
+}
+
+.permissoes-conta .permissao-info {
+    cursor: help;
+}
+
+.permissoes-conta .legenda-permissoes {
+    font-size: 0.8125rem;
+}

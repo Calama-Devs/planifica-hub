@@ -6,12 +6,15 @@ namespace Tests\Database;
 
 use App\Models\AuditoriaPermissaoModel;
 use App\Services\PermissaoDiretaService;
+use App\Services\PermissaoService;
+use ArrayObject;
 use CodeIgniter\Pager\Pager;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use Config\AuthGroups;
+use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\Support\Traits\CriaContasTrait;
 
@@ -331,6 +334,304 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
         $this->seeNumRecords(0, 'auditoria_permissoes', []);
     }
 
+    public function testSincronizarConcedeERevogaDeUmaVezEAuditaCadaMudanca(): void
+    {
+        $conta       = $this->criarConta('conta.alvo', 'user', ['contas.consultar']);
+        $matrizAntes = setting('AuthGroups.matrix');
+
+        $marcadas  = ['contas.criar', 'acessos.administrar'];
+        $resultado = $this->servico->sincronizar($conta->id, $marcadas, $this->operador->id);
+
+        $this->assertTrue($resultado['sucesso']);
+        $this->assertSame('PERMISSOES_DIRETAS_SALVAS', $resultado['codigo']);
+        $this->assertSame(['contas.criar', 'acessos.administrar'], $resultado['concedidas']);
+        $this->assertSame(['contas.consultar'], $resultado['revogadas']);
+        $this->assertSame([], $resultado['mantidas_por_heranca']);
+        $this->assertSame('Permissões diretas salvas: 2 concedidas e 1 revogada.', $resultado['mensagem']);
+        $this->assertSame(0, $this->db->transDepth);
+
+        $this->seeNumRecords(2, 'auth_permissions_users', ['user_id' => $conta->id]);
+        $this->seeInDatabase('auth_permissions_users', ['user_id' => $conta->id, 'permission' => 'contas.criar']);
+        $this->seeInDatabase('auth_permissions_users', [
+            'user_id'    => $conta->id,
+            'permission' => 'acessos.administrar',
+        ]);
+        $this->seeNumRecords(2, 'auditoria_permissoes', [
+            'usuario_id' => $conta->id,
+            'acao'       => AuditoriaPermissaoModel::ACAO_CONCEDIDA,
+            'created_by' => $this->operador->id,
+        ]);
+        $this->seeNumRecords(1, 'auditoria_permissoes', [
+            'usuario_id' => $conta->id,
+            'permissao'  => 'contas.consultar',
+            'acao'       => AuditoriaPermissaoModel::ACAO_REVOGADA,
+            'created_by' => $this->operador->id,
+        ]);
+        // Grupos da conta e matriz ficam como estavam.
+        $this->seeNumRecords(1, 'auth_groups_users', ['user_id' => $conta->id, 'group' => 'user']);
+        $this->assertSame($matrizAntes, setting('AuthGroups.matrix'));
+    }
+
+    public function testSincronizarSemMudancaNaoGravaNada(): void
+    {
+        $conta = $this->criarConta('conta.alvo', 'user', ['contas.consultar']);
+
+        $resultado = $this->servico->sincronizar($conta->id, ['contas.consultar'], $this->operador->id);
+
+        $this->assertTrue($resultado['sucesso']);
+        $this->assertSame('PERMISSOES_DIRETAS_SEM_ALTERACAO', $resultado['codigo']);
+        $this->assertSame([], $resultado['concedidas']);
+        $this->assertSame([], $resultado['revogadas']);
+        $this->seeNumRecords(1, 'auth_permissions_users', ['user_id' => $conta->id]);
+        $this->seeNumRecords(0, 'auditoria_permissoes', []);
+    }
+
+    public function testSincronizarComListaVaziaRevogaTodasAsDiretas(): void
+    {
+        $conta = $this->criarConta('conta.alvo', 'user', ['contas.consultar', 'contas.criar']);
+
+        $resultado = $this->servico->sincronizar($conta->id, [], $this->operador->id);
+
+        $this->assertTrue($resultado['sucesso']);
+        $this->assertSame('Permissões diretas salvas: 2 revogadas.', $resultado['mensagem']);
+        $this->dontSeeInDatabase('auth_permissions_users', ['user_id' => $conta->id]);
+        $this->seeNumRecords(2, 'auditoria_permissoes', [
+            'usuario_id' => $conta->id,
+            'acao'       => AuditoriaPermissaoModel::ACAO_REVOGADA,
+        ]);
+    }
+
+    public function testSincronizarNormalizaOsIdentificadoresEIgnoraRepetidos(): void
+    {
+        $conta = $this->criarConta('conta.alvo', 'user');
+
+        $resultado = $this->servico->sincronizar(
+            $conta->id,
+            ['  Contas.Consultar ', 'contas.consultar'],
+            $this->operador->id,
+        );
+
+        $this->assertSame(['contas.consultar'], $resultado['concedidas']);
+        $this->seeNumRecords(1, 'auth_permissions_users', ['user_id' => $conta->id]);
+        $this->seeNumRecords(1, 'auditoria_permissoes', ['usuario_id' => $conta->id]);
+    }
+
+    public function testSincronizarRecusaPermissaoForaDoCatalogoSemGravarNada(): void
+    {
+        $conta = $this->criarConta('conta.alvo', 'user', ['contas.criar']);
+
+        // Uma válida e uma inexistente na mesma lista: nem a válida entra, e a que a conta já tinha fica.
+        $marcadas  = ['contas.consultar', 'contas.excluir'];
+        $resultado = $this->servico->sincronizar($conta->id, $marcadas, $this->operador->id);
+
+        $this->assertFalse($resultado['sucesso']);
+        $this->assertSame('validacao', $resultado['tipo']);
+        $this->assertSame('PERMISSAO_NAO_CADASTRADA', $resultado['codigo']);
+        $this->seeNumRecords(1, 'auth_permissions_users', ['user_id' => $conta->id, 'permission' => 'contas.criar']);
+        $this->seeNumRecords(1, 'auth_permissions_users', ['user_id' => $conta->id]);
+        $this->seeNumRecords(0, 'auditoria_permissoes', []);
+    }
+
+    public function testSincronizarMantemOVinculoForaDoCatalogoMarcadoERevogaODesmarcado(): void
+    {
+        $conta = $this->criarConta('conta.alvo', 'user');
+        $this->hasInDatabase('auth_permissions_users', [
+            'user_id'    => $conta->id,
+            'permission' => 'relatorios.antigo',
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        $mantido = $this->servico->sincronizar($conta->id, ['relatorios.antigo'], $this->operador->id);
+
+        $this->assertSame('PERMISSOES_DIRETAS_SEM_ALTERACAO', $mantido['codigo']);
+        $this->seeInDatabase('auth_permissions_users', ['user_id' => $conta->id, 'permission' => 'relatorios.antigo']);
+
+        $revogado = $this->servico->sincronizar($conta->id, [], $this->operador->id);
+
+        $this->assertSame(['relatorios.antigo'], $revogado['revogadas']);
+        $this->dontSeeInDatabase('auth_permissions_users', ['user_id' => $conta->id]);
+    }
+
+    public function testSincronizarAvisaQuandoOAcessoContinuaPorHerancaDoGrupo(): void
+    {
+        $conta = $this->criarConta('conta.alvo', 'admin', ['contas.consultar']);
+
+        $resultado = $this->servico->sincronizar($conta->id, [], $this->operador->id);
+
+        $this->assertTrue($resultado['sucesso']);
+        $this->assertSame(['contas.consultar'], $resultado['revogadas']);
+        $this->assertSame(['contas.consultar'], $resultado['mantidas_por_heranca']);
+        $this->assertStringContainsString('contas.consultar (Administrador de contas)', $resultado['mensagem']);
+        $this->assertTrue($this->recarregar($conta)->can('contas.consultar'));
+        $this->seeInDatabase('auth_groups_users', ['user_id' => $conta->id, 'group' => 'admin']);
+    }
+
+    public function testSincronizarRecusaOperadorSemPermissaoParaAdministrarAcessos(): void
+    {
+        $semPermissao = $this->criarConta('operador.admin', 'admin');
+        $conta        = $this->criarConta('conta.alvo', 'user', ['contas.consultar']);
+
+        $resultado = $this->servico->sincronizar($conta->id, ['contas.criar'], $semPermissao->id);
+
+        $this->assertFalse($resultado['sucesso']);
+        $this->assertSame('permissao', $resultado['tipo']);
+        $this->assertSame('ACESSOS_SEM_PERMISSAO', $resultado['codigo']);
+        $this->seeNumRecords(1, 'auth_permissions_users', [
+            'user_id'    => $conta->id,
+            'permission' => 'contas.consultar',
+        ]);
+        $this->seeNumRecords(0, 'auditoria_permissoes', []);
+    }
+
+    public function testSincronizarRecusaContaInexistente(): void
+    {
+        $resultado = $this->servico->sincronizar(999999, ['contas.consultar'], $this->operador->id);
+
+        $this->assertFalse($resultado['sucesso']);
+        $this->assertSame('CONTA_NAO_ENCONTRADA', $resultado['codigo']);
+        $this->seeNumRecords(0, 'auditoria_permissoes', []);
+    }
+
+    #[DataProvider('falhasNaSegundaAuditoria')]
+    public function testSincronizarEhTudoOuNadaQuandoUmaMudancaFalhaNoMeio(bool $violandoChaveEstrangeira): void
+    {
+        $conta     = $this->criarConta('conta.alvo', 'user', ['contas.consultar']);
+        $auditoria = $this->auditoriaQueFalhaNaSegundaChamada($violandoChaveEstrangeira);
+        $servico   = new PermissaoDiretaService(null, $auditoria);
+        $marcadas  = ['contas.criar', 'acessos.administrar'];
+
+        // Três mudanças: a primeira concessão passa, a segunda falha na auditoria e desfaz tudo, inclusive a primeira.
+        $resultado = $servico->sincronizar($conta->id, $marcadas, $this->operador->id);
+
+        $this->assertFalse($resultado['sucesso']);
+        $this->assertSame('inesperado', $resultado['tipo']);
+        $this->assertSame('PERMISSAO_DIRETA_ERRO_PERSISTENCIA', $resultado['codigo']);
+        $this->assertSame(0, $this->db->transDepth);
+        $this->assertTrue($this->db->transStatus());
+        $this->seeNumRecords(1, 'auth_permissions_users', ['user_id' => $conta->id]);
+        $this->seeInDatabase('auth_permissions_users', ['user_id' => $conta->id, 'permission' => 'contas.consultar']);
+        $this->seeNumRecords(0, 'auditoria_permissoes', []);
+
+        // A conexão segue utilizável: a mesma operação funciona normalmente em seguida.
+        $repetida = $this->servico->sincronizar($conta->id, $marcadas, $this->operador->id);
+
+        $this->assertTrue($repetida['sucesso']);
+        $this->seeNumRecords(2, 'auth_permissions_users', ['user_id' => $conta->id]);
+        $this->seeNumRecords(3, 'auditoria_permissoes', ['usuario_id' => $conta->id]);
+    }
+
+    /**
+     * @return array<string, list<bool>>
+     */
+    public static function falhasNaSegundaAuditoria(): array
+    {
+        return [
+            'exceção na auditoria'                 => [false],
+            'violação de chave estrangeira no banco' => [true],
+        ];
+    }
+
+    public function testSincronizarNaoConfirmaATransacaoExternaDoChamador(): void
+    {
+        $conta = $this->criarConta('conta.alvo', 'user');
+
+        $this->db->transBegin();
+        $resultado = $this->servico->sincronizar($conta->id, ['contas.consultar', 'contas.criar'], $this->operador->id);
+
+        $this->assertTrue($resultado['sucesso']);
+        $this->assertSame(1, $this->db->transDepth);
+
+        $this->db->transRollback();
+
+        $this->assertSame(0, $this->db->transDepth);
+        $this->dontSeeInDatabase('auth_permissions_users', ['user_id' => $conta->id]);
+        $this->seeNumRecords(0, 'auditoria_permissoes', []);
+    }
+
+    public function testSincronizarGravaTudoNumaUnicaTransacaoSemTransacoesInternas(): void
+    {
+        $conta         = $this->criarConta('conta.alvo', 'user', ['contas.consultar']);
+        $profundidades = new ArrayObject();
+        $servico       = new PermissaoDiretaService(null, $this->auditoriaQueAnotaAProfundidade($profundidades));
+
+        $resultado = $servico->sincronizar($conta->id, ['contas.criar', 'acessos.administrar'], $this->operador->id);
+
+        // Três mudanças gravadas, todas dentro da transação única do lote: profundidade 1, nunca 2.
+        $this->assertTrue($resultado['sucesso']);
+        $this->assertSame([1, 1, 1], $profundidades->getArrayCopy());
+        $this->assertSame(0, $this->db->transDepth);
+    }
+
+    public function testConsultarOrdenaAsCategoriasPeloContexto(): void
+    {
+        $catalogo = new PermissaoService();
+
+        // Cadastradas fora da ordem alfabética de propósito.
+        foreach (['contabilidade.emitir', 'auditoria.consultar'] as $identificador) {
+            $cadastro = $catalogo->cadastrarPermissao([
+                'identificador' => $identificador,
+                'descricao'     => 'Permissao de teste para a ordem das categorias',
+            ], $this->operador->id);
+
+            $this->assertTrue($cadastro['sucesso']);
+        }
+
+        $conta = $this->criarConta('conta.alvo', 'user');
+
+        $this->assertSame(
+            ['Acessos', 'Auditoria', 'Contabilidade', 'Contas'],
+            array_column($this->servico->consultar($conta->id)['categorias'], 'titulo'),
+        );
+    }
+
+    public function testPermissaoCadastradaNaTelaDePermissoesEntraNaCategoriaDoSeuContexto(): void
+    {
+        $cadastro = (new PermissaoService())->cadastrarPermissao([
+            'identificador' => 'relatorios_gerais.emitir',
+            'descricao'     => 'Permite emitir os relatorios gerais',
+        ], $this->operador->id);
+        $this->assertTrue($cadastro['sucesso']);
+
+        $conta      = $this->criarConta('conta.alvo', 'user');
+        $categorias = array_column($this->servico->consultar($conta->id)['categorias'], null, 'titulo');
+
+        $this->assertArrayHasKey('Relatorios gerais', $categorias);
+        $this->assertSame(
+            ['relatorios_gerais.emitir'],
+            array_column($categorias['Relatorios gerais']['permissoes'], 'identificador'),
+        );
+
+        // E ela entra na seleção como qualquer outra permissão do catálogo.
+        $resultado = $this->servico->sincronizar($conta->id, ['relatorios_gerais.emitir'], $this->operador->id);
+
+        $this->assertTrue($resultado['sucesso']);
+        $this->seeInDatabase('auth_permissions_users', [
+            'user_id'    => $conta->id,
+            'permission' => 'relatorios_gerais.emitir',
+        ]);
+    }
+
+    public function testConsultarAgrupaPorContextoEMarcaAPermissaoCritica(): void
+    {
+        $conta = $this->criarConta('conta.alvo', 'user');
+
+        $visao = $this->servico->consultar($conta->id);
+
+        $this->assertSame(['Acessos', 'Contas'], array_column($visao['categorias'], 'titulo'));
+        $this->assertSame(
+            ['acessos.administrar'],
+            array_column($visao['categorias'][0]['permissoes'], 'identificador'),
+        );
+        $this->assertSame(
+            ['contas.consultar', 'contas.criar'],
+            array_column($visao['categorias'][1]['permissoes'], 'identificador'),
+        );
+
+        $criticas = array_filter($visao['permissoes'], static fn (array $permissao): bool => $permissao['critica']);
+
+        $this->assertSame(['acessos.administrar'], array_values(array_column($criticas, 'identificador')));
+    }
+
     public function testConsultarSeparaHerdadasDiretasEEfetivas(): void
     {
         $conta = $this->criarConta('conta.alvo', 'admin', ['acessos.administrar']);
@@ -508,6 +809,62 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
             public function registrar(int $usuarioId, string $permissao, string $acao, int $operadorId): bool
             {
                 throw new RuntimeException('Falha simulada na auditoria.');
+            }
+        };
+    }
+
+    /**
+     * Auditoria que anota a profundidade da transação a cada registro: prova quantas transações há abertas.
+     *
+     * @param ArrayObject<int, int> $profundidades
+     */
+    private function auditoriaQueAnotaAProfundidade(ArrayObject $profundidades): AuditoriaPermissaoModel
+    {
+        return new class ($profundidades) extends AuditoriaPermissaoModel {
+            /**
+             * @param ArrayObject<int, int> $profundidades
+             */
+            public function __construct(private readonly ArrayObject $profundidades)
+            {
+                parent::__construct();
+            }
+
+            public function registrar(int $usuarioId, string $permissao, string $acao, int $operadorId): bool
+            {
+                $this->profundidades[] = db_connect()->transDepth;
+
+                return parent::registrar($usuarioId, $permissao, $acao, $operadorId);
+            }
+        };
+    }
+
+    /**
+     * Auditoria que funciona na primeira chamada e falha na segunda: simula uma falha no meio de várias mudanças.
+     */
+    private function auditoriaQueFalhaNaSegundaChamada(bool $violandoChaveEstrangeira): AuditoriaPermissaoModel
+    {
+        return new class ($violandoChaveEstrangeira) extends AuditoriaPermissaoModel {
+            private int $chamadas = 0;
+
+            public function __construct(private readonly bool $violandoChaveEstrangeira)
+            {
+                parent::__construct();
+            }
+
+            public function registrar(int $usuarioId, string $permissao, string $acao, int $operadorId): bool
+            {
+                $this->chamadas++;
+
+                if ($this->chamadas < 2) {
+                    return parent::registrar($usuarioId, $permissao, $acao, $operadorId);
+                }
+
+                if ($this->violandoChaveEstrangeira) {
+                    // Falha de verdade no banco: `created_by` aponta para uma conta que não existe.
+                    return parent::registrar($usuarioId, $permissao, $acao, 999999);
+                }
+
+                throw new RuntimeException('Falha simulada na segunda auditoria.');
             }
         };
     }

@@ -46,37 +46,22 @@ class AcessoController extends BaseController
     }
 
     /**
-     * Concede uma permissão do catálogo diretamente à conta.
+     * Salva as caixas marcadas: concede as permissões diretas que faltam e revoga as que foram desmarcadas,
+     * sem tocar no que a conta herda dos grupos. O operador vem sempre da sessão, nunca do formulário.
      */
-    public function conceder(string $contaId): RedirectResponse
+    public function salvar(string $contaId): RedirectResponse
     {
-        $id        = $this->contaDaUrl($contaId);
-        $permissao = $this->permissaoInformada();
+        $id         = $this->contaDaUrl($contaId);
+        $permissoes = $this->permissoesMarcadas();
 
-        if ($permissao === null) {
-            return $this->recusarEntrada($id);
+        if ($permissoes === null) {
+            return redirect()->to(url_to('acessos.permissoes', $id))
+                ->with('error', 'A seleção de permissões é inválida.');
         }
 
-        $resultado = $this->permissaoDiretaService->conceder($id, $permissao, (int) auth()->id());
+        $resultado = $this->permissaoDiretaService->sincronizar($id, $permissoes, (int) auth()->id());
 
-        return $this->responder($id, $resultado, false);
-    }
-
-    /**
-     * Revoga a permissão direta da conta, sem tocar no que ela herda dos grupos.
-     */
-    public function revogar(string $contaId): RedirectResponse
-    {
-        $id        = $this->contaDaUrl($contaId);
-        $permissao = $this->permissaoInformada();
-
-        if ($permissao === null) {
-            return $this->recusarEntrada($id);
-        }
-
-        $resultado = $this->permissaoDiretaService->revogar($id, $permissao, (int) auth()->id());
-
-        return $this->responder($id, $resultado, true);
+        return $this->responder($id, $resultado);
     }
 
     /**
@@ -93,40 +78,46 @@ class AcessoController extends BaseController
     }
 
     /**
-     * Valida o campo enviado pelo formulário e devolve a permissão, ou nulo se for inválido.
+     * Lê as caixas marcadas do formulário. Sem nenhuma caixa marcada o navegador não envia o campo, e isso vale
+     * como lista vazia (todas desmarcadas). O formato da lista é conferido aqui; cada identificador ainda é
+     * conferido contra o catálogo no Service.
+     *
+     * @return list<string>|null Nulo quando o formato é inválido.
      */
-    private function permissaoInformada(): ?string
+    private function permissoesMarcadas(): ?array
     {
-        $regras = [
-            'permissao' => [
-                'rules'  => 'required|max_length[100]',
-                'errors' => [
-                    'required'   => 'Informe a permissão que deseja alterar.',
-                    'max_length' => 'A permissão informada é inválida.',
-                ],
-            ],
-        ];
+        $enviadas = $this->request->getPost('permissoes') ?? [];
 
-        if (! $this->validate($regras)) {
+        if (! is_array($enviadas)) {
             return null;
         }
 
-        return (string) $this->validator->getValidated()['permissao'];
-    }
+        $marcadas = [];
 
-    private function recusarEntrada(int $contaId): RedirectResponse
-    {
-        return redirect()->to(url_to('acessos.permissoes', $contaId))
-            ->with('error', (string) $this->validator->getError('permissao'));
+        foreach ($enviadas as $permissao) {
+            if (! is_string($permissao) || $permissao === '' || mb_strlen($permissao) > 100) {
+                return null;
+            }
+
+            $marcadas[] = $permissao;
+        }
+
+        return $marcadas;
     }
 
     /**
-     * Traduz o retorno do Service em mensagem para a tela. Revogou o vínculo direto mas o acesso
+     * Traduz o retorno do Service em mensagem para a tela. Desmarcou o vínculo direto mas o acesso
      * continua por herança: o resultado vai como aviso, para ninguém achar que o acesso acabou.
      *
-     * @param array{sucesso: bool, tipo: string, codigo: string, mensagem: string, acesso_efetivo?: bool} $resultado
+     * @param array{
+     *     sucesso: bool,
+     *     tipo: string,
+     *     codigo: string,
+     *     mensagem: string,
+     *     mantidas_por_heranca?: list<string>
+     * } $resultado
      */
-    private function responder(int $contaId, array $resultado, bool $revogacao): RedirectResponse
+    private function responder(int $contaId, array $resultado): RedirectResponse
     {
         $destino = redirect()->to(url_to('acessos.permissoes', $contaId));
 
@@ -134,7 +125,7 @@ class AcessoController extends BaseController
             return $destino->with('error', $resultado['mensagem']);
         }
 
-        $manteveAcesso = $revogacao && ($resultado['acesso_efetivo'] ?? false);
+        $manteveAcesso = ($resultado['mantidas_por_heranca'] ?? []) !== [];
 
         return $destino->with($manteveAcesso ? 'warning' : 'success', $resultado['mensagem']);
     }
