@@ -119,13 +119,17 @@ class RedefinirSenhaController extends BaseController
         $usuario = auth()->user();
 
         if ($usuario === null || (int) $usuario->active !== 1) {
+            $mensagemContaInativa = 'Sua conta está inativa e sua sessão foi encerrada. '
+                . 'Entre em contato com o administrador para reativação do acesso.';
+
             auth()->logout();
+            session()->setFlashdata('error', $mensagemContaInativa);
 
             return $this->responderPerfil([
                 'sucesso' => false,
                 'tipo' => 'permissao',
                 'codigo' => 'USUARIO_INDISPONIVEL',
-                'mensagem' => 'Sessão indisponível. Entre novamente.',
+                'mensagem' => $mensagemContaInativa,
                 'redirecionamento' => url_to('login'),
             ], 403, true);
         }
