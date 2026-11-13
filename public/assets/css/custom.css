@@ -161,3 +161,7 @@ html, body {
     user-select: none;
     padding-left: 0 !important;
 }
+
+#botao-alterar-senha .text-primary {
+    color: #7952b3 !important;
+}
