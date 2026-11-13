@@ -17,16 +17,13 @@ class MenuPermissoesTest extends CIUnitTestCase
     use FeatureTestTrait;
     use AuthenticationTesting;
 
-    protected $namespace = [
-        'CodeIgniter\Shield',
-        'CodeIgniter\Settings',
-    ];
+    protected $namespace = null;
 
     protected function setUp(): void
     {
+        parent::setUp();
         $this->resetServices();
         Factories::injectMock('config', Menu::class, new Menu());
-        parent::setUp();
     }
 
     protected function tearDown(): void
@@ -37,10 +34,9 @@ class MenuPermissoesTest extends CIUnitTestCase
 
     public function testExibeApenasItensPublicosParaPerfilSemPermissaoAdministrativa(): void
     {
-        $this->adicionarItemProtegidoAoMenu();
         $usuarioComum = $this->criarUsuarioNoGrupo('user');
 
-        $resposta = $this->comRotasDeTeste()->actingAs($usuarioComum)->get('/');
+        $resposta = $this->actingAs($usuarioComum)->get('/');
 
         $resposta->assertOK();
         $resposta->assertSee('Dashboard');
@@ -51,27 +47,42 @@ class MenuPermissoesTest extends CIUnitTestCase
 
     public function testExibeItemRestritoParaPerfilComPermissaoEfetiva(): void
     {
-        $this->adicionarItemProtegidoAoMenu();
-        $admin = $this->criarUsuarioNoGrupo('admin');
+        $superadmin = $this->criarUsuarioNoGrupo('superadmin');
 
-        $resposta = $this->comRotasDeTeste()->actingAs($admin)->get('/');
+        $resposta = $this->actingAs($superadmin)->get('admin/permissoes');
 
         $resposta->assertOK();
         $resposta->assertSee('Dashboard');
         $resposta->assertSee('Sobre');
-        $resposta->assertSee('Contas');
+        $resposta->assertSee('Administração');
+        $resposta->assertSee('Permissões');
     }
 
     public function testExibeItemRestritoQuandoUsuarioPossuiPermissaoDireta(): void
     {
-        $this->adicionarItemProtegidoAoMenu();
         $usuario = $this->criarUsuarioNoGrupo('user');
-        $usuario->addPermission('contas.consultar');
+        $usuario->addPermission('acessos.administrar');
 
-        $resposta = $this->comRotasDeTeste()->actingAs($usuario)->get('/');
+        $resposta = $this->actingAs($usuario)->get('admin/permissoes');
 
         $resposta->assertOK();
-        $resposta->assertSee('Contas');
+        $resposta->assertSee('Administração');
+        $resposta->assertSee('Permissões');
+    }
+
+    public function testDestacaItemAtivoCorrespondenteARotaAtual(): void
+    {
+        $usuarioComum = $this->criarUsuarioNoGrupo('user');
+
+        $resposta = $this->actingAs($usuarioComum)->get('sobre');
+
+        $resposta->assertOK();
+        $itens = service('menu')->filtrarItensVisiveis($usuarioComum);
+
+        $mapaAtivos = array_column($itens, 'ativo', 'titulo');
+
+        $this->assertFalse($mapaAtivos['Dashboard'] ?? true);
+        $this->assertTrue($mapaAtivos['Sobre'] ?? false);
     }
 
     public function testNaoDuplicaCabecalhoDeCategoriaEmItensConsecutivos(): void
@@ -91,10 +102,9 @@ class MenuPermissoesTest extends CIUnitTestCase
 
     public function testUrlDiretaContinuaProtegidaParaUsuarioSemPermissao(): void
     {
-        $this->adicionarItemProtegidoAoMenu();
         $usuarioComum = $this->criarUsuarioNoGrupo('user');
 
-        $resposta = $this->comRotasDeTeste()->actingAs($usuarioComum)->get('contas');
+        $resposta = $this->actingAs($usuarioComum)->get('admin/permissoes');
 
         $resposta->assertRedirectTo(rtrim(site_url('/'), '/'));
         $resposta->assertSessionHas('error');
@@ -111,26 +121,6 @@ class MenuPermissoesTest extends CIUnitTestCase
             'icone'       => 'mdi mdi-account-multiple text-warning',
             'permissao'   => 'contas.consultar',
         ];
-    }
-
-    private function comRotasDeTeste(): self
-    {
-        return $this->withRoutes([
-            ['GET', '/', 'Home::index', ['as' => 'dashboard', 'filter' => 'session']],
-            ['GET', 'sobre', 'Home::sobre', ['as' => 'sobre', 'filter' => 'session']],
-            [
-                'GET',
-                'admin/permissoes',
-                'PermissaoController::index',
-                ['as' => 'permissoes.index', 'filter' => 'permission:acessos.administrar'],
-            ],
-            [
-                'GET',
-                'contas',
-                static fn (): string => 'Gestão de Contas',
-                ['as' => 'contas', 'filter' => 'permission:contas.consultar'],
-            ],
-        ]);
     }
 
     private function criarUsuarioNoGrupo(string $grupo): User
