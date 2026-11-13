@@ -45,7 +45,7 @@ class Menu extends BaseConfig
             'icone'         => 'mdi mdi-shield-key-outline text-warning',
             'permissao'     => 'acessos.administrar',
         ],
-        
+
         [
             'categoria'     => 'Administração',
             'titulo'        => 'Acessos',
