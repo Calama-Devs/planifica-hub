@@ -31,11 +31,14 @@
         </div>
     </div>
 
+    <?= $this->include('partials/modal_alterar_senha') ?>
+
     <script src="<?= esc(base_url('assets/vendor/js/vendor.bundle.base.js')) ?>"></script>
     <script src="<?= base_url('assets/js/off-canvas.js') ?>"></script>
     <script src="<?= base_url('assets/js/hoverable-collapse.js') ?>"></script>
     <script src="<?= base_url('assets/js/misc.js') ?>"></script>
     <script src="<?= base_url('assets/js/custom.js') ?>"></script>
+    <script src="<?= esc(base_url('assets/js/alterar-senha.js')) ?>"></script>
     <?= $this->renderSection('scripts') ?>
 </body>
 </html>

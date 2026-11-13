@@ -21,7 +21,30 @@ $campoLogin = dados_campo_login();
                     </div>
                 </div>
                 <h3 class="card-title mb-1 text-light">Login</h3>
-                <p class="text-muted small mb-0">Informe suas credenciais para entrar na plataforma.</p>
+                <p class="text-muted small mb-3">Informe suas credenciais para entrar na plataforma.</p>
+
+                <!-- Feedback de Sessão / Erros -->
+                <?php if (session('error') !== null) : ?>
+                    <div class="alert alert-danger py-2 small mb-0" role="alert">
+                        <?= esc(session('error')) ?>
+                    </div>
+                <?php elseif (session('errors') !== null) : ?>
+                    <div class="alert alert-danger py-2 small mb-0" role="alert">
+                        <?php if (is_array(session('errors'))) : ?>
+                            <?php foreach (session('errors') as $error) : ?>
+                                <?= esc($error) ?><br>
+                            <?php endforeach ?>
+                        <?php else : ?>
+                            <?= esc(session('errors')) ?>
+                        <?php endif ?>
+                    </div>
+                <?php endif ?>
+
+                <?php if (session('message') !== null) : ?>
+                    <div class="alert alert-success py-2 small mt-3 mb-0" role="alert">
+                        <?= esc(session('message')) ?>
+                    </div>
+                <?php endif ?>
             </div>
 
             <!-- Formulário de Autenticação -->
@@ -72,7 +95,7 @@ $campoLogin = dados_campo_login();
                     <?php else : ?>
                         <div></div>
                     <?php endif ?>
-                    <a href="<?= url_to('magic-link') ?>" class="forgot-pass text-primary small text-decoration-none">
+                    <a href="<?= esc(url_to('solicitar-redefinicao'), 'attr') ?>" class="forgot-pass text-primary small text-decoration-none">
                         Esqueceu a senha?
                     </a>
                 </div>
@@ -83,28 +106,6 @@ $campoLogin = dados_campo_login();
                     </button>
                 </div>
 
-                <!-- Feedback de Sessão / Erros -->
-                <?php if (session('error') !== null) : ?>
-                    <div class="alert alert-danger py-2 small mt-3 mb-0" role="alert">
-                        <?= esc(session('error')) ?>
-                    </div>
-                <?php elseif (session('errors') !== null) : ?>
-                    <div class="alert alert-danger py-2 small mt-3 mb-0" role="alert">
-                        <?php if (is_array(session('errors'))) : ?>
-                            <?php foreach (session('errors') as $error) : ?>
-                                <?= esc($error) ?><br>
-                            <?php endforeach ?>
-                        <?php else : ?>
-                            <?= esc(session('errors')) ?>
-                        <?php endif ?>
-                    </div>
-                <?php endif ?>
-
-                <?php if (session('message') !== null) : ?>
-                    <div class="alert alert-success py-2 small mt-3 mb-0" role="alert">
-                        <?= esc(session('message')) ?>
-                    </div>
-                <?php endif ?>
             </form>
         </div>
 
