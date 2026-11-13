@@ -18,16 +18,14 @@ Base: Manual Calama Devs, capítulo 6 (camadas e Filters) e item 11.3 (permissõ
 O Shield recusa (`AuthorizationException`) qualquer permissão atribuída a um usuário que não conste em seu catálogo ativo. Para conciliar segurança, versionamento e flexibilidade administrativa:
 1. **Prioridade absoluta do código:** Toda permissão definida em `AuthGroups.php` é soberana. O processo de reconciliação (`PermissaoService::sincronizarCatalogo()`) garante que permissões de código ausentes na tabela sejam cadastradas como `sistema`, sem jamais sobrepor as definições versionadas nem permitir alteração de identificadores.
 2. **Merge em memória sem poluição de settings:** O catálogo ativo em runtime é mantido na própria classe `Config\AuthGroups`. Em tempo de execução, o construtor lê as permissões ativas de `permissoes` e mescla em `$permissions` sem persistir no banco via `setting()`. O `sincronizarCatalogo()` assegura a limpeza de qualquer chave residual via `setting()->forget('AuthGroups.permissions')`.
-3. **Imutabilidade total de identificadores:** O identificador de qualquer permissão registrada (seja nativa do sistema ou customizada) é **estritamente imutável**. A interface e o Controller aceitam apenas a edição do campo `descricao`, preservando permanentemente os vínculos de autorização e evitando bypass acidental ou renomeação destrutiva.
+3. **Imutabilidade total e gerenciamento controlado:** Os identificadores e definições de permissão são estritamente controlados pelo sistema. A criação e a manutenção de permissões ocorrem por configurações em código (`Config\AuthGroups`), migrations e seeds, preservando permanentemente os vínculos de autorização e evitando bypass acidental ou inconsistências com regras de rotas.
 
 ## Área administrativa de permissões
 
-- **Acesso restrito:** `/admin/permissoes` e seus subcaminhos exigem autenticação ativa (`session`) e a permissão administrativa `acessos.administrar` no servidor (tanto no filtro de rota quanto em verificação em profundidade nos Controllers e Services).
-- **Formulário e validações:**
-  - No cadastro: o identificador deve seguir o formato `contexto.acao`, em minúsculas e sem acentos, com validação de duplicidade.
-  - A descrição é obrigatória (entre 5 e 255 caracteres).
-  - Na edição: o campo identificador é exibido apenas como texto/badge fixo para leitura. O formulário envia e o Controller aceita exclusivamente o campo `descricao`.
-- **Auditoria:** Toda inclusão ou alteração registra o `created_by`/`updated_by` com o ID do usuário autenticado no banco e emite evento institucional em `log_message()`.
+- **Acesso restrito:** `/admin/permissoes` exige autenticação ativa (`session`) e a permissão administrativa `acessos.administrar` no servidor (filtro de rota do Shield).
+- **Interface exclusiva de consulta:** A tela opera exclusivamente como catálogo informativo das permissões ativas no sistema, listando identificador, descrição e badge de origem (`sistema` ou `customizada`). Não há formulários ou botões de criação, edição ou exclusão manual.
+- **Blindagem de rotas:** Requisições diretas a rotas de alteração manual retornam `404 Not Found`. A alteração do catálogo de permissões é restrita aos mecanismos de desenvolvimento do sistema.
+- **Sincronização de catálogo:** Ao listar as permissões (`PermissaoService::listarPermissoes()`), o sistema concilia automaticamente permissões definidas em código (`AuthGroups.php`) ausentes na tabela `permissoes`, registrando-as como `origem = 'sistema'`.
 
 ## Convenção de nomes
 
