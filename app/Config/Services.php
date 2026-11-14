@@ -2,6 +2,8 @@
 
 namespace Config;
 
+use App\Services\MenuService;
+use Config\Menu;
 use App\Services\PerfilService;
 use App\Services\PermissaoDiretaService;
 use App\Services\PermissaoService;
@@ -47,5 +49,14 @@ class Services extends BaseService
         }
 
         return new PermissaoDiretaService();
+    }
+
+    public static function menu(?Menu $config = null, bool $getShared = true): MenuService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('menu', $config);
+        }
+
+        return new MenuService($config);
     }
 }
