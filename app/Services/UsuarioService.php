@@ -29,9 +29,9 @@ class UsuarioService
         ?BaseConnection $banco = null,
         ?AuditoriaUsuarioModel $auditoria = null,
     ) {
-        $this->usuarios = $usuarios ?? model(UserModel::class);
+        $this->usuarios  = $usuarios ?? model(UserModel::class);
         $this->auditoria = $auditoria ?? model(AuditoriaUsuarioModel::class);
-        $this->banco   = $banco ?? db_connect();
+        $this->banco     = $banco ?? db_connect();
     }
 
     /**
@@ -47,7 +47,7 @@ class UsuarioService
             return ['usuarios' => [], 'paginador' => service('pager')];
         }
 
-        $modelo = model(UserModel::class, false);
+        $modelo            = model(UserModel::class, false);
         $tabelaUsuarios    = $this->banco->prefixTable('users');
         $tabelaIdentidades = $this->banco->prefixTable('auth_identities');
         // Mantém contas sem identidade de e-mail no resultado e evita duplicar usuários com outras identidades.
@@ -158,11 +158,10 @@ class UsuarioService
         }
 
         if ($this->nomeJaExiste($nome) || $this->emailJaExiste($email)) {
-            return $this->falha('validacao', 'CONTA_DUPLICADA', 'Já existe uma conta com os dados informados.');
+            return $this->falha('regra_negocio', 'CONTA_DUPLICADA', 'Já existe uma conta com os dados informados.');
         }
 
         $this->banco->transBegin();
-        $dona = $this->banco->transDepth === 1;
 
         try {
             $conta = new User(['username' => $nome, 'active' => true]);
@@ -194,10 +193,6 @@ class UsuarioService
         } catch (Throwable) {
             $this->banco->transRollback();
 
-            if ($dona) {
-                $this->banco->resetTransStatus();
-            }
-
             $this->registrarEvento(null, $operadorId, 'cadastro', 'falha');
             // A exceção do Shield pode conter SQL e hash de senha; registre só o contexto seguro.
             log_message('error', 'Falha técnica no cadastro de conta pelo operador {operador}', [
@@ -221,8 +216,8 @@ class UsuarioService
      */
     private function grupoPodeSerConcedido(int $operadorId, string $grupo, array $matriz): bool
     {
-        $catalogo  = setting('AuthGroups.permissions');
-        $catalogo  = is_array($catalogo) ? $catalogo : [];
+        $catalogo   = setting('AuthGroups.permissions');
+        $catalogo   = is_array($catalogo) ? $catalogo : [];
         $permissoes = $matriz[$grupo] ?? [];
         $operador   = $this->usuarioPorId($operadorId);
 
