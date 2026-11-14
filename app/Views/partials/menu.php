@@ -30,28 +30,43 @@
         </li>
 
         <?php // Só conveniência: quem digitar a URL sem a permissão é barrado pelo filtro da rota. ?>
-        <?php if (auth()->loggedIn() && auth()->user()->can('acessos.administrar')) : ?>
+        <?php if (auth()->loggedIn() && (auth()->user()->can('acessos.administrar') || auth()->user()->can('contas.consultar'))) : ?>
             <li class="nav-item nav-category">
                 <span class="nav-link">Administração</span>
             </li>
 
-            <li class="nav-item menu-items <?= url_is('admin/permissoes*') ? 'active' : '' ?>">
-                <a class="nav-link" href="<?= site_url('admin/permissoes') ?>">
-                    <span class="menu-icon">
-                        <i class="mdi mdi-shield-key-outline text-warning" aria-hidden="true"></i>
-                    </span>
-                    <span class="menu-title">Permissões</span>
-                </a>
-            </li>
+            <?php if (auth()->user()->can('acessos.administrar')) : ?>
+                <li class="nav-item menu-items <?= url_is('admin/permissoes*') ? 'active' : '' ?>">
+                    <a class="nav-link" href="<?= site_url('admin/permissoes') ?>">
+                        <span class="menu-icon">
+                            <i class="mdi mdi-shield-key-outline text-warning" aria-hidden="true"></i>
+                        </span>
+                        <span class="menu-title">Permissões</span>
+                    </a>
+                </li>
+            <?php endif ?>
 
-            <li class="nav-item menu-items <?= url_is('admin/acessos*') ? 'active' : '' ?>">
-                <a class="nav-link" href="<?= site_url('admin/acessos') ?>">
-                    <span class="menu-icon">
-                        <i class="mdi mdi-account-key text-warning" aria-hidden="true"></i>
-                    </span>
-                    <span class="menu-title">Acessos</span>
-                </a>
-            </li>
+            <?php if (auth()->user()->can('contas.consultar')) : ?>
+                <li class="nav-item menu-items <?= url_is('admin/usuarios*') ? 'active' : '' ?>">
+                    <a class="nav-link" href="<?= url_to('usuarios.index') ?>">
+                        <span class="menu-icon">
+                            <i class="mdi mdi-account-multiple text-info" aria-hidden="true"></i>
+                        </span>
+                        <span class="menu-title">Usuários</span>
+                    </a>
+                </li>
+            <?php endif ?>
+
+            <?php if (auth()->user()->can('acessos.administrar')) : ?>
+                <li class="nav-item menu-items <?= url_is('admin/acessos*') ? 'active' : '' ?>">
+                    <a class="nav-link" href="<?= site_url('admin/acessos') ?>">
+                        <span class="menu-icon">
+                            <i class="mdi mdi-account-key text-warning" aria-hidden="true"></i>
+                        </span>
+                        <span class="menu-title">Acessos</span>
+                    </a>
+                </li>
+            <?php endif ?>
         <?php endif ?>
     </ul>
 </nav>

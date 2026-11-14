@@ -12,15 +12,15 @@ complementar de autoload do CodeIgniter; não é necessário alterá-lo.
 
 | Diretório | Namespace ou finalidade | Situação atual |
 |---|---|---|
-| `app/Controllers/` | `App\Controllers` | Existente: `BaseController.php`, `Home.php` e `AcessoController.php` |
-| `app/Models/` | `App\Models` | Existente: `AuditoriaPermissaoModel.php`; a autenticação usa as Models do Shield |
-| `app/Services/` | `App\Services` | Existente: `PermissaoDiretaService.php`; criar novos somente quando houver regra de negócio que justifique |
-| `app/Filters/` | `App\Filters` | Existente, sem Filters próprios; autenticação usa o Shield |
+| `app/Controllers/` | `App\Controllers` | Existente: `BaseController.php`, `Home.php`, `AcessoController.php`, `PerfilController.php`, `PermissaoController.php` e `UsuarioController.php` |
+| `app/Models/` | `App\Models` | Existente: `AuditoriaPermissaoModel.php`, `AuditoriaUsuarioModel.php`, `PermissaoModel.php` e `UsuarioModel.php`; a autenticação usa as Models do Shield |
+| `app/Services/` | `App\Services` | Existente: `PermissaoDiretaService.php`, `PerfilService.php`, `PermissaoService.php` e `UsuarioService.php`; criar novos somente quando houver regra de negócio que justifique |
+| `app/Filters/` | `App\Filters` | Existente: `AuditoriaContasFilter.php`; autenticação usa o Shield |
 | `app/Config/` | `Config` | Configurações do CodeIgniter e do Shield |
-| `app/Views/layouts/` | Layouts compartilhados | Existente: `principal.php` |
+| `app/Views/layouts/` | Layouts compartilhados | Existente: `principal.php` e `autenticacao.php` |
 | `app/Views/partials/` | Componentes reutilizáveis | Existente: menu, cabeçalho, mensagens, paginação e rodapé |
 | `app/Views/home/` | Telas do contexto inicial | Existente: `index.php` e `sobre.php` |
-| `app/Views/<contexto>/` | Telas de cada contexto | Existente: `acesso/`; criar novas somente com demanda aprovada |
+| `app/Views/<contexto>/` | Telas de cada contexto | Existente: `acesso/`, `perfil/`, `permissao/`, `usuario/` e `autenticacao/`; criar novas somente com demanda aprovada |
 | `public/assets/` | Arquivos públicos estáticos | Organização descrita abaixo |
 
 Os diretórios de suporte do appstarter, como `Database/`, `Helpers/`,
@@ -76,7 +76,10 @@ seguem a convenção de sufixos descrita acima.
 | GET | `/admin/acessos` | `AcessoController::index`, exige a permissão `acessos.administrar` e lista as contas |
 | GET | `/admin/acessos/{id}/permissoes` | `AcessoController::permissoes`, exige `acessos.administrar` e mostra as permissões herdadas, diretas e efetivas da conta |
 | POST | `/admin/acessos/{id}/permissoes/conceder`, `/revogar` | `AcessoController::conceder` e `revogar`, exigem `acessos.administrar` e CSRF, e alteram só permissões diretas |
-| GET / POST | `/register` | Formulário e cadastro pelo Shield |
+| GET | `/admin/usuarios` | `UsuarioController::index`, exige `contas.consultar`, pesquisa e pagina usuários |
+| GET | `/admin/usuarios/novo` | `UsuarioController::novo`, exige `contas.criar` |
+| POST | `/admin/usuarios/criar` | `UsuarioController::criar`, exige `contas.criar`, CSRF e associa um grupo concedível |
+| GET / POST | `/register` | Rotas do Shield; cadastro público bloqueado por `Auth::$allowRegistration = false` |
 | GET / POST | `/login` | Formulário e autenticação pelo Shield |
 | POST | `/logout` | Encerra a sessão pelo Shield, com CSRF; GET não é permitido |
 | GET / POST | `/login/magic-link` | Fluxo de link mágico do Shield |

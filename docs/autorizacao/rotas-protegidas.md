@@ -39,7 +39,8 @@ A coluna "Before Filters" de `php spark routes` mostra os filtros efetivos de ca
 |---|---|---|
 | `GET /` (nome `dashboard`) e `GET sobre` | `csrf` (global) e `session` (grupo em `Routes.php`) | Quem fez login |
 | `GET admin/acessos`, `GET admin/acessos/{id}/permissoes`, `POST admin/acessos/{id}/permissoes/conceder` e `revogar` | `csrf` (global), `session` (grupo em `Routes.php`) e `permission:acessos.administrar` | Quem tem `acessos.administrar` (por padrão, o `superadmin`); veja `docs/autorizacao/permissoes-diretas.md` |
-| `GET` e `POST` de `login`, `register` e `login/magic-link`; `GET login/verify-magic-link`; `auth/a/*` (rotas do Shield) | `csrf` (global) | Qualquer pessoa: são as portas de entrada |
+| `GET` e `POST` de `login` e `login/magic-link`; `GET login/verify-magic-link`; `auth/a/*` (rotas do Shield) | `csrf` (global) | Qualquer pessoa: são as portas de entrada |
+| `GET` e `POST` de `register` (rotas do Shield) | `csrf` (global) | Cadastro público bloqueado por `Auth::$allowRegistration = false` |
 | `POST logout` | `csrf` (global) | Quem está logado, para encerrar a própria sessão |
 
 O logout só existe como POST com token: `GET /logout` devolve 404 (cenário 7 do teste de URL direta).
