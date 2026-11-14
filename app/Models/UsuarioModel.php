@@ -75,4 +75,3 @@ class UsuarioModel extends Model
         return $identidades->getIdentityBySecret(Session::ID_TYPE_EMAIL_PASSWORD, $email) !== null;
     }
 }
-

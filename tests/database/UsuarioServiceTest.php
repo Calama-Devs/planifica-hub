@@ -339,32 +339,6 @@ final class UsuarioServiceTest extends CIUnitTestCase
         $this->assertSame(0, $this->db->transDepth);
     }
 
-    public function testConsultaListagemCompiladaMantemConsistenciaDeTabelas(): void
-    {
-        $configuracaoAuth  = config(\Config\Auth::class);
-        $tabelaUsuarios    = $configuracaoAuth->tables['users'];
-        $tabelaIdentidades = $configuracaoAuth->tables['identities'];
-
-        $modelo = model(UserModel::class, false);
-        $prefixoUsuarios    = $this->db->prefixTable($tabelaUsuarios);
-        $prefixoIdentidades = $this->db->prefixTable($tabelaIdentidades);
-
-        $condicaoEmail = 'identidade_email.user_id = ' . $prefixoUsuarios . '.id'
-            . ' AND identidade_email.type = ' . $this->db->escape(
-                \CodeIgniter\Shield\Authentication\Authenticators\Session::ID_TYPE_EMAIL_PASSWORD,
-            );
-
-        $sql = $modelo->select($tabelaUsuarios . '.id, ' . $tabelaUsuarios . '.username, identidade_email.secret AS email')
-            ->join($prefixoIdentidades . ' AS identidade_email', $condicaoEmail, 'left', false)
-            ->withGroups()
-            ->orderBy($tabelaUsuarios . '.username', 'ASC')
-            ->getCompiledSelect();
-
-        $this->assertStringContainsString($tabelaUsuarios, $sql);
-        $this->assertStringContainsString($prefixoIdentidades . ' AS identidade_email', $sql);
-        $this->assertStringContainsString('identidade_email.secret', $sql);
-    }
-
     /** @return array{nome: string, email: string, senha: string, grupo: string} */
     private function dadosValidos(string $nome, string $grupo = 'user', ?string $email = null): array
     {

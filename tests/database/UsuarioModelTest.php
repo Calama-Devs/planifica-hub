@@ -78,4 +78,3 @@ final class UsuarioModelTest extends CIUnitTestCase
         $this->assertFalse($this->modelo->emailJaExiste(''));
     }
 }
-
