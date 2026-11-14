@@ -172,6 +172,199 @@ final class UsuarioServiceTest extends CIUnitTestCase
         $this->assertSame(0, $this->db->transDepth);
     }
 
+    public function testFalhaNaIdentidadeAcionaRollbackSemContaParcial(): void
+    {
+        $usuarioMock = $this->createMock(User::class);
+        $usuarioMock->id = 888;
+        $usuarioMock->method('createEmailIdentity')
+            ->willThrowException(new \RuntimeException('Falha simulada na identidade.'));
+
+        $modelo = $this->createMock(UserModel::class);
+        $modelo->method('save')->willReturn(true);
+        $modelo->method('getInsertID')->willReturn(888);
+        $modelo->method('findById')->willReturnCallback(function ($id) use ($usuarioMock) {
+            return $id === (int) $this->admin->id ? $this->admin : $usuarioMock;
+        });
+
+        $servico = new UsuarioService($modelo);
+
+        $resultado = $servico->criar($this->dadosValidos('falha.identidade'), (int) $this->admin->id);
+
+        $this->assertSame('CONTAS_ERRO_PERSISTENCIA', $resultado['codigo']);
+        $this->dontSeeInDatabase('users', ['username' => 'falha.identidade']);
+        $this->dontSeeInDatabase('auth_identities', ['secret' => 'falha.identidade@example.com']);
+        $this->dontSeeInDatabase('auditoria_usuarios', [
+            'operacao'  => 'cadastro',
+            'resultado' => 'sucesso',
+        ]);
+        $this->seeInDatabase('auditoria_usuarios', [
+            'operador_id' => $this->admin->id,
+            'operacao'    => 'cadastro',
+            'resultado'   => 'falha',
+        ]);
+        $this->assertSame(0, $this->db->transDepth);
+    }
+
+    public function testFalhaNoGrupoAcionaRollbackSemContaParcial(): void
+    {
+        $usuarioMock = $this->createMock(User::class);
+        $usuarioMock->id = 777;
+        $usuarioMock->method('createEmailIdentity')->willReturnCallback(static function (): void {
+        });
+        $usuarioMock->method('addGroup')
+            ->willThrowException(new \RuntimeException('Falha simulada no grupo.'));
+
+        $modelo = $this->createMock(UserModel::class);
+        $modelo->method('save')->willReturn(true);
+        $modelo->method('getInsertID')->willReturn(777);
+        $modelo->method('findById')->willReturnCallback(function ($id) use ($usuarioMock) {
+            return $id === (int) $this->admin->id ? $this->admin : $usuarioMock;
+        });
+
+        $servico = new UsuarioService($modelo);
+
+        $resultado = $servico->criar($this->dadosValidos('falha.grupo'), (int) $this->admin->id);
+
+        $this->assertSame('CONTAS_ERRO_PERSISTENCIA', $resultado['codigo']);
+        $this->dontSeeInDatabase('users', ['username' => 'falha.grupo']);
+        $this->dontSeeInDatabase('auth_identities', ['secret' => 'falha.grupo@example.com']);
+        $this->dontSeeInDatabase('auth_groups_users', ['user_id' => 777]);
+        $this->dontSeeInDatabase('auditoria_usuarios', [
+            'operacao'  => 'cadastro',
+            'resultado' => 'sucesso',
+        ]);
+        $this->seeInDatabase('auditoria_usuarios', [
+            'operador_id' => $this->admin->id,
+            'operacao'    => 'cadastro',
+            'resultado'   => 'falha',
+        ]);
+        $this->assertSame(0, $this->db->transDepth);
+    }
+
+    public function testVerificacaoDefensivaDeIdentidadeNaoPersistidaAcionaRollback(): void
+    {
+        $usuarioMock = $this->createMock(User::class);
+        $usuarioMock->id = 666;
+        $usuarioMock->method('createEmailIdentity')->willReturnCallback(static function (): void {
+        });
+        $usuarioMock->method('addGroup')->willReturnSelf();
+        $usuarioMock->method('getEmailIdentity')->willReturn(null);
+
+        $modelo = $this->createMock(UserModel::class);
+        $modelo->method('save')->willReturn(true);
+        $modelo->method('getInsertID')->willReturn(666);
+        $modelo->method('findById')->willReturnCallback(function ($id) use ($usuarioMock) {
+            return $id === (int) $this->admin->id ? $this->admin : $usuarioMock;
+        });
+
+        $servico = new UsuarioService($modelo);
+
+        $resultado = $servico->criar($this->dadosValidos('defensiva.identidade'), (int) $this->admin->id);
+
+        $this->assertSame('CONTAS_ERRO_PERSISTENCIA', $resultado['codigo']);
+        $this->dontSeeInDatabase('users', ['username' => 'defensiva.identidade']);
+        $this->dontSeeInDatabase('auditoria_usuarios', [
+            'operacao'  => 'cadastro',
+            'resultado' => 'sucesso',
+        ]);
+        $this->seeInDatabase('auditoria_usuarios', [
+            'operador_id' => $this->admin->id,
+            'operacao'    => 'cadastro',
+            'resultado'   => 'falha',
+        ]);
+        $this->assertSame(0, $this->db->transDepth);
+    }
+
+    public function testAuditoriaNaoGeraRegistrosDuplicadosParaRecusaOuSucesso(): void
+    {
+        $contagemInicial = $this->db->table('auditoria_usuarios')->countAllResults();
+
+        // 1 tentativa de grupo proibido
+        $this->servico->criar($this->dadosValidos('tentativa.duplicidade', 'superadmin'), (int) $this->admin->id);
+
+        $contagemAposRecusa = $this->db->table('auditoria_usuarios')->countAllResults();
+        $this->assertSame($contagemInicial + 1, $contagemAposRecusa, 'Deve gerar exatamente 1 registro de recusa.');
+
+        // 1 tentativa de cadastro com sucesso
+        $this->servico->criar($this->dadosValidos('sucesso.duplicidade', 'user'), (int) $this->admin->id);
+
+        $contagemAposSucesso = $this->db->table('auditoria_usuarios')->countAllResults();
+        $this->assertSame(
+            $contagemAposRecusa + 1,
+            $contagemAposSucesso,
+            'Deve gerar exatamente 1 registro de sucesso.',
+        );
+    }
+
+    public function testVerificacaoDefensivaDeGrupoNaoPersistidoAcionaRollback(): void
+    {
+        $identidadeMock = new \CodeIgniter\Shield\Entities\UserIdentity([
+            'id'      => 123,
+            'user_id' => 555,
+            'type'    => 'email_password',
+            'secret'  => 'defensiva.grupo@example.com',
+        ]);
+
+        $usuarioMock = $this->createMock(User::class);
+        $usuarioMock->id = 555;
+        $usuarioMock->method('createEmailIdentity')->willReturnCallback(static function (): void {
+        });
+        // addGroup retorna self sem lançar exceção, simulando falha silenciosa de persistência do grupo
+        $usuarioMock->method('addGroup')->willReturnSelf();
+        $usuarioMock->method('getEmailIdentity')->willReturn($identidadeMock);
+
+        $modelo = $this->createMock(UserModel::class);
+        $modelo->method('save')->willReturn(true);
+        $modelo->method('getInsertID')->willReturn(555);
+        $modelo->method('findById')->willReturnCallback(function ($id) use ($usuarioMock) {
+            return $id === (int) $this->admin->id ? $this->admin : $usuarioMock;
+        });
+
+        $servico = new UsuarioService($modelo);
+
+        $resultado = $servico->criar($this->dadosValidos('defensiva.grupo'), (int) $this->admin->id);
+
+        $this->assertSame('CONTAS_ERRO_PERSISTENCIA', $resultado['codigo']);
+        $this->dontSeeInDatabase('users', ['username' => 'defensiva.grupo']);
+        $this->dontSeeInDatabase('auth_groups_users', ['user_id' => 555]);
+        $this->dontSeeInDatabase('auditoria_usuarios', [
+            'operacao'  => 'cadastro',
+            'resultado' => 'sucesso',
+        ]);
+        $this->seeInDatabase('auditoria_usuarios', [
+            'operador_id' => $this->admin->id,
+            'operacao'    => 'cadastro',
+            'resultado'   => 'falha',
+        ]);
+        $this->assertSame(0, $this->db->transDepth);
+    }
+
+    public function testConsultaListagemCompiladaMantemConsistenciaDeTabelas(): void
+    {
+        $configuracaoAuth  = config(\Config\Auth::class);
+        $tabelaUsuarios    = $configuracaoAuth->tables['users'];
+        $tabelaIdentidades = $configuracaoAuth->tables['identities'];
+
+        $modelo = model(UserModel::class, false);
+        $prefixoUsuarios    = $this->db->prefixTable($tabelaUsuarios);
+        $prefixoIdentidades = $this->db->prefixTable($tabelaIdentidades);
+
+        $condicaoEmail = 'identidade_email.user_id = ' . $prefixoUsuarios . '.id'
+            . ' AND identidade_email.type = ' . $this->db->escape(
+                \CodeIgniter\Shield\Authentication\Authenticators\Session::ID_TYPE_EMAIL_PASSWORD,
+            );
+
+        $sql = $modelo->select($tabelaUsuarios . '.id, ' . $tabelaUsuarios . '.username, identidade_email.secret AS email')
+            ->join($prefixoIdentidades . ' AS identidade_email', $condicaoEmail, 'left', false)
+            ->withGroups()
+            ->orderBy($tabelaUsuarios . '.username', 'ASC')
+            ->getCompiledSelect();
+
+        $this->assertStringContainsString($tabelaUsuarios, $sql);
+        $this->assertStringContainsString($prefixoIdentidades . ' AS identidade_email', $sql);
+        $this->assertStringContainsString('identidade_email.secret', $sql);
+    }
+
     /** @return array{nome: string, email: string, senha: string, grupo: string} */
     private function dadosValidos(string $nome, string $grupo = 'user', ?string $email = null): array
     {

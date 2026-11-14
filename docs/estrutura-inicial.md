@@ -12,15 +12,15 @@ complementar de autoload do CodeIgniter; não é necessário alterá-lo.
 
 | Diretório | Namespace ou finalidade | Situação atual |
 |---|---|---|
-| `app/Controllers/` | `App\Controllers` | Existente: `BaseController.php`, `Home.php` e `AcessoController.php` |
-| `app/Models/` | `App\Models` | Existente: `AuditoriaPermissaoModel.php`; a autenticação usa as Models do Shield |
-| `app/Services/` | `App\Services` | Existente: `PermissaoDiretaService.php`; criar novos somente quando houver regra de negócio que justifique |
-| `app/Filters/` | `App\Filters` | Existente, sem Filters próprios; autenticação usa o Shield |
+| `app/Controllers/` | `App\Controllers` | Existente: `BaseController.php`, `Home.php`, `AcessoController.php`, `PerfilController.php`, `PermissaoController.php` e `UsuarioController.php` |
+| `app/Models/` | `App\Models` | Existente: `AuditoriaPermissaoModel.php`, `AuditoriaUsuarioModel.php`, `PermissaoModel.php` e `UsuarioModel.php`; a autenticação usa as Models do Shield |
+| `app/Services/` | `App\Services` | Existente: `PermissaoDiretaService.php`, `PerfilService.php`, `PermissaoService.php` e `UsuarioService.php`; criar novos somente quando houver regra de negócio que justifique |
+| `app/Filters/` | `App\Filters` | Existente: `AuditoriaContasFilter.php`; autenticação usa o Shield |
 | `app/Config/` | `Config` | Configurações do CodeIgniter e do Shield |
-| `app/Views/layouts/` | Layouts compartilhados | Existente: `principal.php` |
+| `app/Views/layouts/` | Layouts compartilhados | Existente: `principal.php` e `autenticacao.php` |
 | `app/Views/partials/` | Componentes reutilizáveis | Existente: menu, cabeçalho, mensagens, paginação e rodapé |
 | `app/Views/home/` | Telas do contexto inicial | Existente: `index.php` e `sobre.php` |
-| `app/Views/<contexto>/` | Telas de cada contexto | Existente: `acesso/`; criar novas somente com demanda aprovada |
+| `app/Views/<contexto>/` | Telas de cada contexto | Existente: `acesso/`, `perfil/`, `permissao/`, `usuario/` e `autenticacao/`; criar novas somente com demanda aprovada |
 | `public/assets/` | Arquivos públicos estáticos | Organização descrita abaixo |
 
 Os diretórios de suporte do appstarter, como `Database/`, `Helpers/`,

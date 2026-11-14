@@ -141,6 +141,68 @@ final class UsuarioTest extends CIUnitTestCase
         $this->dontSeeInDatabase('users', ['username' => '']);
     }
 
+    public function testTentativaBloqueadaPorFiltroNaoGeraAuditoriaDuplicada(): void
+    {
+        $comum = $this->criarConta('usuario.teste.duplicidade.filtro', 'user');
+        $contagemInicial = $this->db->table('auditoria_usuarios')->countAllResults();
+
+        $resposta = $this->enviar($comum, 'admin/usuarios/criar', [
+            'nome'  => 'tentativa.duplicidade',
+            'email' => 'tentativa.duplicidade@example.com',
+            'senha' => 'T9!x' . bin2hex(random_bytes(16)),
+            'grupo' => 'user',
+        ]);
+
+        $resposta->assertRedirect();
+        $contagemFinal = $this->db->table('auditoria_usuarios')->countAllResults();
+        $this->assertSame($contagemInicial + 1, $contagemFinal, 'O bloqueio pelo filtro deve gerar apenas 1 registro.');
+    }
+
+    public function testValidacaoDeFormularioInvalidoNaoGeraRegistroDeAuditoria(): void
+    {
+        $contagemInicial = $this->db->table('auditoria_usuarios')->countAllResults();
+
+        $resposta = $this->enviar($this->admin, 'admin/usuarios/criar', [
+            'nome'  => '',
+            'email' => 'invalido',
+            'senha' => '',
+            'grupo' => 'user',
+        ]);
+
+        $resposta->assertRedirect();
+        $contagemFinal = $this->db->table('auditoria_usuarios')->countAllResults();
+        $this->assertSame(
+            $contagemInicial,
+            $contagemFinal,
+            'Falha de validação comum não deve gerar evento de auditoria.',
+        );
+    }
+
+    public function testGrupoAdulteradoOuAusenteGeraAuditoriaDeRecusa(): void
+    {
+        $contagemInicial = $this->db->table('auditoria_usuarios')->countAllResults();
+
+        $resposta = $this->enviar($this->admin, 'admin/usuarios/criar', [
+            'nome'  => 'nome.valido',
+            'email' => 'email.valido@example.com',
+            'senha' => 'T9!x' . bin2hex(random_bytes(16)),
+            'grupo' => '',
+        ]);
+
+        $resposta->assertRedirect();
+        $contagemFinal = $this->db->table('auditoria_usuarios')->countAllResults();
+        $this->assertSame(
+            $contagemInicial + 1,
+            $contagemFinal,
+            'Grupo ausente ou adulterado deve gerar exatamente 1 registro de recusa.',
+        );
+        $this->seeInDatabase('auditoria_usuarios', [
+            'operador_id' => $this->admin->id,
+            'operacao'    => 'cadastro',
+            'resultado'   => 'recusada',
+        ]);
+    }
+
     private function criarContaComEmail(string $nome, string $email): User
     {
         $usuarios = model(UserModel::class);

@@ -28,16 +28,28 @@ selecionado. Nenhuma permissão direta é atribuída durante o cadastro.
 
 ## Persistência e auditoria
 
+A verificação de unicidade de nome de usuário e e-mail é realizada por métodos
+semânticos de `UsuarioModel` (`nomeJaExiste()` e `emailJaExiste()`), garantindo
+normalização (`trim()` e `strtolower()`) e validação inclusive contra contas
+apagadas logicamente (`withDeleted()`), sem consultas diretas de banco no Service.
+
 O usuário é persistido pelo `UserModel`; e-mail e senha são criados pela API
 `User::createEmailIdentity()`, que usa os serviços de identidade e senha do
 Shield. Conta, identidade e vínculo de grupo são gravados na mesma transação.
+Antes do commit, uma verificação defensiva assegura que a identidade de e-mail e
+o grupo foram efetivamente gravados na base; qualquer falha técnica aciona
+`transRollback()` e grava evento de falha.
 
 Eventos de sucesso, falha de persistência, recusa por autorização ou grupo
 inválido são registrados em `auditoria_usuarios`, com operador, usuário criado
 quando houver, operação, resultado, grupo e `created_at`. O evento de sucesso
-é gravado na mesma transação da conta. A tabela não armazena nome, e-mail,
-senha, hash ou token. As tentativas barradas nos filtros são registradas por
-`AuditoriaContasFilter`.
+é gravado na mesma transação da conta, somente após todas as etapas obrigatórias
+serem confirmadas. A tabela não armazena nome, e-mail, senha, hash ou token. As tentativas barradas nos filtros de rota são registradas por `AuditoriaContasFilter`.
+O `UsuarioService` registra recusas por regras de negócio (tentativa de conceder
+grupo superior não permitido) e recusas em chamadas diretas. O `UsuarioController`
+registra a recusa quando o campo `grupo` é adulterado, ausente ou inválido no formulário,
+mantendo falhas comuns de preenchimento de dados cadastrais (nome, e-mail, senha)
+sem auditoria e sem gerar registros duplicados.
 
 ## Roteiro de teste manual
 

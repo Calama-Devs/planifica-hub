@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\AuditoriaUsuarioModel;
+use App\Models\UsuarioModel;
 use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\Pager\Pager;
+use CodeIgniter\Shield\Authentication\Authenticators\Session;
 use CodeIgniter\Shield\Authorization\PermissionMatcher;
 use CodeIgniter\Shield\Entities\User;
+use CodeIgniter\Shield\Models\GroupModel;
 use CodeIgniter\Shield\Models\UserModel;
+use Config\Auth;
 use Config\AuthGroups;
 use RuntimeException;
 use Throwable;
@@ -23,15 +27,18 @@ class UsuarioService
     private UserModel $usuarios;
     private AuditoriaUsuarioModel $auditoria;
     private BaseConnection $banco;
+    private UsuarioModel $usuarioModel;
 
     public function __construct(
         ?UserModel $usuarios = null,
         ?BaseConnection $banco = null,
         ?AuditoriaUsuarioModel $auditoria = null,
+        ?UsuarioModel $usuarioModel = null,
     ) {
-        $this->usuarios  = $usuarios ?? model(UserModel::class);
-        $this->auditoria = $auditoria ?? model(AuditoriaUsuarioModel::class);
-        $this->banco     = $banco ?? db_connect();
+        $this->usuarios     = $usuarios ?? model(UserModel::class);
+        $this->auditoria    = $auditoria ?? model(AuditoriaUsuarioModel::class);
+        $this->banco        = $banco ?? db_connect();
+        $this->usuarioModel = $usuarioModel ?? model(UsuarioModel::class);
     }
 
     /**
@@ -47,28 +54,33 @@ class UsuarioService
             return ['usuarios' => [], 'paginador' => service('pager')];
         }
 
-        $modelo            = model(UserModel::class, false);
-        $tabelaUsuarios    = $this->banco->prefixTable('users');
-        $tabelaIdentidades = $this->banco->prefixTable('auth_identities');
-        // Mantém contas sem identidade de e-mail no resultado e evita duplicar usuários com outras identidades.
-        $condicaoEmail     = 'identidade_email.user_id = ' . $tabelaUsuarios . '.id'
-            . " AND identidade_email.type = 'email_password'";
+        $configuracaoAuth  = config(Auth::class);
+        $tabelaUsuarios    = $configuracaoAuth->tables['users'];
+        $tabelaIdentidades = $configuracaoAuth->tables['identities'];
 
-        $modelo->select('users.id, users.username, identidade_email.secret AS email')
+        $modelo             = model(UserModel::class, false);
+        $prefixoUsuarios    = $this->banco->prefixTable($tabelaUsuarios);
+        $prefixoIdentidades = $this->banco->prefixTable($tabelaIdentidades);
+
+        // Mantém contas sem identidade de e-mail no resultado e evita duplicar usuários com outras identidades.
+        $condicaoEmail = 'identidade_email.user_id = ' . $prefixoUsuarios . '.id'
+            . ' AND identidade_email.type = ' . $this->banco->escape(Session::ID_TYPE_EMAIL_PASSWORD);
+
+        $modelo->select($tabelaUsuarios . '.id, ' . $tabelaUsuarios . '.username, identidade_email.secret AS email')
             ->join(
-                $tabelaIdentidades . ' AS identidade_email',
+                $prefixoIdentidades . ' AS identidade_email',
                 $condicaoEmail,
                 'left',
                 false,
             )
             ->withGroups()
-            ->orderBy('users.username', 'ASC');
+            ->orderBy($tabelaUsuarios . '.username', 'ASC');
 
         $busca = trim($busca);
 
         if ($busca !== '') {
             $modelo->groupStart()
-                ->like('users.username', $busca)
+                ->like($tabelaUsuarios . '.username', $busca)
                 ->orLike('identidade_email.secret', $busca)
                 ->groupEnd();
         }
@@ -157,7 +169,7 @@ class UsuarioService
             ];
         }
 
-        if ($this->nomeJaExiste($nome) || $this->emailJaExiste($email)) {
+        if ($this->usuarioModel->nomeJaExiste($nome) || $this->usuarioModel->emailJaExiste($email)) {
             return $this->falha('regra_negocio', 'CONTA_DUPLICADA', 'Já existe uma conta com os dados informados.');
         }
 
@@ -184,6 +196,15 @@ class UsuarioService
             ]);
 
             $contaSalva->addGroup($grupo);
+
+            if ($contaSalva->getEmailIdentity() === null) {
+                throw new RuntimeException('Falha na persistência da identidade da conta.');
+            }
+
+            $modelGrupos = model(GroupModel::class);
+            if (! in_array($grupo, $modelGrupos->getForUser($contaSalva), true)) {
+                throw new RuntimeException('Falha na persistência do vínculo do grupo da conta.');
+            }
 
             if (! $this->registrarEvento($id, $operadorId, 'cadastro', 'sucesso', $grupo)) {
                 throw new RuntimeException('Falha ao registrar auditoria da conta.');
@@ -260,19 +281,6 @@ class UsuarioService
         $usuario = $this->usuarios->findById($id);
 
         return $usuario instanceof User ? $usuario : null;
-    }
-
-    private function nomeJaExiste(string $nome): bool
-    {
-        return $this->banco->table('users')->where('username', $nome)->countAllResults() > 0;
-    }
-
-    private function emailJaExiste(string $email): bool
-    {
-        return $this->banco->table('auth_identities')
-            ->where('type', 'email_password')
-            ->where('secret', $email)
-            ->countAllResults() > 0;
     }
 
     /** @param list<string> $grupos */
