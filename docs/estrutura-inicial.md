@@ -76,7 +76,10 @@ seguem a convenção de sufixos descrita acima.
 | GET | `/admin/acessos` | `AcessoController::index`, exige a permissão `acessos.administrar` e lista as contas |
 | GET | `/admin/acessos/{id}/permissoes` | `AcessoController::permissoes`, exige `acessos.administrar` e mostra as permissões herdadas, diretas e efetivas da conta |
 | POST | `/admin/acessos/{id}/permissoes/conceder`, `/revogar` | `AcessoController::conceder` e `revogar`, exigem `acessos.administrar` e CSRF, e alteram só permissões diretas |
-| GET / POST | `/register` | Formulário e cadastro pelo Shield |
+| GET | `/admin/usuarios` | `UsuarioController::index`, exige `contas.consultar`, pesquisa e pagina usuários |
+| GET | `/admin/usuarios/novo` | `UsuarioController::novo`, exige `contas.criar` |
+| POST | `/admin/usuarios/criar` | `UsuarioController::criar`, exige `contas.criar`, CSRF e associa um grupo concedível |
+| GET / POST | `/register` | Rotas do Shield; cadastro público bloqueado por `Auth::$allowRegistration = false` |
 | GET / POST | `/login` | Formulário e autenticação pelo Shield |
 | POST | `/logout` | Encerra a sessão pelo Shield, com CSRF; GET não é permitido |
 | GET / POST | `/login/magic-link` | Fluxo de link mágico do Shield |

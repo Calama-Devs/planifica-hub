@@ -5,6 +5,7 @@ namespace Config;
 use App\Services\PerfilService;
 use App\Services\PermissaoDiretaService;
 use App\Services\PermissaoService;
+use App\Services\UsuarioService;
 use CodeIgniter\Config\BaseService;
 
 /**
@@ -47,5 +48,14 @@ class Services extends BaseService
         }
 
         return new PermissaoDiretaService();
+    }
+
+    public static function usuarioService(bool $getShared = true): UsuarioService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('usuarioService');
+        }
+
+        return new UsuarioService();
     }
 }

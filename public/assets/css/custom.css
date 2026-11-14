@@ -1,6 +1,6 @@
 /* Estilos customizados globais do layout - PlanIFica Hub */
-
-html, body {
+html,
+body {
     height: 100%;
     background-color: #000;
 }
@@ -23,90 +23,90 @@ html, body {
     transition: background-color 0.3s;
 }
 
-.button-trans-success:hover {
-    background-color: rgba(0, 210, 91, 1);
-}
+    .button-trans-success:hover {
+        background-color: rgba(0, 210, 91, 1);
+    }
 
-.button-trans-success > i {
-    color: #00d25b;
-    transition: color 0.3s;
-}
+    .button-trans-success > i {
+        color: #00d25b;
+        transition: color 0.3s;
+    }
 
-.button-trans-success:hover > i {
-    color: #ffffff;
-}
+    .button-trans-success:hover > i {
+        color: #ffffff;
+    }
 
 .button-trans-info {
     background-color: rgba(143, 95, 232, 0.2);
     transition: background-color 0.3s;
 }
 
-.button-trans-info:hover {
-    background-color: rgba(143, 95, 232, 1);
-}
+    .button-trans-info:hover {
+        background-color: rgba(143, 95, 232, 1);
+    }
 
-.button-trans-info > i {
-    color: #8f5fe8;
-    transition: color 0.3s;
-}
+    .button-trans-info > i {
+        color: #8f5fe8;
+        transition: color 0.3s;
+    }
 
-.button-trans-info:hover > i {
-    color: #ffffff;
-}
+    .button-trans-info:hover > i {
+        color: #ffffff;
+    }
 
 .button-trans-danger {
     background-color: rgba(252, 66, 74, 0.2);
     transition: background-color 0.3s;
 }
 
-.button-trans-danger:hover {
-    background-color: rgba(252, 66, 74, 1);
-}
+    .button-trans-danger:hover {
+        background-color: rgba(252, 66, 74, 1);
+    }
 
-.button-trans-danger > i {
-    color: #fc424a;
-    transition: color 0.3s;
-}
+    .button-trans-danger > i {
+        color: #fc424a;
+        transition: color 0.3s;
+    }
 
-.button-trans-danger:hover > i {
-    color: #ffffff;
-}
+    .button-trans-danger:hover > i {
+        color: #ffffff;
+    }
 
 .button-trans-primary {
     background-color: rgba(0, 136, 204, 0.2);
     transition: background-color 0.3s;
 }
 
-.button-trans-primary:hover {
-    background-color: rgba(0, 136, 204, 1);
-}
+    .button-trans-primary:hover {
+        background-color: rgba(0, 136, 204, 1);
+    }
 
-.button-trans-primary > i {
-    color: #0088cc;
-    transition: color 0.3s;
-}
+    .button-trans-primary > i {
+        color: #0088cc;
+        transition: color 0.3s;
+    }
 
-.button-trans-primary:hover > i {
-    color: #ffffff;
-}
+    .button-trans-primary:hover > i {
+        color: #ffffff;
+    }
 
 .button-trans-warning {
     background-color: rgba(255, 193, 7, 0.2);
     transition: background-color 0.3s;
 }
 
-.button-trans-warning:hover {
-    background-color: rgba(255, 193, 7, 1);
-}
+    .button-trans-warning:hover {
+        background-color: rgba(255, 193, 7, 1);
+    }
 
-.button-trans-warning > i {
-    color: #ffc107;
-    transition: color 0.3s;
-}
+    .button-trans-warning > i {
+        color: #ffc107;
+        transition: color 0.3s;
+    }
 
-.button-trans-warning:hover > i {
-    color: #ffffff;
-}
+    .button-trans-warning:hover > i {
+        color: #ffffff;
+    }
 
 .d-flex .btn-icon {
     margin-right: 0.3rem;
@@ -151,13 +151,136 @@ html, body {
     cursor: pointer !important;
 }
 
-.form-check .form-check-input:checked {
-    background-color: #0090e7 !important;
-    border-color: #0090e7 !important;
-}
+    .form-check .form-check-input:checked {
+        background-color: #0090e7 !important;
+        border-color: #0090e7 !important;
+    }
 
 .form-check .form-check-label {
     cursor: pointer;
     user-select: none;
     padding-left: 0 !important;
 }
+
+select.form-control {
+    color: #ffffff;
+    color-scheme: dark;
+}
+
+    select.form-control option {
+        background-color: #2a3038;
+        color: #ffffff;
+    }
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+select:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px #2a3038 inset;
+    -webkit-text-fill-color: #ffffff;
+    caret-color: #ffffff;
+    transition: background-color 9999s ease-in-out 0s;
+}
+
+.col-auto.d-flex.gap-2 > .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    line-height: 1;
+    vertical-align: middle;
+}
+
+    .col-auto.d-flex.gap-2 > .btn > i,
+    .col-auto.d-flex.gap-2 > .btn > span {
+        position: static;
+        top: auto;
+        margin-top: 0;
+        margin-bottom: 0;
+        line-height: 1;
+    }
+
+.campo-com-botao {
+    padding-right: 5.25rem;
+}
+
+.campo-acoes {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+}
+
+    .campo-acoes .btn {
+        display: inline-flex;
+        align-items: center;
+        padding: 0 0.6rem;
+        background-color: transparent;
+        border: 0;
+        box-shadow: none;
+        line-height: 1;
+    }
+
+        .campo-acoes .btn:hover,
+        .campo-acoes .btn:focus,
+        .campo-acoes .btn:active {
+            background-color: transparent;
+            border: 0;
+            box-shadow: none;
+        }
+
+    .campo-acoes .btn-alternar-senha {
+        color: #6c7293;
+    }
+
+        .campo-acoes .btn-alternar-senha:hover,
+        .campo-acoes .btn-alternar-senha:focus {
+            color: #ffffff;
+        }
+
+    .campo-acoes .btn-dica-senha {
+        color: #ffc107;
+        transition: color 0.2s ease, filter 0.2s ease, transform 0.2s ease;
+    }
+
+        .campo-acoes .btn-dica-senha:hover,
+        .campo-acoes .btn-dica-senha:focus-visible,
+        .campo-acoes .btn-dica-senha[aria-expanded="true"] {
+            color: #ffe082;
+            filter: drop-shadow(0 0 4px rgba(255, 193, 7, 0.9)) drop-shadow(0 0 10px rgba(255, 193, 7, 0.6));
+            transform: scale(1.1);
+        }
+
+.dica-senha {
+    position: absolute;
+    top: calc(100% + 0.6rem);
+    right: 0;
+    z-index: 20;
+    width: 20rem;
+    max-width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #2c2e33;
+    border-radius: 0.25rem;
+    background-color: #2a3038;
+    color: #c9ccd6;
+    font-size: 0.875rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.4);
+}
+
+    .dica-senha::before {
+        content: "";
+        position: absolute;
+        top: -0.4rem;
+        right: 3.2rem;
+        width: 0.75rem;
+        height: 0.75rem;
+        background-color: #2a3038;
+        border-top: 1px solid #2c2e33;
+        border-left: 1px solid #2c2e33;
+        transform: rotate(45deg);
+    }
