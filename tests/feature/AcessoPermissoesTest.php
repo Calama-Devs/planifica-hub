@@ -136,6 +136,98 @@ final class AcessoPermissoesTest extends CIUnitTestCase
         $this->assertStringNotContainsString('name="permissao" value="contas.consultar"', $corpo);
     }
 
+    public function testPesquisaAjaxRetornaContasEUrlDeGerenciamentoSemExporIdentidades(): void
+    {
+        $alvo = $this->criarConta('Maria da Silva', 'user', ['contas.consultar']);
+        $alvo->createEmailIdentity([
+            'email'    => 'contato.teste@example.com',
+            'password' => bin2hex(random_bytes(12)),
+        ]);
+
+        $resposta = $this->abrir($this->superadmin, 'admin/acessos/pesquisa', ['pesquisa' => 'tato.tes']);
+
+        $resposta->assertOK();
+        $conteudo = json_decode((string) $resposta->getJSON(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertTrue($conteudo['sucesso']);
+        $this->assertSame('CONTAS_PESQUISADAS', $conteudo['codigo']);
+        $this->assertSame([[
+            'id'             => $alvo->id,
+            'rotulo'         => 'Maria da Silva',
+            'email'          => 'contato.teste@example.com',
+            'grupos'         => ['Usuário'],
+            'total_diretas'  => 1,
+            'url_permissoes' => url_to('acessos.permissoes', $alvo->id),
+        ]], $conteudo['contas']);
+        $this->assertSame(1, $conteudo['paginacao']['total_contas']);
+        $this->assertStringNotContainsString('secret', $resposta->getBody());
+        $this->assertStringNotContainsString('password', $resposta->getBody());
+    }
+
+    public function testPesquisaInformaAusenciaDeResultados(): void
+    {
+        $resposta = $this->abrir($this->superadmin, 'admin/acessos/pesquisa', ['pesquisa' => 'inexistente']);
+
+        $resposta->assertOK();
+        $resposta->assertJSONFragment(['contas' => [], 'mensagem' => 'Nenhuma conta encontrada.']);
+    }
+
+    public function testPesquisaSemTextoRetornaListagemCompletaPaginada(): void
+    {
+        for ($indice = 1; $indice <= 16; $indice++) {
+            $this->criarConta(sprintf('conta.%02d', $indice), 'user');
+        }
+
+        $resposta = $this->abrir($this->superadmin, 'admin/acessos/pesquisa', ['pesquisa' => '', 'page' => '2']);
+
+        $resposta->assertOK();
+        $resposta->assertJSONFragment([
+            'paginacao' => ['pagina_atual' => 2, 'total_paginas' => 2, 'total_contas' => 17],
+        ]);
+        $resposta->assertJSONFragment(['contas' => [['rotulo' => 'conta.16']]]);
+    }
+
+    #[DataProvider('pesquisasInvalidas')]
+    public function testPesquisaRecusaEntradaInvalida(array $parametros): void
+    {
+        $resposta = $this->abrir($this->superadmin, 'admin/acessos/pesquisa', $parametros);
+
+        $resposta->assertStatus(422);
+        $resposta->assertJSONFragment(['sucesso' => false, 'tipo' => 'validacao']);
+    }
+
+    /**
+     * @return array<string, list<array<string, mixed>>>
+     */
+    public static function pesquisasInvalidas(): array
+    {
+        return [
+            'texto longo'    => [['pesquisa' => str_repeat('a', 255)]],
+            'texto em array' => [['pesquisa' => ['maria']]],
+            'array vazio'    => [['pesquisa' => []]],
+            'página zero'    => [['page' => '0']],
+            'página texto'   => [['page' => 'abc']],
+            'página longa'   => [['page' => '99999999999999999999']],
+            'página array'   => [['page' => ['1']]],
+        ];
+    }
+
+    public function testPesquisaNaoPermiteVisitante(): void
+    {
+        $this->novaRequisicao();
+
+        $this->get('admin/acessos/pesquisa')->assertRedirectTo(site_url('login'));
+    }
+
+    public function testPesquisaNaoPermiteContaSemAutorizacao(): void
+    {
+        $admin = $this->criarConta('conta.admin', 'admin');
+
+        $resposta = $this->abrir($admin, 'admin/acessos/pesquisa', ['pesquisa' => 'super']);
+
+        $resposta->assertRedirectTo(rtrim(site_url('/'), '/'));
+        $this->assertStringNotContainsString('super.admin', $resposta->getBody());
+    }
+
     public function testConcedeEAuditaPelaTelaSemMexerEmGruposNemNaMatriz(): void
     {
         $alvo        = $this->criarConta('conta.alvo', 'user');

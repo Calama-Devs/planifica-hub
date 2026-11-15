@@ -74,6 +74,7 @@ seguem a convenção de sufixos descrita acima.
 | GET | `/` | `Home::index`, exige autenticação e apresenta o dashboard |
 | GET | `/sobre` | `Home::sobre`, exige autenticação e reutiliza o layout |
 | GET | `/admin/acessos` | `AcessoController::index`, exige a permissão `acessos.administrar` e lista as contas |
+| GET | `/admin/acessos/pesquisa` | `AcessoController::consultarConta`, exige `acessos.administrar` e retorna JSON paginado por `pesquisa` (parte do nome ou e-mail) e `page` |
 | GET | `/admin/acessos/{id}/permissoes` | `AcessoController::permissoes`, exige `acessos.administrar` e mostra as permissões herdadas, diretas e efetivas da conta |
 | POST | `/admin/acessos/{id}/permissoes/conceder`, `/revogar` | `AcessoController::conceder` e `revogar`, exigem `acessos.administrar` e CSRF, e alteram só permissões diretas |
 | GET / POST | `/register` | Formulário e cadastro pelo Shield |
@@ -122,6 +123,17 @@ caminhos existentes são mantidos, incluindo as fontes MDI em
 `vendor/mdi/fonts/`, relativas ao CSS de ícones. O inventário de arquivos
 utilizados e as instruções de carregamento ficam no
 [padrão de layout e dashboard](padroes/layout-e-dashboard.md#5-seleção-mínima-de-assets-manual-154-e-254).
+
+A tela de acessos carrega seletivamente o Tom Select 2.4.3 (Apache-2.0), em
+`vendor/tom-select/`, com JavaScript base e CSS Bootstrap 5. Não há dependência de
+CDN em execução. O comportamento AJAX fica em `js/acesso/index.js`; o campo usa
+`form-control` do template, utilitários Bootstrap e o modo escuro nativo do Bootstrap
+para o menu, sem CSS próprio da tela. A consulta mantém as entidades do Shield
+internamente e expõe somente o resumo das contas, nunca as identidades completas.
+
+A pesquisa de contas usa diretamente `UserModel` e `UserIdentityModel` do Shield,
+com Query Builder no Service. O filtro de e-mail considera somente identidades
+`email_password`; outros tipos de identidade não participam da pesquisa.
 
 ### Template oficial e uso seletivo
 

@@ -7,6 +7,8 @@ namespace App\Controllers;
 use App\Services\PermissaoDiretaService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\HTTP\RedirectResponse;
+use CodeIgniter\HTTP\ResponseInterface;
+use Throwable;
 
 /**
  * Administração dos acessos das contas. Por enquanto, as permissões diretas.
@@ -29,6 +31,78 @@ class AcessoController extends BaseController
     public function index(): string
     {
         return view('acesso/index', $this->permissaoDiretaService->listarContas());
+    }
+    
+    /**
+     * Consulta contas de usuarios
+     */
+    public function consultarConta(): ResponseInterface
+    {
+        $entrada = $this->request->getGet(['pesquisa', 'page']);
+        $regras  = [
+            'pesquisa' => 'permit_empty|string|max_length[70]',
+            'page'     => 'permit_empty|is_natural_no_zero|less_than_equal_to[999999999]',
+        ];
+
+        if (
+            (isset($entrada['pesquisa']) && ! is_string($entrada['pesquisa']))
+            || (isset($entrada['page']) && ! is_string($entrada['page']))
+            || ! $this->validateData($entrada, $regras)
+        ) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'sucesso'  => false,
+                'tipo'     => 'validacao',
+                'codigo'   => 'PESQUISA_CONTAS_INVALIDA',
+                'mensagem' => 'Informe um nome ou e-mail com até 254 caracteres e uma página válida.',
+            ]);
+        }
+
+        try {
+            $validados = $this->validator->getValidated();
+            $listagem  = $this->permissaoDiretaService->listarContas(
+                15,
+                trim((string) ($validados['pesquisa'] ?? '')),
+                (int) ($validados['page'] ?? 1),
+            );
+
+            return $this->responderPesquisa($listagem);
+        } catch (Throwable $erro) {
+            log_message('error', 'Falha ao pesquisar contas na administração de acessos ({tipo}).', [
+                'tipo' => $erro::class,
+            ]);
+
+            return $this->response->setStatusCode(500)->setJSON([
+                'sucesso'  => false,
+                'tipo'     => 'inesperado',
+                'codigo'   => 'PESQUISA_CONTAS_INDISPONIVEL',
+                'mensagem' => 'Não foi possível pesquisar as contas. Tente novamente.',
+            ]);
+        }
+    }
+
+    /**
+     * @param array{contas: list<array<string, mixed>>, paginador: \CodeIgniter\Pager\Pager} $listagem
+     */
+    private function responderPesquisa(array $listagem): ResponseInterface
+    {
+        $contas = $listagem['contas'];
+
+        foreach ($contas as $indice => $conta) {
+            $contas[$indice]['url_permissoes'] = url_to('acessos.permissoes', $conta['id']);
+        }
+
+        return $this->response->setHeader('Cache-Control', 'no-store')->setJSON([
+            'sucesso'   => true,
+            'tipo'      => 'sucesso',
+            'codigo'    => 'CONTAS_PESQUISADAS',
+            'mensagem'  => $contas === [] ? 'Nenhuma conta encontrada.' : 'Pesquisa concluída.',
+            'contas'    => $contas,
+            'paginacao' => [
+                'pagina_atual'  => $listagem['paginador']->getCurrentPage(),
+                'total_paginas' => $listagem['paginador']->getPageCount(),
+                'total_contas'  => $listagem['paginador']->getTotal(),
+            ],
+        ]);
     }
 
     /**

@@ -7,8 +7,10 @@ namespace App\Services;
 use App\Models\AuditoriaPermissaoModel;
 use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\Pager\Pager;
+use CodeIgniter\Shield\Authentication\Authenticators\Session;
 use CodeIgniter\Shield\Authorization\PermissionMatcher;
 use CodeIgniter\Shield\Entities\User;
+use CodeIgniter\Shield\Models\UserIdentityModel;
 use CodeIgniter\Shield\Models\UserModel;
 use RuntimeException;
 use Throwable;
@@ -45,15 +47,17 @@ class PermissaoDiretaService
      *
      * @return array{contas: list<array<string, mixed>>, paginador: Pager}
      */
-    public function listarContas(int $porPagina = 15): array
+    public function listarContas(int $porPagina = 15, string $pesquisa = '', ?int $pagina = null): array
     {
         // Instância própria: os withX() do Shield ficam ligados no modelo até o fim da requisição.
-        $modelo   = model(UserModel::class, false);
+        $modelo = model(UserModel::class, false);
+        $this->filtrarContasPorPesquisa($modelo, $pesquisa);
+
         $usuarios = $modelo->withIdentities()
             ->withGroups()
             ->withPermissions()
             ->orderBy('username', 'ASC')
-            ->paginate($porPagina);
+            ->paginate($porPagina, 'default', $pagina);
 
         $contas = [];
 
@@ -64,6 +68,28 @@ class PermissaoDiretaService
         }
 
         return ['contas' => $contas, 'paginador' => $modelo->pager];
+    }
+
+    private function filtrarContasPorPesquisa(UserModel $modelo, string $pesquisa): void
+    {
+        $pesquisa = trim($pesquisa);
+
+        if ($pesquisa === '') {
+            return;
+        }
+
+        $escape   = $modelo->builder()->db()->likeEscapeChar;
+        $pesquisa = str_replace([$escape, '%', '_'], [$escape . $escape, $escape . '%', $escape . '_'], $pesquisa);
+
+        $identidades = model(UserIdentityModel::class, false)->builder()
+            ->select('user_id')
+            ->where('type', Session::ID_TYPE_EMAIL_PASSWORD)
+            ->like('secret', $pesquisa, 'both', null, true);
+
+        $modelo->groupStart()
+            ->like('username', $pesquisa, 'both', null, true)
+            ->orWhereIn('id', $identidades)
+            ->groupEnd();
     }
 
     /**
