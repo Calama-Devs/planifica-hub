@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Database;
 
+use App\Models\AuditoriaUsuarioModel;
 use App\Services\UsuarioService;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserModel;
@@ -31,7 +32,7 @@ final class UsuarioServiceTest extends CIUnitTestCase
         $this->resetServices();
         parent::setUp();
 
-        $this->servico   = new UsuarioService();
+        $this->servico = new UsuarioService();
         $this->superadmin = $this->criarConta('operador.superadmin', 'superadmin');
         $this->admin      = $this->criarConta('operador.admin', 'admin');
     }
@@ -172,9 +173,43 @@ final class UsuarioServiceTest extends CIUnitTestCase
         $this->assertSame(0, $this->db->transDepth);
     }
 
+    /** @param list<string> $resultados */
+    private function auditoriaQueAnota(array &$resultados, bool $falharNoSucesso = false): AuditoriaUsuarioModel
+    {
+        $auditoria = $this->createMock(AuditoriaUsuarioModel::class);
+        $auditoria->method('registrar')->willReturnCallback(
+            static function (?int $usuarioId, int $operadorId, string $operacao, string $resultado) use (
+                &$resultados,
+                $falharNoSucesso,
+            ): bool {
+                $resultados[] = $resultado;
+
+                return ! ($falharNoSucesso && $resultado === 'sucesso');
+            },
+        );
+
+        return $auditoria;
+    }
+
+    public function testFalhaNaAuditoriaDeSucessoDesfazAContaCompleta(): void
+    {
+        $registros = [];
+        $servico = new UsuarioService(auditoria: $this->auditoriaQueAnota($registros, true));
+        $dados = $this->dadosValidos('falha.auditoria');
+
+        $resultado = $servico->criar($dados, (int) $this->admin->id);
+
+        $this->assertFalse($resultado['sucesso']);
+        $this->assertSame('CONTAS_ERRO_PERSISTENCIA', $resultado['codigo']);
+        $this->assertSame(['sucesso', 'falha'], $registros);
+        $this->dontSeeInDatabase('users', ['username' => 'falha.auditoria']);
+        $this->dontSeeInDatabase('auth_identities', ['secret' => $dados['email']]);
+        $this->assertSame(0, $this->db->transDepth);
+    }
+
     public function testFalhaNaIdentidadeAcionaRollbackSemContaParcial(): void
     {
-        $usuarioMock = $this->createMock(User::class);
+        $usuarioMock     = $this->createMock(User::class);
         $usuarioMock->id = 888;
         $usuarioMock->method('createEmailIdentity')
             ->willThrowException(new \RuntimeException('Falha simulada na identidade.'));
