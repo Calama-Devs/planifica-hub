@@ -32,7 +32,7 @@ final class UsuarioServiceTest extends CIUnitTestCase
         $this->resetServices();
         parent::setUp();
 
-        $this->servico = new UsuarioService();
+        $this->servico    = new UsuarioService();
         $this->superadmin = $this->criarConta('operador.superadmin', 'superadmin');
         $this->admin      = $this->criarConta('operador.admin', 'admin');
     }
@@ -41,7 +41,7 @@ final class UsuarioServiceTest extends CIUnitTestCase
     {
         $alvo = $this->criarContaComEmail('ana.silva', 'ana@example.com', 'user');
 
-        $porNome = $this->servico->listar((int) $this->admin->id, 'ana.silva');
+        $porNome  = $this->servico->listar((int) $this->admin->id, 'ana.silva');
         $porEmail = $this->servico->listar((int) $this->admin->id, 'ana@example.com');
 
         $this->assertSame((int) $alvo->id, $porNome['usuarios'][0]['id']);
@@ -178,7 +178,12 @@ final class UsuarioServiceTest extends CIUnitTestCase
     {
         $auditoria = $this->createMock(AuditoriaUsuarioModel::class);
         $auditoria->method('registrar')->willReturnCallback(
-            static function (?int $usuarioId, int $operadorId, string $operacao, string $resultado) use (
+            static function (
+                ?int $usuarioId,
+                int $operadorId,
+                string $operacao,
+                string $resultado,
+            ) use (
                 &$resultados,
                 $falharNoSucesso,
             ): bool {
@@ -194,8 +199,8 @@ final class UsuarioServiceTest extends CIUnitTestCase
     public function testFalhaNaAuditoriaDeSucessoDesfazAContaCompleta(): void
     {
         $registros = [];
-        $servico = new UsuarioService(auditoria: $this->auditoriaQueAnota($registros, true));
-        $dados = $this->dadosValidos('falha.auditoria');
+        $servico   = new UsuarioService(auditoria: $this->auditoriaQueAnota($registros, true));
+        $dados     = $this->dadosValidos('falha.auditoria');
 
         $resultado = $servico->criar($dados, (int) $this->admin->id);
 
@@ -242,7 +247,7 @@ final class UsuarioServiceTest extends CIUnitTestCase
 
     public function testFalhaNoGrupoAcionaRollbackSemContaParcial(): void
     {
-        $usuarioMock = $this->createMock(User::class);
+        $usuarioMock     = $this->createMock(User::class);
         $usuarioMock->id = 777;
         $usuarioMock->method('createEmailIdentity')->willReturnCallback(static function (): void {
         });
@@ -278,7 +283,7 @@ final class UsuarioServiceTest extends CIUnitTestCase
 
     public function testVerificacaoDefensivaDeIdentidadeNaoPersistidaAcionaRollback(): void
     {
-        $usuarioMock = $this->createMock(User::class);
+        $usuarioMock     = $this->createMock(User::class);
         $usuarioMock->id = 666;
         $usuarioMock->method('createEmailIdentity')->willReturnCallback(static function (): void {
         });
@@ -340,7 +345,7 @@ final class UsuarioServiceTest extends CIUnitTestCase
             'secret'  => 'defensiva.grupo@example.com',
         ]);
 
-        $usuarioMock = $this->createMock(User::class);
+        $usuarioMock     = $this->createMock(User::class);
         $usuarioMock->id = 555;
         $usuarioMock->method('createEmailIdentity')->willReturnCallback(static function (): void {
         });
