@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use CodeIgniter\Model;
+use Throwable;
 
 /** Trilha de inclusão das operações administrativas de usuários. */
 class AuditoriaUsuarioModel extends Model
@@ -29,6 +30,10 @@ class AuditoriaUsuarioModel extends Model
     protected $updatedField  = '';
     protected $deletedField  = '';
 
+    /**
+     * Grava um evento de auditoria. Uma falha de gravação não interrompe quem chamou: o método devolve false
+     * e registra no log só o tipo da exceção, sem SQL nem dados do evento.
+     */
     public function registrar(
         ?int $usuarioId,
         int $operadorId,
@@ -36,12 +41,20 @@ class AuditoriaUsuarioModel extends Model
         string $resultado,
         ?string $grupo = null,
     ): bool {
-        return $this->insert([
-            'usuario_id'  => $usuarioId,
-            'operador_id' => $operadorId,
-            'operacao'    => $operacao,
-            'resultado'   => $resultado,
-            'grupo'       => $grupo,
-        ]) !== false;
+        try {
+            return $this->insert([
+                'usuario_id'  => $usuarioId,
+                'operador_id' => $operadorId,
+                'operacao'    => $operacao,
+                'resultado'   => $resultado,
+                'grupo'       => $grupo,
+            ]) !== false;
+        } catch (Throwable $excecao) {
+            log_message('error', 'Falha ao gravar a auditoria de usuários: {tipo}', [
+                'tipo' => $excecao::class,
+            ]);
+
+            return false;
+        }
     }
 }
