@@ -38,7 +38,7 @@ final class EventoAuditoriaModelTest extends CIUnitTestCase
     public function testRegistraIndividualmenteTodosOsResultadosPermitidos(): void
     {
         foreach (['concluida', 'recusada', 'erro'] as $resultado) {
-            $this->assertTrue($this->eventos->registrar($this->evento(['resultado' => $resultado])));
+            $this->assertNotFalse($this->eventos->insert($this->evento(['resultado' => $resultado])));
         }
 
         $this->seeNumRecords(3, 'eventos_auditoria', []);
@@ -52,7 +52,7 @@ final class EventoAuditoriaModelTest extends CIUnitTestCase
             $this->evento(['resultado' => 'erro']),
         ];
 
-        $this->assertTrue($this->eventos->registrarVarios($registros));
+        $this->assertNotFalse($this->eventos->insertBatch($registros));
         $this->seeNumRecords(1, 'eventos_auditoria', ['resultado' => 'concluida']);
         $this->seeNumRecords(1, 'eventos_auditoria', ['resultado' => 'recusada']);
         $this->seeNumRecords(1, 'eventos_auditoria', ['resultado' => 'erro']);
@@ -60,10 +60,10 @@ final class EventoAuditoriaModelTest extends CIUnitTestCase
 
     public function testRecusaCamposObrigatoriosEResultadoInvalidoNoInsert(): void
     {
-        $this->assertFalse($this->eventos->registrar($this->evento(['modulo' => ''])));
+        $this->assertFalse($this->eventos->insert($this->evento(['modulo' => ''])));
         $this->assertArrayHasKey('modulo', $this->eventos->errors());
 
-        $this->assertFalse($this->eventos->registrar($this->evento(['resultado' => 'pendente'])));
+        $this->assertFalse($this->eventos->insert($this->evento(['resultado' => 'pendente'])));
         $this->assertArrayHasKey('resultado', $this->eventos->errors());
         $this->seeNumRecords(0, 'eventos_auditoria', []);
     }
@@ -72,27 +72,27 @@ final class EventoAuditoriaModelTest extends CIUnitTestCase
     {
         $registros = [
             $this->evento(['resultado' => 'concluida']),
-            $this->evento(['acao' => str_repeat('a', 101)]),
+            $this->evento(['acao' => str_repeat('a', 51)]),
         ];
 
-        $this->assertFalse($this->eventos->registrarVarios($registros));
+        $this->assertFalse($this->eventos->insertBatch($registros));
         $this->assertArrayHasKey('acao', $this->eventos->errors());
         $this->seeNumRecords(0, 'eventos_auditoria', []);
     }
 
     public function testAceitaCamposOpcionaisEProtegeCamposNaoPermitidos(): void
     {
-        $this->assertTrue($this->eventos->registrar($this->evento([
-            'created_by'      => null,
-            'alvo_id'         => null,
+        $this->assertNotFalse($this->eventos->insert($this->evento([
+            'usuario_id'      => null,
+            'entidade_id'     => null,
             'created_at'      => '2000-01-01 00:00:00',
             'dado_sensivel'   => 'nao-persistir',
         ])));
 
         $registro = $this->eventos->find($this->eventos->getInsertID());
 
-        $this->assertNull($registro['created_by']);
-        $this->assertNull($registro['alvo_id']);
+        $this->assertNull($registro['usuario_id']);
+        $this->assertNull($registro['entidade_id']);
         $this->assertNotSame('2000-01-01 00:00:00', $registro['created_at']);
         $this->assertNotEmpty($registro['created_at']);
     }
@@ -107,8 +107,9 @@ final class EventoAuditoriaModelTest extends CIUnitTestCase
         return array_replace([
             'modulo'     => 'acessos',
             'acao'       => 'alterar_permissao',
-            'alvo_tipo'  => 'usuario',
-            'alvo_id'    => '42',
+            'entidade_tipo' => 'usuario',
+            'entidade_id'   => '42',
+            'descricao'     => 'Permissão de acesso do usuário 42 alterada de visualização para edição.',
             'resultado'  => 'concluida',
         ], $sobrescritas);
     }
