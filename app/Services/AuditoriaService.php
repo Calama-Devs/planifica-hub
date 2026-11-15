@@ -6,7 +6,6 @@ namespace App\Services;
 
 use App\Models\EventoAuditoriaModel;
 use RuntimeException;
-use Throwable;
 
 class AuditoriaService
 {
@@ -14,47 +13,36 @@ class AuditoriaService
 
     public function __construct(?EventoAuditoriaModel $eventos = null)
     {
-        $this->eventos = $eventos ?? new EventoAuditoriaModel(db_connect(null, false));
+        $this->eventos = $eventos ?? new EventoAuditoriaModel();
     }
 
     public function registrar(array $evento): void
     {
-        try {
-            $evento['created_by'] = auth()->id();
+        $evento['usuario_id'] = auth()->id();
 
-            if (!$this->eventos->registrar($evento)) {
-                throw new RuntimeException('O evento de auditoria não foi gravado.');
-            }
-        } catch (Throwable $erro) {
-            log_message(
-                'error',
-                'Falha ao registrar auditoria unitária ({erro}).',
-                ['erro' => $erro::class],
-            );
+        if ($this->eventos->insert($evento) === false) {
+            throw new RuntimeException('O evento de auditoria não foi gravado.');
         }
     }
 
     public function registrarVarios(array $eventos): void
     {
-        try {
-            $createdBy = auth()->id();
-            $eventos   = array_map(
-                static function (array $evento) use ($createdBy): array {
-                    $evento['created_by'] = $createdBy;
-                    return $evento;
-                },
-                $eventos,
-            );
+        if ($eventos === []) {
+            return;
+        }
 
-            if (!$this->eventos->registrarVarios($eventos)) {
-                throw new RuntimeException('Os eventos de auditoria não foram gravados.');
-            }
-        } catch (Throwable $erro) {
-            log_message(
-                'error',
-                'Falha ao registrar auditoria em lote ({erro}).',
-                ['erro' => $erro::class],
-            );
+        $usuarioId = auth()->id();
+
+        $eventos   = array_map(
+            static function (array $evento) use ($usuarioId): array {
+                $evento['usuario_id'] = $usuarioId;
+                return $evento;
+            },
+            $eventos,
+        );
+
+        if ($this->eventos->insertBatch($eventos) === false) {
+            throw new RuntimeException('Os eventos de auditoria não foram gravados.');
         }
     }
 }
