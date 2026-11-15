@@ -32,7 +32,7 @@ class AcessoController extends BaseController
     {
         return view('acesso/index', $this->permissaoDiretaService->listarContas());
     }
-    
+
     /**
      * Consulta contas de usuarios
      */
