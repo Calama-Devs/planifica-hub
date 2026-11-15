@@ -40,7 +40,7 @@ class AcessoController extends BaseController
     {
         $entrada = $this->request->getGet(['pesquisa', 'page']);
         $regras  = [
-            'pesquisa' => 'permit_empty|string|max_length[70]',
+            'pesquisa' => 'permit_empty|string|max_length[100]',
             'page'     => 'permit_empty|is_natural_no_zero|less_than_equal_to[999999999]',
         ];
 
@@ -53,7 +53,7 @@ class AcessoController extends BaseController
                 'sucesso'  => false,
                 'tipo'     => 'validacao',
                 'codigo'   => 'PESQUISA_CONTAS_INVALIDA',
-                'mensagem' => 'Informe um nome ou e-mail com até 254 caracteres e uma página válida.',
+                'mensagem' => 'Informe um nome ou e-mail com até 100 caracteres e uma página válida.',
             ]);
         }
 

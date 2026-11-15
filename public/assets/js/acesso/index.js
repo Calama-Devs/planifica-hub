@@ -20,6 +20,8 @@
             valueField: 'id',
             labelField: 'rotulo',
             searchField: [],
+            // A busca é do servidor; variantes locais podem travar em termos longos e repetitivos.
+            diacritics: false,
             refreshThrottle: 0,
             closeAfterSelect: false,
             controlClass: 'ts-control text-light py-2 shadow-none',
@@ -78,7 +80,7 @@
             }
         });
 
-        $(seletor.control_input).attr({ 'maxlength': 254, 'aria-describedby': 'pesquisa-ajuda' });
+        $(seletor.control_input).attr({ 'maxlength': 100, 'aria-describedby': 'pesquisa-ajuda' });
         $(seletor.control).on('mousedown', function (evento) {
             if (seletor.control_input.value !== '') {
                 evento.stopPropagation();

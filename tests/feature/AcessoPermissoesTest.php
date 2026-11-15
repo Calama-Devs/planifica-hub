@@ -186,13 +186,29 @@ final class AcessoPermissoesTest extends CIUnitTestCase
         $resposta->assertJSONFragment(['contas' => [['rotulo' => 'conta.16']]]);
     }
 
+    public function testPesquisaAceitaTextoComCemCaracteres(): void
+    {
+        foreach (['a', 'á'] as $caractere) {
+            $resposta = $this->abrir($this->superadmin, 'admin/acessos/pesquisa', [
+                'pesquisa' => str_repeat($caractere, 100),
+            ]);
+
+            $resposta->assertStatus(200);
+            $resposta->assertJSONFragment(['sucesso' => true]);
+        }
+    }
+
     #[DataProvider('pesquisasInvalidas')]
     public function testPesquisaRecusaEntradaInvalida(array $parametros): void
     {
         $resposta = $this->abrir($this->superadmin, 'admin/acessos/pesquisa', $parametros);
 
         $resposta->assertStatus(422);
-        $resposta->assertJSONFragment(['sucesso' => false, 'tipo' => 'validacao']);
+        $resposta->assertJSONFragment([
+            'sucesso'  => false,
+            'tipo'     => 'validacao',
+            'mensagem' => 'Informe um nome ou e-mail com até 100 caracteres e uma página válida.',
+        ]);
     }
 
     /**
@@ -201,13 +217,14 @@ final class AcessoPermissoesTest extends CIUnitTestCase
     public static function pesquisasInvalidas(): array
     {
         return [
-            'texto longo'    => [['pesquisa' => str_repeat('a', 255)]],
-            'texto em array' => [['pesquisa' => ['maria']]],
-            'array vazio'    => [['pesquisa' => []]],
-            'página zero'    => [['page' => '0']],
-            'página texto'   => [['page' => 'abc']],
-            'página longa'   => [['page' => '99999999999999999999']],
-            'página array'   => [['page' => ['1']]],
+            'texto longo'           => [['pesquisa' => str_repeat('a', 101)]],
+            'texto acentuado longo' => [['pesquisa' => str_repeat('á', 101)]],
+            'texto em array'        => [['pesquisa' => ['maria']]],
+            'array vazio'           => [['pesquisa' => []]],
+            'página zero'           => [['page' => '0']],
+            'página texto'          => [['page' => 'abc']],
+            'página longa'          => [['page' => '99999999999999999999']],
+            'página array'          => [['page' => ['1']]],
         ];
     }
 
