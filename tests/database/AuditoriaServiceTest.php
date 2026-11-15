@@ -46,10 +46,10 @@ final class AuditoriaServiceTest extends CIUnitTestCase
     {
         $servico = new AuditoriaService(new EventoAuditoriaModel($this->db));
 
-        $servico->registrar($this->evento(['created_by' => 999999]));
+        $servico->registrar($this->evento(['usuario_id' => 999999]));
 
         $this->seeNumRecords(1, 'eventos_auditoria', [
-            'created_by' => $this->usuario->id,
+            'usuario_id' => $this->usuario->id,
             'resultado'  => 'concluida',
         ]);
     }
@@ -64,44 +64,59 @@ final class AuditoriaServiceTest extends CIUnitTestCase
         ]);
 
         $this->seeNumRecords(2, 'eventos_auditoria', [
-            'created_by' => $this->usuario->id,
+            'usuario_id' => $this->usuario->id,
         ]);
         $this->seeInDatabase('eventos_auditoria', ['resultado' => 'recusada']);
         $this->seeInDatabase('eventos_auditoria', ['resultado' => 'erro']);
     }
 
-    public function testFalhaNaAuditoriaNaoInterrompeATransacaoPrincipal(): void
+    public function testFalhaNaAuditoriaReverteAOperacaoPrincipal(): void
     {
-        $modelo = new class () extends EventoAuditoriaModel {
-            public bool $registrarChamado = false;
-            public bool $loteChamado      = false;
-
-            public function registrar(array $evento): bool
-            {
-                $this->registrarChamado = true;
-
-                throw new RuntimeException('Falha simulada.');
-            }
-
-            public function registrarVarios(array $eventos): bool
-            {
-                $this->loteChamado = true;
-
-                return false;
-            }
-        };
-        $servico = new AuditoriaService($modelo);
+        $servico = new AuditoriaService(new EventoAuditoriaModel($this->db));
 
         $this->db->transBegin();
-        $servico->registrar($this->evento());
-        $servico->registrarVarios([$this->evento(['resultado' => 'erro'])]);
 
-        $this->assertTrue($modelo->registrarChamado);
-        $this->assertTrue($modelo->loteChamado);
-        $this->assertSame(1, $this->db->transDepth);
+        try {
+            $this->db->table('permissoes')->insert([
+                'identificador' => 'auditoria.rollback',
+                'descricao'     => 'Permissão usada no teste de rollback da auditoria.',
+                'origem'        => 'customizada',
+            ]);
+            $servico->registrar($this->evento(['descricao' => '']));
+            $this->fail('A falha da auditoria deveria interromper a operação.');
+        } catch (RuntimeException) {
+            $this->db->transRollback();
+        }
 
-        $this->db->transCommit();
-        $this->assertTrue($this->db->transStatus());
+        $this->seeNumRecords(0, 'permissoes', ['identificador' => 'auditoria.rollback']);
+        $this->seeNumRecords(0, 'eventos_auditoria', []);
+    }
+
+    public function testPropagaFalhaDoRegistroEmLote(): void
+    {
+        $servico = new AuditoriaService(new EventoAuditoriaModel($this->db));
+
+        $this->expectException(RuntimeException::class);
+        $servico->registrarVarios([$this->evento(['descricao' => ''])]);
+    }
+
+    public function testIgnoraLoteVazioSemPersistir(): void
+    {
+        $servico = new AuditoriaService(new EventoAuditoriaModel($this->db));
+
+        $servico->registrarVarios([]);
+
+        $this->seeNumRecords(0, 'eventos_auditoria', []);
+    }
+
+    public function testRegistraProcessoAutomaticoSemUsuario(): void
+    {
+        auth()->logout();
+        $servico = new AuditoriaService(new EventoAuditoriaModel($this->db));
+
+        $servico->registrar($this->evento(['usuario_id' => 999999]));
+
+        $this->seeInDatabase('eventos_auditoria', ['usuario_id' => null]);
     }
 
     /**
@@ -114,8 +129,9 @@ final class AuditoriaServiceTest extends CIUnitTestCase
         return array_replace([
             'modulo'     => 'acessos',
             'acao'       => 'alterar_permissao',
-            'alvo_tipo'  => 'usuario',
-            'alvo_id'    => '42',
+            'entidade_tipo' => 'usuario',
+            'entidade_id'   => '42',
+            'descricao'     => 'Permissão de acesso do usuário 42 alterada de visualização para edição.',
             'resultado'  => 'concluida',
         ], $sobrescritas);
     }
