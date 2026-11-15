@@ -3,7 +3,6 @@
 namespace App\Database\Migrations;
 
 use CodeIgniter\Database\Migration;
-use CodeIgniter\Database\Config as Database;
 use RuntimeException;
 
 class CriarEventosAuditoria extends Migration
@@ -16,28 +15,31 @@ class CriarEventosAuditoria extends Migration
                 'unsigned'       => true,
                 'auto_increment' => true,
             ],
-            'created_by' => [
+            'modulo' => [
+                'type'       => 'VARCHAR',
+                'constraint' => 50,
+            ],
+            'usuario_id' => [
                 'type'       => 'INT',
                 'constraint' => 11,
                 'unsigned'   => true,
                 'null'       => true,
             ],
-            'modulo' => [
-                'type'       => 'VARCHAR',
-                'constraint' => 50,
-            ],
             'acao' => [
                 'type'       => 'VARCHAR',
-                'constraint' => 100,
+                'constraint' => 50,
             ],
-            'alvo_tipo' => [
+            'entidade_tipo' => [
                 'type'       => 'VARCHAR',
                 'constraint' => 50,
             ],
-            'alvo_id' => [
+            'entidade_id' => [
                 'type'       => 'VARCHAR',
                 'constraint' => 100,
                 'null'       => true,
+            ],
+            'descricao' => [
+                'type' => 'TEXT',
             ],
             'resultado' => [
                 'type'       => 'VARCHAR',
@@ -49,16 +51,12 @@ class CriarEventosAuditoria extends Migration
         ]);
 
         $this->forge->addPrimaryKey('id');
-        $this->forge->addKey('created_by');
-        $this->forge->addKey(['alvo_tipo', 'alvo_id']);
-        $this->forge->addKey('created_at');
-        $this->forge->addForeignKey('created_by', 'users', 'id', onUpdate: 'CASCADE', onDelete: 'RESTRICT');
         $this->forge->createTable('eventos_auditoria');
     }
 
     public function down(): void
     {
-        if (!Database::connect($this->DBGroup)->tableExists('eventos_auditoria')) {
+        if (! $this->db->tableExists('eventos_auditoria')) {
             return;
         }
 
