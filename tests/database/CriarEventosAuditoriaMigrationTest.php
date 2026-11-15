@@ -31,16 +31,32 @@ final class CriarEventosAuditoriaMigrationTest extends CIUnitTestCase
     public function testDownBloqueiaARemocaoQuandoHaHistorico(): void
     {
         $eventos = new EventoAuditoriaModel($this->db);
-        $eventos->registrar([
-            'modulo'     => 'acessos',
-            'acao'       => 'alterar_permissao',
-            'alvo_tipo'  => 'usuario',
-            'resultado'  => 'concluida',
+        $eventos->insert([
+            'modulo'        => 'acessos',
+            'acao'          => 'alterar_permissao',
+            'entidade_tipo' => 'usuario',
+            'descricao'     => 'Permissão de acesso do usuário 42 alterada de visualização para edição.',
+            'resultado'     => 'concluida',
         ]);
 
         $migration = new CriarEventosAuditoria(Database::forge($this->db));
 
         $this->expectException(RuntimeException::class);
         $migration->down();
+    }
+
+    public function testPossuiSomenteAsNoveColunasDaAuditoria(): void
+    {
+        $this->assertSame([
+            'id',
+            'modulo',
+            'usuario_id',
+            'acao',
+            'entidade_tipo',
+            'entidade_id',
+            'descricao',
+            'resultado',
+            'created_at',
+        ], $this->db->getFieldNames('eventos_auditoria'));
     }
 }
