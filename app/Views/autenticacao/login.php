@@ -62,7 +62,7 @@ $campoLogin = dados_campo_login();
                                 id="togglePassword"
                                 class="btn position-absolute top-50 end-0 translate-middle-y border-0"
                                 aria-label="Mostrar senha"
-                                style="color: #334155 !important; opacity: 1;">
+                                style="color: #ffffff !important; opacity: 1;">
                             <i class="mdi mdi-eye" aria-hidden="true"></i>
                         </button>
                     </div>
