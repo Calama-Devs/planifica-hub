@@ -1,12 +1,23 @@
 (function ($) {
     'use strict';
 
-    // Leva a permissão escolhida para o modal de confirmação da revogação.
-    // Os dados vêm do servidor: texto sempre com .text() (manual 9.7 e 11.6).
-    $('#modal-revogar-permissao').on('show.bs.modal', function (evento) {
-        var permissao = String($(evento.relatedTarget).data('permissao') || '');
+    // Os atalhos só mexem nas permissões do catálogo. O vínculo "fora do catálogo" não pode ser concedido,
+    // só mantido ou revogado, e isso fica por conta de quem clica na caixa dele, uma a uma.
+    var $caixasDoCatalogo = $('#form-permissoes-diretas .permissao-catalogo');
 
-        $('#revogar-permissao-valor').val(permissao);
-        $('#revogar-permissao-nome').text(permissao);
+    // "marcar todas" também deixa de fora as permissões críticas: elas precisam ser marcadas uma a uma.
+    $('#marcar-todas').on('click', function () {
+        $caixasDoCatalogo.not('[data-critica]').prop('checked', true);
     });
+
+    $('#desmarcar-todas').on('click', function () {
+        $caixasDoCatalogo.prop('checked', false);
+    });
+
+    // O identificador de cada permissão fica no ícone de informação, como tooltip do Bootstrap.
+    if (window.bootstrap && window.bootstrap.Tooltip) {
+        $('#form-permissoes-diretas [data-bs-toggle="tooltip"]').each(function () {
+            new window.bootstrap.Tooltip(this);
+        });
+    }
 })(jQuery);
