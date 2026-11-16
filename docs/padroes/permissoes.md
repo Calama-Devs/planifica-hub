@@ -106,19 +106,13 @@ No ambiente local, também dá para usar o comando do Shield: `php spark shield:
 
 ## Como acrescentar uma permissão
 
-### 1. Via código (funcionalidade estável do sistema)
+Todas as permissões são gerenciadas e versionadas de forma controlada pelo sistema. Não há criação ou edição manual via interface gráfica (a tela `/admin/permissoes` é estritamente para consulta do catálogo).
 
 1. Confirme que a issue entrega a funcionalidade que vai usar a permissão.
 2. Escolha o identificador seguindo a convenção e confira no catálogo que ainda não existe permissão para a mesma ação.
 3. Acrescente em `$permissions` (`app/Config/AuthGroups.php`), com descrição em português.
 4. Conceda aos grupos em `$matrix`, explicitamente e pelo menor privilégio.
-5. Execute o seeder (`php spark db:seed PermissoesSeeder`) para atualizar a tabela local.
+5. Execute o seeder (`php spark db:seed PermissoesSeeder`) para atualizar a tabela local (a listagem em `/admin/permissoes` também reconcilia automaticamente permissões de código ausentes na base).
 6. Proteja a rota com `permission:` e repita a checagem no Service quando a operação for sensível.
 7. Teste (automatizado e manual) e atualize a tabela deste documento.
 8. Na descrição da entrega, marque "Altera permissões ou regras de acesso" e informe quais grupos receberam a permissão.
-
-### 2. Via área administrativa (dinâmica / operacional)
-
-1. Acesse `/admin/permissoes` autenticado com usuário que possui a permissão `acessos.administrar`.
-2. Clique em "Nova Permissão", preencha identificador padronizado (`contexto.acao`) e descrição.
-3. Ao salvar, a permissão é persistida com auditoria na tabela `permissoes` e reconciliada automaticamente com o catálogo do Shield para permitir atribuição (`addPermission`) e verificações em runtime (`can`).
