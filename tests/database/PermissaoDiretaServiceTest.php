@@ -568,13 +568,10 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
 
         // Cadastradas fora da ordem alfabética de propósito.
         foreach (['contabilidade.emitir', 'auditoria.consultar'] as $identificador) {
-            $cadastro = $catalogo->cadastrarPermissao([
-                'identificador' => $identificador,
-                'descricao'     => 'Permissao de teste para a ordem das categorias',
-            ], $this->operador->id);
-
-            $this->assertTrue($cadastro['sucesso']);
+            config(AuthGroups::class)->permissions[$identificador] = 'Permissao de teste para a ordem das categorias';
         }
+
+        $catalogo->sincronizarCatalogo();
 
         $conta = $this->criarConta('conta.alvo', 'user');
 
@@ -584,13 +581,14 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
         );
     }
 
-    public function testPermissaoCadastradaNaTelaDePermissoesEntraNaCategoriaDoSeuContexto(): void
+    public function testPermissaoSincronizadaDoCodigoEntraNaCategoriaDoSeuContexto(): void
     {
-        $cadastro = (new PermissaoService())->cadastrarPermissao([
+        config(AuthGroups::class)->permissions['relatorios_gerais.emitir'] = 'Permite emitir os relatorios gerais';
+        (new PermissaoService())->sincronizarCatalogo();
+        $this->seeInDatabase('permissoes', [
             'identificador' => 'relatorios_gerais.emitir',
-            'descricao'     => 'Permite emitir os relatorios gerais',
-        ], $this->operador->id);
-        $this->assertTrue($cadastro['sucesso']);
+            'origem'        => 'sistema',
+        ]);
 
         $conta      = $this->criarConta('conta.alvo', 'user');
         $categorias = array_column($this->servico->consultar($conta->id)['categorias'], null, 'titulo');
