@@ -76,7 +76,7 @@ seguem a convenção de sufixos descrita acima.
 | GET | `/admin/acessos` | `AcessoController::index`, exige a permissão `acessos.administrar` e lista as contas |
 | GET | `/admin/acessos/pesquisa` | `AcessoController::consultarConta`, exige `acessos.administrar` e retorna JSON paginado por `pesquisa` (parte do nome ou e-mail) e `page` |
 | GET | `/admin/acessos/{id}/permissoes` | `AcessoController::permissoes`, exige `acessos.administrar` e mostra as permissões herdadas, diretas e efetivas da conta |
-| POST | `/admin/acessos/{id}/permissoes/conceder`, `/revogar` | `AcessoController::conceder` e `revogar`, exigem `acessos.administrar` e CSRF, e alteram só permissões diretas |
+| POST | `/admin/acessos/{id}/permissoes` | `AcessoController::salvar`, exige `acessos.administrar` e CSRF, e sincroniza as permissões diretas marcadas no formulário (concede as novas e revoga as desmarcadas), preservando as herdadas dos grupos |
 | GET / POST | `/register` | Formulário e cadastro pelo Shield |
 | GET / POST | `/login` | Formulário e autenticação pelo Shield |
 | POST | `/logout` | Encerra a sessão pelo Shield, com CSRF; GET não é permitido |
