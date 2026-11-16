@@ -4,6 +4,7 @@ namespace Config;
 
 use App\Services\PermissaoDiretaService;
 use CodeIgniter\Config\BaseService;
+use App\Services\CabecalhoService;
 
 /**
  * Services Configuration file.
@@ -36,5 +37,14 @@ class Services extends BaseService
         }
 
         return new PermissaoDiretaService();
+    }
+
+    public static function contaCabecalho(bool $getShared = true): CabecalhoService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('contaCabecalho');
+        }
+
+        return new CabecalhoService;
     }
 }
