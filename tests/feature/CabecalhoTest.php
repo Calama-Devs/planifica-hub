@@ -208,7 +208,7 @@ final class CabecalhoTest extends CIUnitTestCase
         $corpo = $this->corpoDaPagina($usuario);
 
         $this->assertStringContainsString('href="/perfil-teste"', $corpo);
-        $this->assertStringContainsString('<p class="preview-subject mb-1">Perfil</p>', $corpo);
+        $this->assertStringContainsString('<p class="preview-subject mb-1">Meu perfil</p>', $corpo);
     }
 
     public function testOcultaAcaoPerfilQuandoARotaNaoExiste(): void
@@ -218,7 +218,7 @@ final class CabecalhoTest extends CIUnitTestCase
 
         $corpo = $this->corpoDaPagina($usuario);
 
-        $this->assertStringNotContainsString('<p class="preview-subject mb-1">Perfil</p>', $corpo);
+        $this->assertStringNotContainsString('<p class="preview-subject mb-1">Meu perfil</p>', $corpo);
         $this->assertStringContainsString('id="botao-sair"', $corpo); // Sair continua disponível
     }
 

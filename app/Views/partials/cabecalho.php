@@ -27,16 +27,24 @@
 
                         <h6 class="p-3 mb-0">Perfil</h6>
                         <div class="dropdown-divider"></div>
-                        <a class="dropdown-item preview-item" href="<?= url_to('perfil') ?>">
-                            <div class="preview-thumbnail">
-                                <div class="preview-icon bg-dark rounded-circle">
-                                    <i class="mdi mdi-account-edit text-primary" aria-hidden="true"></i>
+                        <?php if (! empty($conta['urlPerfil'])): ?>
+                            <a
+                                class="dropdown-item preview-item"
+                                href="<?= esc($conta['urlPerfil'], 'attr') ?>"
+                            >
+                                <div class="preview-thumbnail">
+                                    <div class="preview-icon bg-dark rounded-circle">
+                                        <i class="mdi mdi-account-edit text-primary" aria-hidden="true"></i>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="preview-item-content">
-                                <p class="preview-subject mb-1">Meu perfil</p>
-                            </div>
-                        </a>
+
+                                <div class="preview-item-content">
+                                    <p class="preview-subject mb-1">Meu perfil</p>
+                                </div>
+                            </a>
+
+                            <div class="dropdown-divider"></div>
+                        <?php endif; ?>
                         <div class="dropdown-divider"></div>
                         <button type="button" id="botao-alterar-senha" class="dropdown-item preview-item"
                             data-bs-toggle="modal" data-bs-target="#modal-alterar-senha">
@@ -50,7 +58,7 @@
                             </div>
                         </button>
                         <div class="dropdown-divider"></div>
-                        
+
                         <form action="<?= url_to('logout') ?>" method="post">
                             <?= csrf_field() ?>
                             <button type="submit" id="botao-sair" class="dropdown-item preview-item">
