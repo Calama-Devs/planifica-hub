@@ -1,4 +1,4 @@
-<?php $usuario = auth()->user(); ?>
+<?php $conta = $contaAutenticada ?? null; ?>
 <nav class="navbar p-0 fixed-top d-flex flex-row" aria-label="Barra superior">
     <div class="navbar-brand-wrapper d-flex d-lg-none align-items-center justify-content-center">
         <a class="navbar-brand brand-logo-mini" href="<?= site_url('/') ?>">
@@ -11,16 +11,34 @@
         </button>
 
         <ul class="navbar-nav navbar-nav-right">
-            <?php if ($usuario !== null) : ?>
+            <?php if ($conta !== null) : ?>
                 <li class="nav-item dropdown">
-                    <a class="nav-link" id="profileDropdown" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <div class="navbar-profile">
+                    <button class="nav-link btn btn-link border-0" id="profileDropdown" type="button"
+                            data-bs-toggle="dropdown" aria-expanded="false"
+                            aria-label="Menu da conta de <?= esc($conta['rotulo'], 'attr') ?>">
+                        <span class="navbar-profile d-flex align-items-center">
                             <i class="mdi mdi-account-circle mdi-24px me-1" aria-hidden="true"></i>
-                            <p class="mb-0 d-none d-sm-block navbar-profile-name"><?= esc($usuario->username ?? $usuario->email) ?></p>
-                            <i class="mdi mdi-menu-down d-none d-sm-block" aria-hidden="true"></i>
-                        </div>
-                    </a>
+                            <span class="navbar-profile-name text-truncate d-none d-sm-inline-block"
+                                  title="<?= esc($conta['rotulo'], 'attr') ?>"><?= esc($conta['rotulo']) ?></span>
+                            <i class="mdi mdi-menu-down d-none d-sm-inline-block" aria-hidden="true"></i>
+                        </span>
+                    </button>
                     <div class="dropdown-menu dropdown-menu-end navbar-dropdown preview-list" aria-labelledby="profileDropdown">
+                        
+                        <?php if (! empty($conta['urlPerfil'])) : ?>
+                            <a class="dropdown-item preview-item" href="<?= esc($conta['urlPerfil'], 'attr') ?>">
+                                <div class="preview-thumbnail">
+                                    <div class="preview-icon bg-dark rounded-circle">
+                                        <i class="mdi mdi-account text-primary" aria-hidden="true"></i>
+                                    </div>
+                                </div>
+                                <div class="preview-item-content">
+                                    <p class="preview-subject mb-1">Perfil</p>
+                                </div>
+                            </a>
+                            <div class="dropdown-divider"></div>
+                        <?php endif ?>
+
                         <form action="<?= url_to('logout') ?>" method="post">
                             <?= csrf_field() ?>
                             <button type="submit" id="botao-sair" class="dropdown-item preview-item">
