@@ -118,6 +118,7 @@ class PermissaoDiretaService
                 'rotulo' => $this->rotular($conta),
                 'email'  => (string) $conta->email,
                 'grupos' => $this->titulosDosGrupos($grupos),
+                'active' => (int) $conta->active
             ],
             'permissoes'     => $permissoes,
             'categorias'     => $this->agruparPorCategoria($permissoes),
