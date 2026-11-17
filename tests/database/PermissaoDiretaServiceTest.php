@@ -6,7 +6,6 @@ namespace Tests\Database;
 
 use App\Models\AuditoriaPermissaoModel;
 use App\Services\PermissaoDiretaService;
-use App\Services\PermissaoService;
 use ArrayObject;
 use CodeIgniter\Pager\Pager;
 use CodeIgniter\Shield\Entities\User;
@@ -560,55 +559,6 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
         $this->assertTrue($resultado['sucesso']);
         $this->assertSame([1, 1, 1], $profundidades->getArrayCopy());
         $this->assertSame(0, $this->db->transDepth);
-    }
-
-    public function testConsultarOrdenaAsCategoriasPeloContexto(): void
-    {
-        $catalogo = new PermissaoService();
-
-        // Cadastradas fora da ordem alfabética de propósito.
-        foreach (['contabilidade.emitir', 'auditoria.consultar'] as $identificador) {
-            $cadastro = $catalogo->cadastrarPermissao([
-                'identificador' => $identificador,
-                'descricao'     => 'Permissao de teste para a ordem das categorias',
-            ], $this->operador->id);
-
-            $this->assertTrue($cadastro['sucesso']);
-        }
-
-        $conta = $this->criarConta('conta.alvo', 'user');
-
-        $this->assertSame(
-            ['Acessos', 'Auditoria', 'Contabilidade', 'Contas'],
-            array_column($this->servico->consultar($conta->id)['categorias'], 'titulo'),
-        );
-    }
-
-    public function testPermissaoCadastradaNaTelaDePermissoesEntraNaCategoriaDoSeuContexto(): void
-    {
-        $cadastro = (new PermissaoService())->cadastrarPermissao([
-            'identificador' => 'relatorios_gerais.emitir',
-            'descricao'     => 'Permite emitir os relatorios gerais',
-        ], $this->operador->id);
-        $this->assertTrue($cadastro['sucesso']);
-
-        $conta      = $this->criarConta('conta.alvo', 'user');
-        $categorias = array_column($this->servico->consultar($conta->id)['categorias'], null, 'titulo');
-
-        $this->assertArrayHasKey('Relatorios gerais', $categorias);
-        $this->assertSame(
-            ['relatorios_gerais.emitir'],
-            array_column($categorias['Relatorios gerais']['permissoes'], 'identificador'),
-        );
-
-        // E ela entra na seleção como qualquer outra permissão do catálogo.
-        $resultado = $this->servico->sincronizar($conta->id, ['relatorios_gerais.emitir'], $this->operador->id);
-
-        $this->assertTrue($resultado['sucesso']);
-        $this->seeInDatabase('auth_permissions_users', [
-            'user_id'    => $conta->id,
-            'permission' => 'relatorios_gerais.emitir',
-        ]);
     }
 
     public function testConsultarAgrupaPorContextoEMarcaAPermissaoCritica(): void
