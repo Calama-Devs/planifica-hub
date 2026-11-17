@@ -6,9 +6,9 @@ namespace App\Services;
 
 use CodeIgniter\Router\Exceptions\RouterException;
 
-class CabecalhoService 
+class CabecalhoService
 {
-    public function obter(): ?array 
+    public function obter(): ?array
     {
         $usuario = auth()->user();
 

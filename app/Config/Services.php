@@ -45,6 +45,6 @@ class Services extends BaseService
             return static::getSharedInstance('contaCabecalho');
         }
 
-        return new CabecalhoService;
+        return new CabecalhoService();
     }
 }
