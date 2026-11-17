@@ -33,6 +33,13 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->senha = 'Inicial@9' . bin2hex(random_bytes(24));
     }
 
+    protected function tearDown(): void
+    {
+        service('settings')->forget('Auth.validFields');
+
+        parent::tearDown();
+    }
+
     public function testExibeLoginComTokenCsrf(): void
     {
         $resposta = $this->get('login');
@@ -80,8 +87,6 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta->assertOK();
         $resposta->assertSeeElement('label[for=username]');
         $resposta->assertSeeElement('input[name=username]');
-
-        service('settings')->forget('Auth.validFields');
     }
 
     public function testRenderizaCampoLoginQuandoConfiguradoParaMultiplosValidFields(): void
@@ -94,8 +99,6 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta->assertSeeElement('label[for=login]');
         $resposta->assertSeeElement('input[name=login]');
         $resposta->assertSee('E-mail ou Usuário');
-
-        service('settings')->forget('Auth.validFields');
     }
 
     public function testRecusaExibicaoDePaginaDeCadastro(): void
