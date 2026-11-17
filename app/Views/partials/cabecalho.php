@@ -21,6 +21,8 @@
                         </div>
                     </a>
                     <div class="dropdown-menu dropdown-menu-end navbar-dropdown preview-list" aria-labelledby="profileDropdown">
+                        <h6 class="p-3 mb-0">Perfil</h6>
+                        <div class="dropdown-divider"></div>
                         <a class="dropdown-item preview-item" href="<?= url_to('perfil') ?>">
                             <div class="preview-thumbnail">
                                 <div class="preview-icon bg-dark rounded-circle">
@@ -31,6 +33,19 @@
                                 <p class="preview-subject mb-1">Meu perfil</p>
                             </div>
                         </a>
+                        <div class="dropdown-divider"></div>
+                        <button type="button" id="botao-alterar-senha" class="dropdown-item preview-item"
+                            data-bs-toggle="modal" data-bs-target="#modal-alterar-senha">
+                            <div class="preview-thumbnail">
+                                <div class="preview-icon bg-dark rounded-circle">
+                                    <i class="mdi mdi-lock-reset text-primary" aria-hidden="true"></i>
+                                </div>
+                            </div>
+                            <div class="preview-item-content">
+                                <p class="preview-subject mb-1">Alterar Senha</p>
+                            </div>
+                        </button>
+                        <div class="dropdown-divider"></div>
                         <form action="<?= url_to('logout') ?>" method="post">
                             <?= csrf_field() ?>
                             <button type="submit" id="botao-sair" class="dropdown-item preview-item">
