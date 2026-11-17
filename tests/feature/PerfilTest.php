@@ -83,8 +83,8 @@ final class PerfilTest extends CIUnitTestCase
         $usuarioAtualizado = model(UserModel::class)->findById($usuarioAtual->id);
         $paginaPerfil      = $this->actingAs($usuarioAtualizado)->get('perfil');
         $paginaPerfil->assertOK();
-        $this->assertStringContainsString(
-            'navbar-profile-name">nome.atualizado</p>',
+        $this->assertMatchesRegularExpression(
+            '/<p class="[^"]*navbar-profile-name[^"]*"[^>]*>nome\.atualizado<\/p>/',
             $paginaPerfil->getBody(),
         );
     }
