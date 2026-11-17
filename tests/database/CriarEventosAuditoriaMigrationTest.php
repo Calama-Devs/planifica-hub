@@ -59,4 +59,19 @@ final class CriarEventosAuditoriaMigrationTest extends CIUnitTestCase
             'created_at',
         ], $this->db->getFieldNames('eventos_auditoria'));
     }
+
+    public function testUsuarioIdReferenciaUsuariosSemImpedirProcessosAutomaticos(): void
+    {
+        $chavesEstrangeiras = $this->db->getForeignKeyData('eventos_auditoria');
+        $chaveUsuario       = array_values(array_filter(
+            $chavesEstrangeiras,
+            static fn (object $chave): bool => $chave->column_name === ['usuario_id'],
+        ));
+
+        $this->assertCount(1, $chaveUsuario);
+        $this->assertSame($this->db->getPrefix() . 'users', $chaveUsuario[0]->foreign_table_name);
+        $this->assertSame(['id'], $chaveUsuario[0]->foreign_column_name);
+        $this->assertSame('RESTRICT', strtoupper($chaveUsuario[0]->on_delete));
+        $this->assertSame('CASCADE', strtoupper($chaveUsuario[0]->on_update));
+    }
 }

@@ -2,7 +2,9 @@
 
 A tabela `eventos_auditoria` registra ações administrativas, armazenando o módulo, usuário responsável, ação, entidade afetada, descrição, resultado e data.
 
-O campo `usuario_id` é preenchido automaticamente pelo Shield e pode ser `NULL` em processos automáticos. A `descricao` deve ser legível e informar as alterações realizadas, quando aplicável, sem JSON ou dados sensíveis.
+O campo `usuario_id` é preenchido automaticamente pelo Shield e pode ser `NULL` em processos automáticos. Quando preenchido, referencia `users.id`; a chave estrangeira usa `RESTRICT` para preservar o vínculo histórico. A `descricao` deve ser legível e informar as alterações realizadas, quando aplicável, sem JSON ou dados sensíveis.
+
+Eventos são somente de inclusão: não têm `updated_at`, `deleted_at`, `updated_by` ou `deleted_by`.
 
 ## Uso pelos Services
 

@@ -52,6 +52,8 @@ class CriarEventosAuditoria extends Migration
         ]);
 
         $this->forge->addPrimaryKey('id');
+        // Eventos automáticos usam usuario_id nulo; eventos de usuários preservam o vínculo histórico.
+        $this->forge->addForeignKey('usuario_id', 'users', 'id', onUpdate: 'CASCADE', onDelete: 'RESTRICT');
         $this->forge->createTable('eventos_auditoria');
     }
 
