@@ -162,6 +162,10 @@ html, body {
     padding-left: 0 !important;
 }
 
+#botao-alterar-senha .text-primary {
+    color: #7952b3 !important;
+}
+
 /* Tela de permissões da conta (administração de acessos). O cinza do tema (#6c7293) fica apagado sobre o
    cartão escuro, então o texto de apoio usa branco com transparência, que mantém o contraste. */
 .permissoes-conta .texto-apoio,
