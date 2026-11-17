@@ -161,3 +161,33 @@ html, body {
     user-select: none;
     padding-left: 0 !important;
 }
+
+/* Cabeçalho compartilhado*
+/* Evita que o nome empurre o botão do menu lateral */
+.navbar-menu-wrapper .navbar-nav-right {
+    min-width: 0;
+}
+
+/* Truncamento de nomes longos (text-truncate só funciona com largura máxima) */
+.navbar-profile-name {
+    max-width: 12rem;
+}
+
+@media (max-width: 575.98px) {
+    .navbar-profile-name {
+        max-width: 7rem;
+    }
+}
+
+/* O gatilho agora é <button>: mantém a aparência de link do tema */
+.navbar-menu-wrapper .nav-link.btn-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* Foco visível para navegação por teclado */
+.navbar-menu-wrapper .nav-link.btn-link:focus-visible,
+.navbar-brand-hub:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
