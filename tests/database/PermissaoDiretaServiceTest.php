@@ -561,6 +561,61 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
         $this->assertSame(0, $this->db->transDepth);
     }
 
+    public function testConsultarOrdenaAsCategoriasPeloContexto(): void
+    {
+        // Declaradas no catálogo controlado, fora da ordem alfabética de propósito.
+        $this->configurarPermissoesDoCatalogo([
+            'contabilidade.emitir' => 'Permissão de teste para a ordem das categorias',
+            'auditoria.consultar'  => 'Permissão de teste para a ordem das categorias',
+        ]);
+
+        $conta = $this->criarConta('conta.alvo', 'user');
+
+        $this->assertSame(
+            ['Acessos', 'Auditoria', 'Contabilidade', 'Contas'],
+            array_column($this->servico->consultar($conta->id)['categorias'], 'titulo'),
+        );
+    }
+
+    public function testPermissaoDoCatalogoEntraNaCategoriaDoSeuContexto(): void
+    {
+        $this->configurarPermissoesDoCatalogo([
+            'relatorios_gerais.emitir' => 'Permite emitir os relatórios gerais',
+        ]);
+
+        $conta      = $this->criarConta('conta.alvo', 'user');
+        $categorias = array_column($this->servico->consultar($conta->id)['categorias'], null, 'titulo');
+
+        $this->assertArrayHasKey('Relatorios gerais', $categorias);
+        $this->assertSame(
+            ['relatorios_gerais.emitir'],
+            array_column($categorias['Relatorios gerais']['permissoes'], 'identificador'),
+        );
+
+        // E ela entra na seleção como qualquer outra permissão do catálogo.
+        $resultado = $this->servico->sincronizar($conta->id, ['relatorios_gerais.emitir'], $this->operador->id);
+
+        $this->assertTrue($resultado['sucesso']);
+        $this->seeInDatabase('auth_permissions_users', [
+            'user_id'    => $conta->id,
+            'permission' => 'relatorios_gerais.emitir',
+        ]);
+    }
+
+    /**
+     * @param array<string, string> $permissoes
+     */
+    private function configurarPermissoesDoCatalogo(array $permissoes): void
+    {
+        $authGroups = config(AuthGroups::class);
+
+        foreach ($permissoes as $identificador => $descricao) {
+            $authGroups->permissions[$identificador] = $descricao;
+        }
+
+        setting('AuthGroups.permissions', $authGroups->permissions);
+    }
+
     public function testConsultarAgrupaPorContextoEMarcaAPermissaoCritica(): void
     {
         $conta = $this->criarConta('conta.alvo', 'user');
