@@ -16,7 +16,7 @@
                     <a class="nav-link" id="profileDropdown" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <div class="navbar-profile">
                             <i class="mdi mdi-account-circle mdi-24px me-1" aria-hidden="true"></i>
-                            <p class="mb-0 d-none d-sm-block navbar-profile-name"><?= esc($usuario->username ?? $usuario->email) ?></p>
+                            <p class="mb-0 d-none d-sm-block navbar-profile-name"><?= esc($usuario->nome_completo ?? $usuario->username ?? $usuario->email) ?></p>
                             <i class="mdi mdi-menu-down d-none d-sm-block" aria-hidden="true"></i>
                         </div>
                     </a>
