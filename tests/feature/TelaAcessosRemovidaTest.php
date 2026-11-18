@@ -88,6 +88,15 @@ final class TelaAcessosRemovidaTest extends CIUnitTestCase
         ]);
     }
 
+    public function testPesquisaDeContasRetorna404ParaSuperadmin(): void
+    {
+        $superadmin = $this->criarUsuario('superadmin');
+
+        $this->expectException(PageNotFoundException::class);
+
+        $this->actingAs($superadmin)->get('admin/acessos/pesquisa', ['pesquisa' => 'super']);
+    }
+
     public function testMenuDoSuperadminTemPermissoesESemAcessos(): void
     {
         $superadmin = $this->criarUsuario('superadmin');
