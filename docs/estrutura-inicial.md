@@ -12,15 +12,15 @@ complementar de autoload do CodeIgniter; não é necessário alterá-lo.
 
 | Diretório | Namespace ou finalidade | Situação atual |
 |---|---|---|
-| `app/Controllers/` | `App\Controllers` | Existente: `BaseController.php`, `Home.php` e `AcessoController.php` |
+| `app/Controllers/` | `App\Controllers` | Existente: `BaseController.php`, `Home.php`, `PerfilController.php`, `PermissaoController.php` e `RedefinirSenhaController.php` |
 | `app/Models/` | `App\Models` | Existente: `AuditoriaPermissaoModel.php`; a autenticação usa as Models do Shield |
-| `app/Services/` | `App\Services` | Existente: `PermissaoDiretaService.php`; criar novos somente quando houver regra de negócio que justifique |
+| `app/Services/` | `App\Services` | Existente: `PerfilService.php`, `PermissaoService.php` e `RedefinirSenhaService.php`; criar novos somente quando houver regra de negócio que justifique |
 | `app/Filters/` | `App\Filters` | Existente, sem Filters próprios; autenticação usa o Shield |
 | `app/Config/` | `Config` | Configurações do CodeIgniter e do Shield |
 | `app/Views/layouts/` | Layouts compartilhados | Existente: `principal.php` |
 | `app/Views/partials/` | Componentes reutilizáveis | Existente: menu, cabeçalho, mensagens, paginação e rodapé |
 | `app/Views/home/` | Telas do contexto inicial | Existente: `index.php` e `sobre.php` |
-| `app/Views/<contexto>/` | Telas de cada contexto | Existente: `acesso/`; criar novas somente com demanda aprovada |
+| `app/Views/<contexto>/` | Telas de cada contexto | Existente: `autenticacao/`, `perfil/`, `permissao/` e `redefinirsenha/`; criar novas somente com demanda aprovada |
 | `public/assets/` | Arquivos públicos estáticos | Organização descrita abaixo |
 
 Os diretórios de suporte do appstarter, como `Database/`, `Helpers/`,
@@ -61,7 +61,7 @@ seguem a convenção de sufixos descrita acima.
   matriz de permissões do Shield. Essas configurações não implicam a
   existência de telas administrativas.
 - `app/Config/Routes.php` registra as rotas do Shield e protege `/` e `/sobre`
-  com o filtro `session`. As rotas de `admin/acessos` ficam no mesmo grupo e
+  com o filtro `session`. As rotas de `admin/permissoes` ficam no mesmo grupo e
   somam o filtro `permission:acessos.administrar`. O logout permanece
   exclusivamente por POST.
   `app/Config/Filters.php` e `Security.php` mantêm a proteção CSRF global
@@ -73,10 +73,7 @@ seguem a convenção de sufixos descrita acima.
 |---|---|---|
 | GET | `/` | `Home::index`, exige autenticação e apresenta o dashboard |
 | GET | `/sobre` | `Home::sobre`, exige autenticação e reutiliza o layout |
-| GET | `/admin/acessos` | `AcessoController::index`, exige a permissão `acessos.administrar` e lista as contas |
-| GET | `/admin/acessos/pesquisa` | `AcessoController::consultarConta`, exige `acessos.administrar` e retorna JSON paginado por `pesquisa` (parte do nome ou e-mail) e `page` |
-| GET | `/admin/acessos/{id}/permissoes` | `AcessoController::permissoes`, exige `acessos.administrar` e mostra as permissões herdadas, diretas e efetivas da conta |
-| POST | `/admin/acessos/{id}/permissoes` | `AcessoController::salvar`, exige `acessos.administrar` e CSRF, e sincroniza as permissões diretas marcadas no formulário (concede as novas e revoga as desmarcadas), preservando as herdadas dos grupos |
+| GET | `/admin/permissoes` | `PermissaoController::index`, exige a permissão `acessos.administrar` e mostra o catálogo de permissões para consulta |
 | GET / POST | `/register` | Formulário e cadastro pelo Shield |
 | GET / POST | `/login` | Formulário e autenticação pelo Shield |
 | POST | `/logout` | Encerra a sessão pelo Shield, com CSRF; GET não é permitido |
@@ -123,17 +120,6 @@ caminhos existentes são mantidos, incluindo as fontes MDI em
 `vendor/mdi/fonts/`, relativas ao CSS de ícones. O inventário de arquivos
 utilizados e as instruções de carregamento ficam no
 [padrão de layout e dashboard](padroes/layout-e-dashboard.md#5-seleção-mínima-de-assets-manual-154-e-254).
-
-A tela de acessos carrega seletivamente o Tom Select 2.4.3 (Apache-2.0), em
-`vendor/tom-select/`, com JavaScript base e CSS Bootstrap 5. Não há dependência de
-CDN em execução. O comportamento AJAX fica em `js/acesso/index.js`; o campo usa
-`form-control` do template, utilitários Bootstrap e o modo escuro nativo do Bootstrap
-para o menu, sem CSS próprio da tela. A consulta mantém as entidades do Shield
-internamente e expõe somente o resumo das contas, nunca as identidades completas.
-
-A pesquisa de contas usa diretamente `UserModel` e `UserIdentityModel` do Shield,
-com Query Builder no Service. O filtro de e-mail considera somente identidades
-`email_password`; outros tipos de identidade não participam da pesquisa.
 
 ### Template oficial e uso seletivo
 
