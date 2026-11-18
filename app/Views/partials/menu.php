@@ -43,15 +43,6 @@
                     <span class="menu-title">Permissões</span>
                 </a>
             </li>
-
-            <li class="nav-item menu-items <?= url_is('admin/acessos*') ? 'active' : '' ?>">
-                <a class="nav-link" href="<?= site_url('admin/acessos') ?>">
-                    <span class="menu-icon">
-                        <i class="mdi mdi-account-key text-warning" aria-hidden="true"></i>
-                    </span>
-                    <span class="menu-title">Acessos</span>
-                </a>
-            </li>
         <?php endif ?>
     </ul>
 </nav>

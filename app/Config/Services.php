@@ -4,7 +4,6 @@ namespace Config;
 
 use App\Services\RedefinirSenhaService;
 use App\Services\PerfilService;
-use App\Services\PermissaoDiretaService;
 use App\Services\PermissaoService;
 use CodeIgniter\Config\BaseService;
 
@@ -48,14 +47,5 @@ class Services extends BaseService
         }
 
         return new PermissaoService();
-    }
-
-    public static function permissaoDiretaService(bool $getShared = true): PermissaoDiretaService
-    {
-        if ($getShared) {
-            return static::getSharedInstance('permissaoDiretaService');
-        }
-
-        return new PermissaoDiretaService();
     }
 }
