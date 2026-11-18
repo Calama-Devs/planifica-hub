@@ -43,7 +43,6 @@
                                 </div>
                             </a>
 
-                            <div class="dropdown-divider"></div>
                         <?php endif; ?>
                         <div class="dropdown-divider"></div>
                         <button type="button" id="botao-alterar-senha" class="dropdown-item preview-item"
