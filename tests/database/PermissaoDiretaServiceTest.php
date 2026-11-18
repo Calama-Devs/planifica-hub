@@ -773,6 +773,127 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
         $this->assertContains('sem.nome@example.com', $rotulos);
     }
 
+    public function testPesquisaPorParteDoNomeSemDiferenciarMaiusculas(): void
+    {
+        $this->criarConta('Maria da Silva', 'admin', ['contas.consultar']);
+        $this->criarConta('Joana', 'user');
+
+        $listagem = $this->servico->listarContas(15, '  a da SIL  ');
+
+        $this->assertSame(['Maria da Silva'], array_column($listagem['contas'], 'rotulo'));
+        $this->assertSame(['Administrador de contas'], $listagem['contas'][0]['grupos']);
+        $this->assertSame(1, $listagem['contas'][0]['total_diretas']);
+    }
+
+    public function testPesquisaPorParteDoEmailSemDependerDoNome(): void
+    {
+        $conta = $this->criarConta('Maria da Silva', 'user');
+        $conta->createEmailIdentity([
+            'email'    => 'contato.teste@example.com',
+            'password' => bin2hex(random_bytes(12)),
+        ]);
+
+        $listagem = $this->servico->listarContas(15, 'TATO.TES');
+
+        $this->assertSame([$conta->id], array_column($listagem['contas'], 'id'));
+        $this->assertSame('contato.teste@example.com', $listagem['contas'][0]['email']);
+    }
+
+    public function testPesquisaNaoDuplicaContaQueCorrespondeAoNomeEEmail(): void
+    {
+        $conta = $this->criarConta('maria.teste', 'user');
+        $conta->createEmailIdentity([
+            'email'    => 'maria.teste@example.com',
+            'password' => bin2hex(random_bytes(12)),
+        ]);
+
+        $listagem = $this->servico->listarContas(15, 'maria.teste');
+
+        $this->assertCount(1, $listagem['contas']);
+        $this->assertSame(1, $listagem['paginador']->getTotal());
+    }
+
+    public function testPesquisaNaoConsultaSegredosDeOutrosTiposDeIdentidade(): void
+    {
+        $conta = $this->criarConta('conta.alvo', 'user');
+        $this->hasInDatabase('auth_identities', [
+            'user_id' => $conta->id,
+            'type'    => 'access_token',
+            'secret'  => 'identidade-ficticia-nao-pesquisavel',
+        ]);
+
+        $listagem = $this->servico->listarContas(15, 'nao-pesquisavel');
+
+        $this->assertSame([], $listagem['contas']);
+    }
+
+    public function testPesquisaNaoRetornaContasExcluidasMesmoPeloEmail(): void
+    {
+        $conta = $this->criarConta('conta.excluida', 'user');
+        $conta->createEmailIdentity([
+            'email'    => 'excluida@example.com',
+            'password' => bin2hex(random_bytes(12)),
+        ]);
+        model(UserModel::class)->delete($conta->id);
+
+        $this->assertSame([], $this->servico->listarContas(15, 'excluida')['contas']);
+    }
+
+    public function testPesquisaSemCorrespondenciaRetornaListaVazia(): void
+    {
+        $listagem = $this->servico->listarContas(15, 'nome.inexistente');
+
+        $this->assertSame([], $listagem['contas']);
+        $this->assertSame(0, $listagem['paginador']->getTotal());
+    }
+
+    public function testPesquisaVaziaRestauraTodasAsContasSemManterFiltroAnterior(): void
+    {
+        $this->criarConta('conta.alvo', 'user');
+        $this->servico->listarContas(15, 'conta.alvo');
+
+        $listagem = $this->servico->listarContas(15, '   ');
+
+        $this->assertSame(['conta.alvo', 'operador.acessos'], array_column($listagem['contas'], 'rotulo'));
+    }
+
+    public function testPesquisaTrataCuringasEEntradaSqlComoTextoLiteral(): void
+    {
+        $this->criarConta('conta.alvo', 'user');
+
+        foreach (['%', '_', "' OR 1=1 --"] as $pesquisa) {
+            $this->assertSame([], $this->servico->listarContas(15, $pesquisa)['contas']);
+        }
+    }
+
+    public function testPesquisaPreservaApostrofosECuringasLiteraisNoNome(): void
+    {
+        $conta = $this->criarConta("D'Avila!_100%", 'user');
+
+        foreach (["D'Avila", '!_100%'] as $pesquisa) {
+            $listagem = $this->servico->listarContas(15, $pesquisa);
+
+            $this->assertSame([$conta->id], array_column($listagem['contas'], 'id'));
+        }
+    }
+
+    public function testPesquisaEncontraContaForaDaPrimeiraPaginaEPaginaResultados(): void
+    {
+        for ($indice = 1; $indice <= 17; $indice++) {
+            $this->criarConta(sprintf('busca.%02d', $indice), 'user');
+        }
+
+        $primeira = $this->servico->listarContas(15, 'busca.', 1);
+        $this->assertCount(15, $primeira['contas']);
+        $this->assertSame(17, $primeira['paginador']->getTotal());
+
+        $segunda = $this->servico->listarContas(15, 'busca.', 2);
+        $this->assertSame(['busca.16', 'busca.17'], array_column($segunda['contas'], 'rotulo'));
+
+        $ultima = $this->servico->listarContas(15, 'busca.17', 1);
+        $this->assertSame(['busca.17'], array_column($ultima['contas'], 'rotulo'));
+    }
+
     /**
      * @param array<string, mixed> $permissao
      *
