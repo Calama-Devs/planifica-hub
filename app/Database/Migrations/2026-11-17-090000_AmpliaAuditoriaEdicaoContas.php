@@ -26,12 +26,12 @@ class AmpliaAuditoriaEdicaoContas extends Migration
 
     public function down(): void
     {
-        $this->forge->dropColumn('auditoria_edicao_contas', [
-            'nome_anterior',
-            'nome_novo',
-            'email_anterior',
-            'email_novo',
-            'ip',
-        ]);
+        foreach (
+            ['nome_anterior', 'nome_novo', 'email_anterior', 'email_novo', 'ip'] as $campo
+        ) {
+            if ($this->db->fieldExists($campo, 'auditoria_edicao_contas')) {
+                $this->forge->dropColumn('auditoria_edicao_contas', $campo);
+            }
+        }
     }
 }
