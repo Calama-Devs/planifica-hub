@@ -8,6 +8,8 @@ use App\Filters\ContaAtivaFilter;
 use App\Models\EstadoContaModel;
 use App\Services\AutenticacaoSessaoService;
 use App\Services\EstadoContaService;
+use App\Services\RedefinirSenhaService;
+use CodeIgniter\Email\Email;
 use CodeIgniter\I18n\Time;
 use CodeIgniter\Shield\Authentication\AuthenticationException;
 use CodeIgniter\Shield\Entities\User;
@@ -204,7 +206,7 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
 
         $this->dontSeeInDatabase('auth_remember_tokens', ['user_id' => $this->conta->id]);
         $this->dontSeeInDatabase('auth_identities', ['user_id' => $this->conta->id, 'type' => 'magic-link']);
-        $this->seeInDatabase('auth_identities', ['user_id' => $this->conta->id, 'type' => 'magic-link-reset']);
+        $this->dontSeeInDatabase('auth_identities', ['user_id' => $this->conta->id, 'type' => 'magic-link-reset']);
         $this->assertSame($hashAnterior, $this->recarregar($this->conta)->password_hash);
     }
 
@@ -353,19 +355,24 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
         $this->assertFalse(auth()->attempt($this->credenciais())->isOK());
     }
 
-    public function testRecuperacaoRecusaContaInativaEFuncionaAposReativacaoSemAutenticar(): void
+    public function testReativacaoExigeNovoLinkDeRecuperacao(): void
     {
-        $this->criarToken('magic-link-reset', 'recuperacao-inativa');
+        $tokenAnterior = $this->solicitarLinkDeRecuperacao();
         $this->desativarConta();
+        $this->withSession($_SESSION)->post('recuperar-senha', [
+            'email' => $this->credenciais()['email'],
+            csrf_token() => csrf_hash(),
+        ])->assertRedirectTo('/recuperar-senha/enviado');
+        $this->dontSeeInDatabase('auth_identities', ['user_id' => $this->conta->id, 'type' => 'magic-link-reset']);
+        $this->reativarConta();
 
-        $this->get('recuperar-senha/verificar?token=recuperacao-inativa')
+        $this->get('recuperar-senha/verificar?token=' . $tokenAnterior)
             ->assertRedirectTo('/recuperar-senha');
-        $this->assertNull(session()->getTempdata('redefinicaoSenhaUsuarioId'));
+        $this->assertNull(session()->getTempdata('autorizacaoRedefinicaoSenha'));
         $this->assertFalse(auth()->loggedIn());
 
-        $this->servico->reativar((int) $this->conta->id, (int) $this->operador->id, $this->senha);
-        $this->criarToken('magic-link-reset', 'recuperacao-ativa');
-        $this->withSession($_SESSION)->get('recuperar-senha/verificar?token=recuperacao-ativa')
+        $tokenNovo = $this->solicitarLinkDeRecuperacao();
+        $this->withSession($_SESSION)->get('recuperar-senha/verificar?token=' . $tokenNovo)
             ->assertRedirectTo('/reset-password');
         $this->assertFalse(auth()->loggedIn());
         $this->withSession($_SESSION)->post('reset-password', [
@@ -375,12 +382,72 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
         ])->assertRedirectTo('/login');
 
         $this->assertFalse(auth()->loggedIn());
-        $this->assertNull(session()->getTempdata('redefinicaoSenhaUsuarioId'));
+        $this->assertNull(session()->getTempdata('autorizacaoRedefinicaoSenha'));
         $this->assertFalse(auth()->attempt($this->credenciais())->isOK());
         $this->assertTrue(auth()->attempt([
             'email' => 'conta.estado@example.com',
             'password' => 'NovaSenha@123',
         ])->isOK());
+    }
+
+    public function testReativacaoNaoAutorizaFormularioDeRecuperacaoJaAberto(): void
+    {
+        $token = $this->solicitarLinkDeRecuperacao();
+        $this->get('recuperar-senha/verificar?token=' . $token)->assertRedirectTo('/reset-password');
+        $this->withSession($_SESSION)->get('reset-password')->assertOK();
+        $hashAnterior = $this->recarregar($this->conta)->password_hash;
+
+        $this->desativarConta();
+        $this->reativarConta();
+
+        $this->withSession($_SESSION)->post('reset-password', [
+            'senha-nova' => 'NovaSenha@123',
+            'confirmar-senha-nova' => 'NovaSenha@123',
+            csrf_token() => csrf_hash(),
+        ])->assertRedirectTo('/recuperar-senha');
+
+        $this->assertNull(session()->getTempdata('autorizacaoRedefinicaoSenha'));
+        $this->assertSame($hashAnterior, $this->recarregar($this->conta)->password_hash);
+        $this->assertFalse(auth()->loggedIn());
+    }
+
+    public function testRecusaGravacaoIniciadaComVersaoAnteriorDaConta(): void
+    {
+        $contaAnterior = $this->recarregar($this->conta);
+        $hashAnterior = $contaAnterior->password_hash;
+        $this->desativarConta();
+        $this->reativarConta();
+
+        $resultado = (new RedefinirSenhaService())->redefinir($contaAnterior, 'NovaSenha@123', 'NovaSenha@123');
+
+        $this->assertFalse($resultado['sucesso']);
+        $this->assertSame($hashAnterior, $this->recarregar($this->conta)->password_hash);
+    }
+
+    private function solicitarLinkDeRecuperacao(): string
+    {
+        $email = $this->getMockBuilder(Email::class)->onlyMethods(['send'])->getMock();
+        $email->expects($this->once())->method('send')->willReturn(true);
+        \Config\Services::injectMock('email', $email);
+
+        $this->withSession($_SESSION)->post('recuperar-senha', [
+            'email' => $this->credenciais()['email'],
+            csrf_token() => csrf_hash(),
+        ])->assertRedirectTo('/recuperar-senha/enviado');
+        $identidade = $this->db->table('auth_identities')->where([
+            'user_id' => $this->conta->id,
+            'type' => 'magic-link-reset',
+        ])->get()->getRowArray();
+
+        $this->assertNotNull($identidade);
+
+        return $identidade['secret'];
+    }
+
+    private function reativarConta(): void
+    {
+        $resultado = $this->servico->reativar((int) $this->conta->id, (int) $this->operador->id, $this->senha);
+        $this->assertTrue($resultado['sucesso'], $resultado['mensagem']);
     }
 
     private function desativarConta(): void

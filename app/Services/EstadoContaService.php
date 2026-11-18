@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\EstadoContaModel;
+use App\Models\IdentidadeRecuperacaoModel;
 use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\Shield\Authentication\Passwords;
 use CodeIgniter\Shield\Entities\User;
@@ -208,6 +209,7 @@ class EstadoContaService
         if (! $ativar) {
             $this->lembrancas->purgeRememberTokens($conta);
             $this->identidades->deleteIdentitiesByType($conta, 'magic-link');
+            $this->identidades->deleteIdentitiesByType($conta, IdentidadeRecuperacaoModel::TIPO_TOKEN);
         }
 
         return [
