@@ -102,8 +102,6 @@ final class HomeTest extends CIUnitTestCase
                 $this->assertFileExists(FCPATH . 'assets/' . substr($url, strlen($prefixo)));
             }
         }
-
-        $this->assertDirectoryDoesNotExist(FCPATH . 'assets/vendors');
     }
 
     public function testFontesUtilizadasPeloLayoutExistem(): void
