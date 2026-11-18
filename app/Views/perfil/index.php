@@ -8,6 +8,17 @@
         <div class="card">
             <div class="card-body">
                 <h4 class="card-title">Meu Perfil</h4>
+
+                <dl class="row mb-4">
+                    <dt class="col-sm-3">Nome</dt>
+                    <dd class="col-sm-9"><?= esc($nomeAtual) ?></dd>
+                    <dt class="col-sm-3">E-mail</dt>
+                    <dd class="col-sm-9"><?= esc($emailAtual) ?></dd>
+                </dl>
+
+                <hr class="mb-4">
+
+                <h5 class="card-title">Alterar nome</h5>
                 <p class="card-description">Altere o nome exibido na sua conta.</p>
 
                 <form action="<?= url_to('perfil.atualizar') ?>" method="post">

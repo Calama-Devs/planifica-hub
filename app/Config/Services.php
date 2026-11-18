@@ -2,12 +2,14 @@
 
 namespace Config;
 
+use App\Services\RedefinirSenhaService;
 use App\Services\PerfilService;
 use App\Services\PermissaoDiretaService;
 use App\Services\PermissaoService;
 use App\Services\EdicaoContaService;
 use App\Services\ConfirmacaoOperacaoService;
 use CodeIgniter\Config\BaseService;
+use App\Services\CabecalhoService;
 
 /**
  * Services Configuration file.
@@ -42,6 +44,15 @@ class Services extends BaseService
         return new EdicaoContaService();
     }
 
+    public static function redefinirSenhaService(bool $getShared = true): RedefinirSenhaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('redefinirSenhaService');
+        }
+
+        return new RedefinirSenhaService();
+    }
+
     public static function perfilService(bool $getShared = true): PerfilService
     {
         if ($getShared) {
@@ -67,5 +78,14 @@ class Services extends BaseService
         }
 
         return new PermissaoDiretaService();
+    }
+
+    public static function contaCabecalho(bool $getShared = true): CabecalhoService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('contaCabecalho');
+        }
+
+        return new CabecalhoService();
     }
 }
