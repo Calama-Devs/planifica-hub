@@ -224,6 +224,7 @@ class EdicaoContaService
         }
 
         $this->banco->transBegin();
+        $donaDaTransacao = $this->banco->transDepth === 1;
 
         try {
             if ($nome !== $nomeAtual && ! $this->contas->update($contaId, ['nome_completo' => $nome])) {
@@ -255,6 +256,11 @@ class EdicaoContaService
             $this->banco->transCommit();
         } catch (Throwable $erro) {
             $this->banco->transRollback();
+
+            if ($donaDaTransacao) {
+                $this->banco->resetTransStatus();
+            }
+
             log_message(
                 'error',
                 '[EdicaoContaService] Falha ao atualizar conta; tipo da exceção: {tipo}.',

@@ -94,6 +94,7 @@ final class ContaTest extends CIUnitTestCase
         ]);
 
         $resposta->assertStatus(422);
+        self::assertTrue(db_connect()->transStatus());
         $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => null]);
         $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
 
