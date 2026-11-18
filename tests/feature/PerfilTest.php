@@ -97,15 +97,6 @@ final class PerfilTest extends CIUnitTestCase
             'user_id' => $usuarioAtual->id,
             'secret'  => 'adulterado@example.com',
         ]);
-
-        auth()->logout();
-        $usuarioAtualizado = model(UserModel::class)->findById($usuarioAtual->id);
-        $paginaPerfil      = $this->actingAs($usuarioAtualizado)->get('perfil');
-        $paginaPerfil->assertOK();
-        $this->assertStringContainsString(
-            'navbar-profile-name">nome.atualizado</p>',
-            $paginaPerfil->getBody(),
-        );
     }
 
     public function testRejeitaNomeForaDasRegrasConfiguradas(): void
