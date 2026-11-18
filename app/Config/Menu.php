@@ -45,14 +45,5 @@ class Menu extends BaseConfig
             'icone'         => 'mdi mdi-shield-key-outline text-warning',
             'permissao'     => 'acessos.administrar',
         ],
-
-        [
-            'categoria'     => 'Administração',
-            'titulo'        => 'Acessos',
-            'rota'          => 'acessos.index',
-            'padraoAtivo'   => 'admin/acessos*',
-            'icone'         => 'mdi mdi-account-key text-warning',
-            'permissao'     => 'acessos.administrar',
-        ],
     ];
 }
