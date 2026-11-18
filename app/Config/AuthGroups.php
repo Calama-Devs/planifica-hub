@@ -78,6 +78,8 @@ class AuthGroups extends ShieldAuthGroups
     public array $permissions = [
         'contas.consultar'    => 'Consultar a lista e os dados das contas de usuário',
         'contas.criar'        => 'Criar novas contas de usuário',
+        'contas.desativar'    => 'Desativar contas de usuário',
+        'contas.reativar'     => 'Reativar contas de usuário',
         'acessos.administrar' => 'Conceder e remover grupos e permissões das contas de usuário',
     ];
 
@@ -94,6 +96,8 @@ class AuthGroups extends ShieldAuthGroups
         'superadmin' => [
             'contas.consultar',
             'contas.criar',
+            'contas.desativar',
+            'contas.reativar',
             'acessos.administrar',
         ],
         'admin' => [
@@ -118,6 +122,8 @@ class AuthGroups extends ShieldAuthGroups
     private const PERMISSOES_NATIVAS = [
         'contas.consultar',
         'contas.criar',
+        'contas.desativar',
+        'contas.reativar',
         'acessos.administrar',
     ];
 

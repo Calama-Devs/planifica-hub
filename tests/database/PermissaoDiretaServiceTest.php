@@ -628,7 +628,7 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
             array_column($visao['categorias'][0]['permissoes'], 'identificador'),
         );
         $this->assertSame(
-            ['contas.consultar', 'contas.criar'],
+            ['contas.consultar', 'contas.criar', 'contas.desativar', 'contas.reativar'],
             array_column($visao['categorias'][1]['permissoes'], 'identificador'),
         );
 
@@ -649,7 +649,7 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
         $porIdentificador = array_column($visao['permissoes'], null, 'identificador');
 
         $this->assertSame(
-            ['acessos.administrar', 'contas.consultar', 'contas.criar'],
+            ['acessos.administrar', 'contas.consultar', 'contas.criar', 'contas.desativar', 'contas.reativar'],
             array_column($visao['permissoes'], 'identificador'),
         );
         $this->assertSame(

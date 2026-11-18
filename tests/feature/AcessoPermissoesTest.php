@@ -159,7 +159,7 @@ final class AcessoPermissoesTest extends CIUnitTestCase
 
         // O identificador não fica solto na lista: vai no tooltip do ícone de informação, um por permissão.
         $this->assertSame(1, substr_count($corpo, 'title="Identificador: contas.consultar"'));
-        $this->assertSame(3, substr_count($corpo, 'data-bs-toggle="tooltip"'));
+        $this->assertSame(5, substr_count($corpo, 'data-bs-toggle="tooltip"'));
         // Quem usa leitor de tela ouve a descrição (identificador, herança e acesso efetivo) junto da caixa.
         $this->assertStringContainsString(
             'aria-describedby="detalhe-contas.consultar"',
@@ -185,8 +185,8 @@ final class AcessoPermissoesTest extends CIUnitTestCase
         $this->assertSame(1, substr_count($corpo, 'Permissão crítica:'));
         $this->assertSame(1, substr_count($corpo, 'data-critica'));
         $this->assertSame(2, substr_count($corpo, 'id="marcar-todas"') + substr_count($corpo, 'id="desmarcar-todas"'));
-        // Os atalhos agem só nas caixas do catálogo, que levam a classe `permissao-catalogo`: as três do catálogo.
-        $this->assertSame(3, substr_count($corpo, 'permissao-catalogo'));
+        // Os atalhos agem só nas caixas do catálogo, que levam a classe `permissao-catalogo`: as cinco do catálogo.
+        $this->assertSame(5, substr_count($corpo, 'permissao-catalogo'));
         // O script vai com a data do arquivo na URL, para o navegador não reaproveitar uma versão antiga em cache.
         $this->assertMatchesRegularExpression('#assets/js/acesso-permissoes\.js\?v=\d+#', $corpo);
     }
