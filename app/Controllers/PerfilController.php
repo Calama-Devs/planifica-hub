@@ -17,6 +17,7 @@ class PerfilController extends BaseController
 
         return view('perfil/index', [
             'nomeAtual'         => $usuario->username ?? '',
+            'emailAtual'        => $usuario->email ?? '',
             'comprimentoMaximo' => service('perfilService')->obterComprimentoMaximoNome(),
         ]);
     }
