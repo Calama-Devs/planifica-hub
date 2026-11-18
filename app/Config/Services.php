@@ -2,6 +2,7 @@
 
 namespace Config;
 
+use App\Services\RedefinirSenhaService;
 use App\Services\PerfilService;
 use App\Services\PermissaoDiretaService;
 use App\Services\PermissaoService;
@@ -22,6 +23,15 @@ use CodeIgniter\Config\BaseService;
  */
 class Services extends BaseService
 {
+    public static function redefinirSenhaService(bool $getShared = true): RedefinirSenhaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('redefinirSenhaService');
+        }
+
+        return new RedefinirSenhaService();
+    }
+
     public static function perfilService(bool $getShared = true): PerfilService
     {
         if ($getShared) {

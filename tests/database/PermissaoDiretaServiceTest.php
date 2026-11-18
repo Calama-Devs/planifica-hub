@@ -6,7 +6,6 @@ namespace Tests\Database;
 
 use App\Models\AuditoriaPermissaoModel;
 use App\Services\PermissaoDiretaService;
-use App\Services\PermissaoService;
 use ArrayObject;
 use CodeIgniter\Pager\Pager;
 use CodeIgniter\Shield\Entities\User;
@@ -564,17 +563,11 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
 
     public function testConsultarOrdenaAsCategoriasPeloContexto(): void
     {
-        $catalogo = new PermissaoService();
-
-        // Cadastradas fora da ordem alfabética de propósito.
-        foreach (['contabilidade.emitir', 'auditoria.consultar'] as $identificador) {
-            $cadastro = $catalogo->cadastrarPermissao([
-                'identificador' => $identificador,
-                'descricao'     => 'Permissao de teste para a ordem das categorias',
-            ], $this->operador->id);
-
-            $this->assertTrue($cadastro['sucesso']);
-        }
+        // Declaradas no catálogo controlado, fora da ordem alfabética de propósito.
+        $this->configurarPermissoesDoCatalogo([
+            'contabilidade.emitir' => 'Permissão de teste para a ordem das categorias',
+            'auditoria.consultar'  => 'Permissão de teste para a ordem das categorias',
+        ]);
 
         $conta = $this->criarConta('conta.alvo', 'user');
 
@@ -584,13 +577,11 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
         );
     }
 
-    public function testPermissaoCadastradaNaTelaDePermissoesEntraNaCategoriaDoSeuContexto(): void
+    public function testPermissaoDoCatalogoEntraNaCategoriaDoSeuContexto(): void
     {
-        $cadastro = (new PermissaoService())->cadastrarPermissao([
-            'identificador' => 'relatorios_gerais.emitir',
-            'descricao'     => 'Permite emitir os relatorios gerais',
-        ], $this->operador->id);
-        $this->assertTrue($cadastro['sucesso']);
+        $this->configurarPermissoesDoCatalogo([
+            'relatorios_gerais.emitir' => 'Permite emitir os relatórios gerais',
+        ]);
 
         $conta      = $this->criarConta('conta.alvo', 'user');
         $categorias = array_column($this->servico->consultar($conta->id)['categorias'], null, 'titulo');
@@ -609,6 +600,20 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
             'user_id'    => $conta->id,
             'permission' => 'relatorios_gerais.emitir',
         ]);
+    }
+
+    /**
+     * @param array<string, string> $permissoes
+     */
+    private function configurarPermissoesDoCatalogo(array $permissoes): void
+    {
+        $authGroups = config(AuthGroups::class);
+
+        foreach ($permissoes as $identificador => $descricao) {
+            $authGroups->permissions[$identificador] = $descricao;
+        }
+
+        setting('AuthGroups.permissions', $authGroups->permissions);
     }
 
     public function testConsultarAgrupaPorContextoEMarcaAPermissaoCritica(): void
