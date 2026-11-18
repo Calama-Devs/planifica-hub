@@ -9,6 +9,8 @@ use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
 use CodeIgniter\Test\TestResponse;
 use CodeIgniter\I18n\Time;
+use CodeIgniter\Shield\Commands\User as ComandoUsuario;
+use CodeIgniter\Shield\Commands\Utils\InputOutput;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserIdentityModel;
 use CodeIgniter\Shield\Models\UserModel;
@@ -142,6 +144,29 @@ final class AutenticacaoTest extends CIUnitTestCase
 
         $resposta->assertRedirectTo(rtrim(site_url('/'), '/'));
         $this->assertTrue(auth()->loggedIn());
+    }
+
+    public function testPrimeiroAdministradorCriadoPelaCliPrecisaDeAtivacaoParaAcessarCatalogo(): void
+    {
+        $credenciais = ['email' => 'primeiro.admin@example.com', 'password' => $this->senha];
+        $terminal = $this->createMock(InputOutput::class);
+        $terminal->method('prompt')->willReturnOnConsecutiveCalls($this->senha, $this->senha, 'y');
+        ComandoUsuario::setInputOutput($terminal);
+
+        try {
+            $comandos = service('commands');
+            $this->assertSame(EXIT_SUCCESS, $comandos->run('shield:user', [
+                'create', 'n' => 'primeiro.admin', 'e' => $credenciais['email'], 'g' => 'superadmin',
+            ]));
+            $this->enviarFormulario('login', $credenciais)->assertRedirectTo('/login');
+            $this->assertFalse(auth()->loggedIn());
+
+            $this->assertSame(EXIT_SUCCESS, $comandos->run('shield:user', ['activate', 'e' => $credenciais['email']]));
+            $this->enviarFormulario('login', $credenciais)->assertRedirectTo(rtrim(site_url('/'), '/'));
+            $this->withSession($_SESSION)->get('admin/permissoes')->assertSee('Catálogo de Permissões');
+        } finally {
+            ComandoUsuario::resetInputOutput();
+        }
     }
 
     public function testRecusaSenhaIncorreta(): void
