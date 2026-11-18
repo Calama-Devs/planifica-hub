@@ -121,7 +121,7 @@ class MenuPermissoesTest extends CIUnitTestCase
             'rota'        => 'permissoes.index',
             'padraoAtivo' => 'contas*',
             'icone'       => 'mdi mdi-account-multiple text-warning',
-            'permissao'   => 'contas.consultar',
+            'permissao'   => 'acessos.administrar',
         ];
     }
 
