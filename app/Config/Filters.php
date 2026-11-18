@@ -2,6 +2,7 @@
 
 namespace Config;
 
+use App\Filters\ContaAtivaFilter;
 use CodeIgniter\Config\Filters as BaseFilters;
 use CodeIgniter\Filters\Cors;
 use CodeIgniter\Filters\CSRF;
@@ -107,4 +108,12 @@ class Filters extends BaseFilters
      * @var array<string, array<string, list<string>>>
      */
     public array $filters = [];
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        // O Registrar do Shield registra esse alias durante o construtor da configuração.
+        $this->aliases['session'] = ContaAtivaFilter::class;
+    }
 }

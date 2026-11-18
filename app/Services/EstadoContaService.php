@@ -8,11 +8,13 @@ use App\Models\EstadoContaModel;
 use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\Shield\Authentication\Passwords;
 use CodeIgniter\Shield\Entities\User;
+use CodeIgniter\Shield\Models\RememberModel;
+use CodeIgniter\Shield\Models\UserIdentityModel;
 use RuntimeException;
 use Throwable;
 
 /**
- * Altera apenas users.active, preservando os vínculos e o histórico da conta.
+ * Usa users.active como estado administrativo e revoga credenciais persistentes ao suspender.
  *
  * @phpstan-type Resultado array{sucesso: bool, tipo: string, codigo: string, mensagem: string}
  */
@@ -20,11 +22,18 @@ class EstadoContaService
 {
     private EstadoContaModel $contas;
     private BaseConnection $banco;
+    private RememberModel $lembrancas;
+    private UserIdentityModel $identidades;
 
-    public function __construct(?EstadoContaModel $contas = null)
-    {
+    public function __construct(
+        ?EstadoContaModel $contas = null,
+        ?RememberModel $lembrancas = null,
+        ?UserIdentityModel $identidades = null,
+    ) {
         $this->contas = $contas ?? new EstadoContaModel();
         $this->banco = $this->contas->obterConexao();
+        $this->lembrancas = $lembrancas ?? new RememberModel();
+        $this->identidades = $identidades ?? new UserIdentityModel();
     }
 
     /** @return Resultado */
@@ -157,7 +166,6 @@ class EstadoContaService
 
         $operacionais = $this->contas->listarContasOperacionais();
 
-        // Preserva separadamente a administração de permissões e a capacidade de reativar contas.
         foreach (['acessos.administrar', 'contas.reativar'] as $permissao) {
             if (! $conta->can($permissao)) {
                 continue;
@@ -189,6 +197,17 @@ class EstadoContaService
     {
         if (! $this->contas->update($contaId, ['active' => (int) $ativar])) {
             throw new RuntimeException('A alteração de estado não foi gravada.');
+        }
+
+        if (! $ativar) {
+            $conta = $this->contas->findById($contaId);
+
+            if ($conta === null) {
+                throw new RuntimeException('A conta não foi encontrada após a alteração.');
+            }
+
+            $this->lembrancas->purgeRememberTokens($conta);
+            $this->identidades->deleteIdentitiesByType($conta, 'magic-link');
         }
 
         return [
