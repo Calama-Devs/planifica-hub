@@ -6,11 +6,11 @@ namespace Tests\Feature;
 
 use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\Shield\Entities\User;
-use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\Shield\Test\AuthenticationTesting;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
+use Tests\Support\Traits\CriaContasTrait;
 
 /**
  * A antiga tela de Acessos não deixa rotas nem links no sistema.
@@ -21,6 +21,7 @@ final class TelaAcessosRemovidaTest extends CIUnitTestCase
     use DatabaseTestTrait;
     use FeatureTestTrait;
     use AuthenticationTesting;
+    use CriaContasTrait;
 
     protected $namespace = [
         'CodeIgniter\Shield',
@@ -122,13 +123,6 @@ final class TelaAcessosRemovidaTest extends CIUnitTestCase
 
     private function criarUsuario(string $grupo): User
     {
-        $usuarios = model(UserModel::class);
-        $usuarios->save(new User(['username' => 'usuario.' . $grupo . '.' . bin2hex(random_bytes(4))]));
-
-        /** @var User $usuario */
-        $usuario = $usuarios->findById($usuarios->getInsertID());
-        $usuario->addGroup($grupo);
-
-        return $usuario;
+        return $this->criarConta('usuario.' . $grupo . '.' . bin2hex(random_bytes(4)), $grupo);
     }
 }
