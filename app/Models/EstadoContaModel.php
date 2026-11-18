@@ -12,6 +12,13 @@ use RuntimeException;
 /** Mantém as entidades e a persistência nativas do Shield. */
 class EstadoContaModel extends UserModel
 {
+    protected function initialize(): void
+    {
+        parent::initialize();
+
+        $this->allowedFields[] = 'versao_sessao';
+    }
+
     public function obterConexao(): BaseConnection
     {
         return $this->db;
@@ -23,8 +30,6 @@ class EstadoContaModel extends UserModel
             throw new RuntimeException('O bloqueio de contas exige uma transação MySQL/InnoDB.');
         }
 
-        // O Query Builder não oferece FOR UPDATE. A consulta não contém entradas externas.
-        // A ordem é única para que operações sobre contas diferentes compartilhem o mesmo bloqueio.
         $consulta = $this->builder()
                          ->select('id')
                          ->orderBy('id')

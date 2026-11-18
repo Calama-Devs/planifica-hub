@@ -19,6 +19,7 @@ final class PerfilTest extends CIUnitTestCase
     protected $namespace = [
         'CodeIgniter\Shield',
         'CodeIgniter\Settings',
+        'App',
     ];
 
     private string $senha;

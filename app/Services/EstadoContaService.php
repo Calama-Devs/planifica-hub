@@ -124,7 +124,7 @@ class EstadoContaService
             );
         }
 
-        return $this->gravarAlteracao($contaId, $ativar);
+        return $this->gravarAlteracao($conta, $ativar);
     }
 
     /** @return Resultado|null */
@@ -193,19 +193,19 @@ class EstadoContaService
     }
 
     /** @return Resultado */
-    private function gravarAlteracao(int $contaId, bool $ativar): array
+    private function gravarAlteracao(User $conta, bool $ativar): array
     {
-        if (! $this->contas->update($contaId, ['active' => (int) $ativar])) {
+        $alteracoes = ['active' => (int) $ativar];
+
+        if (! $ativar) {
+            $alteracoes['versao_sessao'] = (int) $conta->versao_sessao + 1;
+        }
+
+        if (! $this->contas->update($conta->id, $alteracoes)) {
             throw new RuntimeException('A alteração de estado não foi gravada.');
         }
 
         if (! $ativar) {
-            $conta = $this->contas->findById($contaId);
-
-            if ($conta === null) {
-                throw new RuntimeException('A conta não foi encontrada após a alteração.');
-            }
-
             $this->lembrancas->purgeRememberTokens($conta);
             $this->identidades->deleteIdentitiesByType($conta, 'magic-link');
         }

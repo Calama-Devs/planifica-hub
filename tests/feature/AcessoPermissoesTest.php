@@ -522,8 +522,8 @@ final class AcessoPermissoesTest extends CIUnitTestCase
      */
     private function novaRequisicao(): void
     {
-        $_SESSION = [];
         $this->resetServices();
+        $this->mockSession();
     }
 
     /**
@@ -533,7 +533,7 @@ final class AcessoPermissoesTest extends CIUnitTestCase
     {
         $this->novaRequisicao();
 
-        return $this->actingAs($this->recarregar($conta))->get($rota, $parametros);
+        return $this->actingAs($this->recarregar($conta))->withSession()->get($rota, $parametros);
     }
 
     /**

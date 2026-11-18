@@ -54,7 +54,7 @@ final class PermissoesAdminTest extends CIUnitTestCase
     {
         $usuarioComum = $this->criarUsuario('user');
 
-        $resposta = $this->actingAs($usuarioComum)->get('admin/permissoes');
+        $resposta = $this->actingAs($usuarioComum)->withSession()->get('admin/permissoes');
 
         $resposta->assertRedirectTo(rtrim(site_url('/'), '/'));
         $resposta->assertSessionHas('error');
@@ -64,7 +64,7 @@ final class PermissoesAdminTest extends CIUnitTestCase
     {
         $superadmin = $this->criarUsuario('superadmin');
 
-        $resposta = $this->actingAs($superadmin)->get('admin/permissoes');
+        $resposta = $this->actingAs($superadmin)->withSession()->get('admin/permissoes');
 
         $resposta->assertOK();
         $resposta->assertSee('Catálogo de Permissões');

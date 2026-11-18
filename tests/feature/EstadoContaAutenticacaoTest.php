@@ -26,7 +26,7 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
     use FeatureTestTrait;
     use CriaContasTrait;
 
-    protected $namespace = ['CodeIgniter\Shield', 'CodeIgniter\Settings'];
+    protected $namespace = ['CodeIgniter\Shield', 'CodeIgniter\Settings', 'App'];
 
     private EstadoContaService $servico;
     private User $operador;
@@ -117,6 +117,55 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
 
         $resposta->assertRedirectTo('/login');
         $this->assertFalse(auth()->loggedIn());
+    }
+
+    public function testSessaoOciosaContinuaRevogadaAposReativacaoSemAfetarNovoLogin(): void
+    {
+        $this->assertTrue(auth()->attempt($this->credenciais())->isOK());
+        $sessaoAnterior = $_SESSION;
+        $versaoInicial = (int) $this->recarregar($this->conta)->versao_sessao;
+        $this->assertSame(1, $versaoInicial);
+
+        $this->desativarConta();
+        $this->assertSame($versaoInicial + 1, (int) $this->recarregar($this->conta)->versao_sessao);
+        $resultado = $this->servico->reativar((int) $this->conta->id, (int) $this->operador->id, $this->senha);
+        $this->assertTrue($resultado['sucesso']);
+        $this->assertSame($versaoInicial + 1, (int) $this->recarregar($this->conta)->versao_sessao);
+
+        // A primeira requisição dessa sessão ocorre só depois da reativação.
+        $this->reiniciarRequisicao();
+        $resposta = $this->withSession($sessaoAnterior)->get('sobre');
+        $resposta->assertRedirectTo('/login');
+        $resposta->assertSessionHas('error', 'Sua sessão foi encerrada. Entre novamente para continuar.');
+        $this->assertFalse(auth()->loggedIn());
+        $this->assertNull(session(setting('Auth.sessionConfig')['field']));
+
+        $this->reiniciarRequisicao();
+        $this->assertTrue(auth()->remember()->attempt($this->credenciais())->isOK());
+        $sessaoNova = $_SESSION;
+        $this->seeInDatabase('auth_remember_tokens', ['user_id' => $this->conta->id]);
+
+        // Outra requisição com a sessão antiga não pode invalidar nem o login nem o token novos.
+        $this->reiniciarRequisicao();
+        $resposta = $this->withSession($sessaoAnterior)
+            ->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])->get('sobre');
+        $resposta->assertStatus(403);
+        $resposta->assertJSONFragment(['sucesso' => false, 'codigo' => 'SESSAO_REVOGADA']);
+        $this->seeInDatabase('auth_remember_tokens', ['user_id' => $this->conta->id]);
+
+        $this->reiniciarRequisicao();
+        $this->withSession($sessaoNova)->withHeaders([])->get('sobre')->assertOK();
+        $this->assertSame($this->conta->id, auth()->id());
+    }
+
+    public function testExigeNovoLoginDeSessaoSemVersao(): void
+    {
+        $campo = setting('Auth.sessionConfig')['field'];
+
+        $this->withSession([$campo => ['id' => $this->conta->id]])->get('sobre')->assertRedirectTo('/login');
+
+        $this->assertFalse(auth()->loggedIn());
+        $this->assertNull(session($campo));
     }
 
     public function testRecusaOperacaoAjaxDeSessaoAnteriorSemAlterarSenha(): void
@@ -236,6 +285,7 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
 
     public function testFalhaNaRevogacaoDesfazDesativacaoETokensNaMesmaTransacao(): void
     {
+        $versaoAnterior = (int) $this->recarregar($this->conta)->versao_sessao;
         (new RememberModel())->rememberUser(
             $this->conta,
             'seletor-preservado',
@@ -251,7 +301,9 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
 
         $this->assertFalse($resultado['sucesso']);
         $this->assertSame('CONTA_ERRO_PERSISTENCIA', $resultado['codigo']);
-        $this->assertTrue((bool) $this->recarregar($this->conta)->active);
+        $conta = $this->recarregar($this->conta);
+        $this->assertTrue((bool) $conta->active);
+        $this->assertSame($versaoAnterior, (int) $conta->versao_sessao);
         $this->seeInDatabase('auth_remember_tokens', ['user_id' => $this->conta->id]);
         $this->assertTrue($this->db->transStatus());
         $this->assertTrue(auth()->attempt($this->credenciais())->isOK());
@@ -336,6 +388,12 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
         $resultado = $this->servico->desativar((int) $this->conta->id, (int) $this->operador->id, $this->senha);
 
         $this->assertTrue($resultado['sucesso'], $resultado['mensagem']);
+    }
+
+    private function reiniciarRequisicao(): void
+    {
+        $this->resetServices();
+        $this->mockSession();
     }
 
     /** @return array{email: string, password: string} */
