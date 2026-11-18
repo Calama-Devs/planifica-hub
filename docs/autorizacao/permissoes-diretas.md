@@ -69,6 +69,7 @@ A página de uma conta tem um cabeçalho e dois cartões, sob um só formulário
 **Regras da revogação:**
 
 - **Só o vínculo direto:** revogar nunca retira grupo da conta nem mexe na matriz.
+- **Último acesso essencial:** desativar uma conta ou editar suas permissões não pode eliminar o último acesso operacional a `acessos.administrar` ou a `contas.reativar`. A verificação considera cada permissão separadamente, incluindo herança de grupos e vínculos diretos. Só contam contas ativas, não banidas e com identidade de senha. Se uma edição em lote retiraria o último acesso, o lote inteiro é recusado (`CONTA_ULTIMO_ADMINISTRADOR`).
 - **Só o que a conta tem:** quem recebe a permissão apenas de um grupo não tem vínculo direto para revogar; a caixa dela já vem desmarcada.
 - **Vínculo fora do catálogo:** se o catálogo deixar de listar uma permissão que a conta ainda tem como direta, o vínculo continua valendo (o `can()` o reconhece). Ele aparece marcado na categoria "Fora do catálogo" e é revogado desmarcando e salvando.
 
@@ -104,6 +105,7 @@ Depois de qualquer um dos caminhos, reabra a página de permissões da conta e c
 - **Autor sempre da sessão:** o operador vem de `auth()->id()` no Controller. O formulário não tem campo de autor, e campos extras enviados à mão são ignorados.
 - **Vínculo e auditoria na mesma transação:** se a auditoria falhar, o vínculo também não é gravado, e o operador vê "Não foi possível concluir a operação" sem detalhe técnico. O detalhe vai para o log, sem dados pessoais.
 - **Dentro de uma transação maior:** se o chamador já abriu uma transação, a operação participa dela. O CodeIgniter só efetiva a transação mais externa, então o `commit` e o `rollback` de verdade ficam com quem a abriu, que decide pelo `sucesso` do retorno.
+- **Concorrência:** os Services de estado e de permissões adquirem o mesmo bloqueio `FOR UPDATE` nas contas, em ordem de ID, antes de carregar operador, grupos e permissões. Em uma transação externa InnoDB com `REPEATABLE READ`, adquira esse bloqueio **antes da primeira leitura**: uma leitura anterior pode fixar um retrato antigo. Os endpoints abrem sua própria transação.
 - **Efeito real:** depois de gravar, o Service **recarrega a conta do banco** antes de calcular o resultado, porque o Shield guarda grupos e permissões em cache na própria entidade. A mensagem e a tela mostram o que o `can()` decide.
 - **Herança calculada como o Shield calcula:** os grupos que concedem a permissão são achados com o mesmo `PermissionMatcher` do `can()`, então curingas na matriz (como `contas.*`) também aparecem.
 

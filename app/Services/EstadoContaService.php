@@ -6,7 +6,6 @@ namespace App\Services;
 
 use App\Models\EstadoContaModel;
 use App\Models\IdentidadeRecuperacaoModel;
-use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\Shield\Authentication\Passwords;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\RememberModel;
@@ -22,7 +21,7 @@ use Throwable;
 class EstadoContaService
 {
     private EstadoContaModel $contas;
-    private BaseConnection $banco;
+    private AcessoEssencialService $acessoEssencial;
     private RememberModel $lembrancas;
     private UserIdentityModel $identidades;
 
@@ -32,7 +31,7 @@ class EstadoContaService
         ?UserIdentityModel $identidades = null,
     ) {
         $this->contas = $contas ?? new EstadoContaModel();
-        $this->banco = $this->contas->obterConexao();
+        $this->acessoEssencial = new AcessoEssencialService($this->contas);
         $this->lembrancas = $lembrancas ?? new RememberModel();
         $this->identidades = $identidades ?? new UserIdentityModel();
     }
@@ -52,30 +51,11 @@ class EstadoContaService
     /** @return Resultado */
     private function alterarEstado(int $contaId, int $operadorId, string $senhaAtual, bool $ativar): array
     {
-        $profundidadeAnterior = $this->banco->transDepth;
-
         try {
-            if (! $this->banco->transBegin()) {
-                throw new RuntimeException('Não foi possível iniciar a transação.');
-            }
-
-            $this->contas->bloquearAlteracoesDeEstado();
-            $resultado = $this->processarAlteracao($contaId, $operadorId, $senhaAtual, $ativar);
-
-            if (! $this->banco->transStatus() || ! $this->banco->transCommit()) {
-                throw new RuntimeException('Não foi possível concluir a transação.');
-            }
-
-            return $resultado;
+            return $this->acessoEssencial->executarComBloqueio(
+                fn (): array => $this->processarAlteracao($contaId, $operadorId, $senhaAtual, $ativar)
+            );
         } catch (Throwable $erro) {
-            if ($this->banco->transDepth > $profundidadeAnterior) {
-                $this->banco->transRollback();
-            }
-
-            if ($profundidadeAnterior === 0) {
-                $this->banco->resetTransStatus();
-            }
-
             log_message('error', 'Falha ao alterar estado: conta {conta}, operador {operador}, exceção {classe}.', [
                 'conta' => $contaId,
                 'operador' => $operadorId,
@@ -117,7 +97,7 @@ class EstadoContaService
             );
         }
 
-        if (! $ativar && $this->retirariaUltimoAcessoAdministrativo($conta)) {
+        if (! $ativar && $this->acessoEssencial->retirariaUltimoAcesso($conta)) {
             return $this->falha(
                 'regra_negocio',
                 'CONTA_ULTIMO_ADMINISTRADOR',
@@ -157,40 +137,6 @@ class EstadoContaService
         }
 
         return null;
-    }
-
-    private function retirariaUltimoAcessoAdministrativo(User $conta): bool
-    {
-        if (! $this->possuiLoginOperacional($conta)) {
-            return false;
-        }
-
-        $operacionais = $this->contas->listarContasOperacionais();
-
-        foreach (['acessos.administrar', 'contas.reativar'] as $permissao) {
-            if (! $conta->can($permissao)) {
-                continue;
-            }
-
-            $alternativas = array_filter($operacionais, fn (User $candidata): bool =>
-                (int) $candidata->id !== (int) $conta->id
-                && $this->possuiLoginOperacional($candidata)
-                && $candidata->can($permissao));
-
-            if ($alternativas === []) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function possuiLoginOperacional(User $conta): bool
-    {
-        $identidade = $conta->getEmailIdentity();
-
-        return (bool) $conta->active && ! $conta->isBanned()
-            && $identidade !== null && is_string($identidade->secret2) && $identidade->secret2 !== '';
     }
 
     /** @return Resultado */

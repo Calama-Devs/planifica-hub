@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\AuditoriaPermissaoModel;
-use CodeIgniter\Database\BaseConnection;
+use App\Models\EstadoContaModel;
 use CodeIgniter\Pager\Pager;
 use CodeIgniter\Shield\Authorization\PermissionMatcher;
 use CodeIgniter\Shield\Entities\User;
@@ -35,18 +35,17 @@ class PermissaoDiretaService
      */
     private const PERMISSOES_CRITICAS = [self::PERMISSAO_ADMINISTRAR];
 
-    private UserModel $contas;
+    private EstadoContaModel $contas;
     private AuditoriaPermissaoModel $auditoria;
-    private BaseConnection $banco;
+    private AcessoEssencialService $acessoEssencial;
 
     public function __construct(
-        ?UserModel $contas = null,
+        ?EstadoContaModel $contas = null,
         ?AuditoriaPermissaoModel $auditoria = null,
-        ?BaseConnection $banco = null,
     ) {
-        $this->contas    = $contas ?? model(UserModel::class);
+        $this->contas    = $contas ?? new EstadoContaModel();
         $this->auditoria = $auditoria ?? model(AuditoriaPermissaoModel::class);
-        $this->banco     = $banco ?? db_connect();
+        $this->acessoEssencial = new AcessoEssencialService($this->contas);
     }
 
     /**
@@ -133,6 +132,12 @@ class PermissaoDiretaService
      */
     public function conceder(int $contaId, string $permissao, int $operadorId): array
     {
+        return $this->alterarComBloqueio($contaId, $operadorId, fn (): array =>
+            $this->processarConcessao($contaId, $permissao, $operadorId));
+    }
+
+    private function processarConcessao(int $contaId, string $permissao, int $operadorId): array
+    {
         $permissao = strtolower(trim($permissao));
 
         $recusa = $this->recusarOperador($operadorId);
@@ -159,7 +164,9 @@ class PermissaoDiretaService
             );
         }
 
-        return $this->persistir($conta, $permissao, $operadorId, AuditoriaPermissaoModel::ACAO_CONCEDIDA);
+        $this->gravar($conta, $permissao, AuditoriaPermissaoModel::ACAO_CONCEDIDA, $operadorId);
+
+        return $this->descreverEfeito($contaId, $permissao, AuditoriaPermissaoModel::ACAO_CONCEDIDA);
     }
 
     /**
@@ -168,6 +175,12 @@ class PermissaoDiretaService
      * @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string, acesso_efetivo?: bool}
      */
     public function revogar(int $contaId, string $permissao, int $operadorId): array
+    {
+        return $this->alterarComBloqueio($contaId, $operadorId, fn (): array =>
+            $this->processarRevogacao($contaId, $permissao, $operadorId));
+    }
+
+    private function processarRevogacao(int $contaId, string $permissao, int $operadorId): array
     {
         $permissao = strtolower(trim($permissao));
 
@@ -193,7 +206,13 @@ class PermissaoDiretaService
             );
         }
 
-        return $this->persistir($conta, $permissao, $operadorId, AuditoriaPermissaoModel::ACAO_REVOGADA);
+        $restantes = array_values(array_diff($conta->getPermissions() ?? [], [$permissao]));
+        if ($this->acessoEssencial->retirariaUltimoAcesso($conta, $restantes)) {
+            return $this->recusarPerdaDeAcesso();
+        }
+        $this->gravar($conta, $permissao, AuditoriaPermissaoModel::ACAO_REVOGADA, $operadorId);
+
+        return $this->descreverEfeito($contaId, $permissao, AuditoriaPermissaoModel::ACAO_REVOGADA);
     }
 
     /**
@@ -215,6 +234,12 @@ class PermissaoDiretaService
      * }
      */
     public function sincronizar(int $contaId, array $marcadas, int $operadorId): array
+    {
+        return $this->alterarComBloqueio($contaId, $operadorId, fn (): array =>
+            $this->processarSincronizacao($contaId, $marcadas, $operadorId));
+    }
+
+    private function processarSincronizacao(int $contaId, array $marcadas, int $operadorId): array
     {
         $recusa = $this->recusarOperador($operadorId);
 
@@ -257,69 +282,31 @@ class PermissaoDiretaService
             ];
         }
 
-        $falha = $this->gravarMudancas($conta, $concedidas, $revogadas, $operadorId);
-
-        return $falha ?? $this->descreverSincronizacao($contaId, $concedidas, $revogadas);
-    }
-
-    /**
-     * Grava o vínculo direto e a auditoria na mesma transação e devolve o efeito real,
-     * lido da conta recarregada.
-     *
-     * Se o chamador já abriu uma transação, a operação participa dela: no CodeIgniter só a transação
-     * mais externa faz COMMIT ou ROLLBACK de verdade, e as de dentro apenas ajustam a profundidade.
-     * Quem abriu a transação continua decidindo o desfecho, olhando o `sucesso` do retorno.
-     *
-     * @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string, acesso_efetivo?: bool}
-     */
-    private function persistir(User $conta, string $permissao, int $operadorId, string $acao): array
-    {
-        $contaId = (int) $conta->id;
-
-        $this->banco->transBegin();
-        // Sem transação externa, esta é a transação mais externa e cabe a este método tratar a falha por inteiro.
-        $dona = $this->banco->transDepth === 1;
-
-        try {
-            $this->gravar($conta, $permissao, $acao, $operadorId);
-
-            // Par do transBegin(): em transação externa só baixa a profundidade,
-            // e o COMMIT de verdade continua com quem abriu a transação.
-            $this->banco->transCommit();
-        } catch (Throwable $erro) {
-            $this->banco->transRollback();
-
-            if ($dona) {
-                // No modo estrito do CodeIgniter, uma query que falhou deixa a conexão marcada como "com falha"
-                // mesmo após o rollback, e as transações seguintes também falhariam. A marca é limpa só aqui;
-                // dentro de uma transação externa ela fica, para o dono dela desfazer tudo.
-                $this->banco->resetTransStatus();
-            }
-
-            log_message(
-                'error',
-                'Falha ao alterar permissão direta ({acao}): conta {conta}, operador {operador}: {erro}',
-                [
-                    'acao'     => $acao,
-                    'conta'    => $contaId,
-                    'operador' => $operadorId,
-                    'erro'     => $erro->getMessage(),
-                ],
-            );
-
-            return $this->falha(
-                'inesperado',
-                'PERMISSAO_DIRETA_ERRO_PERSISTENCIA',
-                'Não foi possível concluir a operação. Tente novamente.',
-            );
+        if ($revogadas !== [] && $this->acessoEssencial->retirariaUltimoAcesso($conta, $desejadas)) {
+            return $this->recusarPerdaDeAcesso();
         }
 
-        return $this->descreverEfeito($contaId, $permissao, $acao);
+        foreach ($concedidas as $permissao) {
+            $this->gravar($conta, $permissao, AuditoriaPermissaoModel::ACAO_CONCEDIDA, $operadorId);
+        }
+        foreach ($revogadas as $permissao) {
+            $this->gravar($conta, $permissao, AuditoriaPermissaoModel::ACAO_REVOGADA, $operadorId);
+        }
+
+        return $this->descreverSincronizacao($contaId, $concedidas, $revogadas);
+    }
+
+    private function recusarPerdaDeAcesso(): array
+    {
+        return $this->falha(
+            'regra_negocio',
+            'CONTA_ULTIMO_ADMINISTRADOR',
+            'A alteração removeria o último acesso administrativo essencial.',
+        );
     }
 
     /**
-     * Grava uma permissão direta e a auditoria dela, sem abrir transação: quem chama é o dono da transação
-     * (persistir(), para uma permissão, ou gravarMudancas(), para várias). Lança exceção se algo não for gravado.
+     * Grava uma permissão direta e sua auditoria na transação que já detém o bloqueio.
      */
     private function gravar(User $conta, string $permissao, string $acao, int $operadorId): void
     {
@@ -334,49 +321,13 @@ class PermissaoDiretaService
         }
     }
 
-    /**
-     * Grava todas as mudanças numa única transação, da qual este método é o dono: nada aqui abre transação
-     * interna. Se o chamador já tinha aberto uma transação, esta participa dela, e o COMMIT ou o ROLLBACK de
-     * verdade fica com ele.
-     *
-     * @param list<string> $concedidas
-     * @param list<string> $revogadas
-     *
-     * @return array{
-     *     sucesso: bool,
-     *     tipo: string,
-     *     codigo: string,
-     *     mensagem: string
-     * }|null A falha, ou nulo se tudo foi gravado.
-     */
-    private function gravarMudancas(User $conta, array $concedidas, array $revogadas, int $operadorId): ?array
+    private function alterarComBloqueio(int $contaId, int $operadorId, callable $operacao): array
     {
-        $this->banco->transBegin();
-        // Sem transação externa, esta é a transação mais externa e cabe a este método desfazer tudo se algo falhar.
-        $dona = $this->banco->transDepth === 1;
-
         try {
-            foreach ($concedidas as $permissao) {
-                $this->gravar($conta, $permissao, AuditoriaPermissaoModel::ACAO_CONCEDIDA, $operadorId);
-            }
-
-            foreach ($revogadas as $permissao) {
-                $this->gravar($conta, $permissao, AuditoriaPermissaoModel::ACAO_REVOGADA, $operadorId);
-            }
-
-            $this->banco->transCommit();
-
-            return null;
+            return $this->acessoEssencial->executarComBloqueio($operacao);
         } catch (Throwable $erro) {
-            $this->banco->transRollback();
-
-            if ($dona) {
-                // Mesma razão do persistir(): no modo estrito, a marca de falha só pode ser limpa pela transação dona.
-                $this->banco->resetTransStatus();
-            }
-
             log_message('error', 'Falha ao salvar permissões diretas: conta {conta}, operador {operador}: {erro}', [
-                'conta'    => (int) $conta->id,
+                'conta'    => $contaId,
                 'operador' => $operadorId,
                 'erro'     => $erro->getMessage(),
             ]);
@@ -519,7 +470,10 @@ class PermissaoDiretaService
     {
         $operador = $this->contas->findById($operadorId);
 
-        if ($operador !== null && $operador->can(self::PERMISSAO_ADMINISTRAR)) {
+        if (
+            $operador !== null && $operador->active && ! $operador->isBanned()
+            && $operador->can(self::PERMISSAO_ADMINISTRAR)
+        ) {
             return null;
         }
 

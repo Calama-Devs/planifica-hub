@@ -52,9 +52,7 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
             ]);
         }
 
-        // SQLite cobre a transação e a autenticação reais; apenas o FOR UPDATE exige MySQL.
-        $this->contas = $this->getMockBuilder(EstadoContaModel::class)
-            ->onlyMethods(['bloquearAlteracoesDeEstado'])->getMock();
+        $this->contas = new EstadoContaModel();
         $this->servico = new EstadoContaService($this->contas);
     }
 

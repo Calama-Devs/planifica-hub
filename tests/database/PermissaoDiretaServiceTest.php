@@ -128,6 +128,31 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
         $this->assertTrue($this->recarregar($conta)->hasPermission('contas.consultar'));
     }
 
+    public function testPreservaUltimoAdministradorOperacionalComPermissaoDireta(): void
+    {
+        // O superadmin da fixture não tem identidade de senha; não é alternativa operacional.
+        $conta = $this->criarConta('admin.direta', 'user', ['acessos.administrar']);
+        $conta->createEmailIdentity(['email' => 'direta@example.com', 'password' => bin2hex(random_bytes(24))]);
+
+        $resultado = $this->servico->sincronizar($conta->id, ['contas.criar'], $conta->id);
+
+        $this->assertSame('CONTA_ULTIMO_ADMINISTRADOR', $resultado['codigo']);
+        $this->assertSame(['acessos.administrar'], $this->recarregar($conta)->getPermissions());
+    }
+
+    public function testPodeRemoverVinculoRedundanteDaUltimaContaOperacional(): void
+    {
+        $conta = $this->criarConta('admin.herdada', 'superadmin', ['acessos.administrar']);
+        $conta->createEmailIdentity(['email' => 'herdada@example.com', 'password' => bin2hex(random_bytes(24))]);
+
+        $resultado = $this->servico->revogar($conta->id, 'acessos.administrar', $conta->id);
+
+        $this->assertTrue($resultado['sucesso']);
+        $this->assertTrue($resultado['acesso_efetivo']);
+        $this->assertTrue($this->recarregar($conta)->can('acessos.administrar'));
+        $this->dontSeeInDatabase('auth_permissions_users', ['user_id' => $conta->id]);
+    }
+
     public function testRecusaPermissaoForaDoCatalogo(): void
     {
         $conta = $this->criarConta('conta.alvo', 'user');
