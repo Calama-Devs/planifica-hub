@@ -6,7 +6,6 @@ use App\Services\MenuService;
 use Config\Menu;
 use App\Services\RedefinirSenhaService;
 use App\Services\PerfilService;
-use App\Services\PermissaoDiretaService;
 use App\Services\PermissaoService;
 use CodeIgniter\Config\BaseService;
 use App\Services\CabecalhoService;
@@ -51,15 +50,6 @@ class Services extends BaseService
         }
 
         return new PermissaoService();
-    }
-
-    public static function permissaoDiretaService(bool $getShared = true): PermissaoDiretaService
-    {
-        if ($getShared) {
-            return static::getSharedInstance('permissaoDiretaService');
-        }
-
-        return new PermissaoDiretaService();
     }
 
     public static function menu(?Menu $config = null, bool $getShared = true): MenuService
