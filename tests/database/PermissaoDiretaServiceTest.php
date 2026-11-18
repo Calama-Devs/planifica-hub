@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Database;
 
 use App\Models\AuditoriaPermissaoModel;
+use App\Models\PermissaoModel;
 use App\Services\PermissaoDiretaService;
 use App\Services\PermissaoService;
 use ArrayObject;
@@ -564,17 +565,17 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
 
     public function testConsultarOrdenaAsCategoriasPeloContexto(): void
     {
-        $catalogo = new PermissaoService();
+        $modeloCatalogo = model(PermissaoModel::class);
 
-        // Cadastradas fora da ordem alfabética de propósito.
+        // Persistidas fora da ordem alfabética de propósito.
         foreach (['contabilidade.emitir', 'auditoria.consultar'] as $identificador) {
-            $cadastro = $catalogo->cadastrarPermissao([
+            $modeloCatalogo->insert([
                 'identificador' => $identificador,
                 'descricao'     => 'Permissao de teste para a ordem das categorias',
-            ], $this->operador->id);
-
-            $this->assertTrue($cadastro['sucesso']);
+                'origem'        => 'usuario',
+            ]);
         }
+        (new PermissaoService())->sincronizarCatalogo();
 
         $conta = $this->criarConta('conta.alvo', 'user');
 
@@ -584,13 +585,14 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
         );
     }
 
-    public function testPermissaoCadastradaNaTelaDePermissoesEntraNaCategoriaDoSeuContexto(): void
+    public function testPermissaoPersistidaEntraNaCategoriaDoSeuContexto(): void
     {
-        $cadastro = (new PermissaoService())->cadastrarPermissao([
+        model(PermissaoModel::class)->insert([
             'identificador' => 'relatorios_gerais.emitir',
             'descricao'     => 'Permite emitir os relatorios gerais',
-        ], $this->operador->id);
-        $this->assertTrue($cadastro['sucesso']);
+            'origem'        => 'usuario',
+        ]);
+        (new PermissaoService())->sincronizarCatalogo();
 
         $conta      = $this->criarConta('conta.alvo', 'user');
         $categorias = array_column($this->servico->consultar($conta->id)['categorias'], null, 'titulo');
