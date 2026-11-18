@@ -84,8 +84,7 @@ $campoLogin = dados_campo_login();
                         <button type="button"
                                 id="togglePassword"
                                 class="btn position-absolute top-50 end-0 translate-middle-y border-0"
-                                aria-label="Mostrar senha"
-                                style="color: #ffffff !important; opacity: 1;">
+                                aria-label="Mostrar senha">
                             <i class="mdi mdi-eye" aria-hidden="true"></i>
                         </button>
                     </div>
@@ -133,7 +132,7 @@ $campoLogin = dados_campo_login();
         <div class="p-4 p-xl-5 text-white shadow-lg" style="background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 16px; max-width: 600px;">
             <h2 class="display-6 fw-bold text-white mb-2">PlanIFica</h2>
             <p class="text-muted mb-4" style="font-size: 1rem;">
-                    Plataforma institucional que centraliza funcionalidades e serviços do IFRO voltados à gestão acadêmica, facilitando o acesso aos recursos disponíveis em um único ambiente.
+                    Plataforma que integra sistemas e serviços do IFRO.
             </p>
             <div class="p-3 rounded mb-4" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08);">
                 <p class="text-light mb-0 small" style="line-height: 1.6;">
