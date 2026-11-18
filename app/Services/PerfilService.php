@@ -7,6 +7,11 @@ use App\Models\UsuarioAutenticacaoModel;
 
 class PerfilService
 {
+    public function obterComprimentoMaximoNome(): int
+    {
+        return 255;
+    }
+
     /**
      * @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string, erros?: array<string, string>}
      */
