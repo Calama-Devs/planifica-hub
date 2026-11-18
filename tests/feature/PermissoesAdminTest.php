@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\PermissaoModel;
-use CodeIgniter\Security\Exceptions\SecurityException;
+use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\Shield\Test\AuthenticationTesting;
@@ -26,7 +25,6 @@ final class PermissoesAdminTest extends CIUnitTestCase
     ];
 
     private UserModel $userModel;
-    private PermissaoModel $permissaoModel;
 
     protected function setUp(): void
     {
@@ -34,8 +32,7 @@ final class PermissoesAdminTest extends CIUnitTestCase
         parent::setUp();
         $_SESSION = [];
 
-        $this->userModel      = model(UserModel::class);
-        $this->permissaoModel = model(PermissaoModel::class);
+        $this->userModel = model(UserModel::class);
 
         $this->seed(\App\Database\Seeds\PermissoesSeeder::class);
     }
@@ -63,7 +60,7 @@ final class PermissoesAdminTest extends CIUnitTestCase
         $resposta->assertSessionHas('error');
     }
 
-    public function testSuperadminAcessaListagemDePermissoes(): void
+    public function testSuperadminAcessaListagemDePermissoesComLayoutExclusivoDeConsulta(): void
     {
         $superadmin = $this->criarUsuario('superadmin');
 
@@ -71,128 +68,59 @@ final class PermissoesAdminTest extends CIUnitTestCase
 
         $resposta->assertOK();
         $resposta->assertSee('Catálogo de Permissões');
-        $resposta->assertSee('Nova Permissão');
         $resposta->assertSee('contas.consultar');
+        $resposta->assertSee('contas.criar');
         $resposta->assertSee('acessos.administrar');
+
+        // Garante ausência total de opções manuais de CRUD na interface (Critério 2)
+        $resposta->assertDontSee('Nova Permissão');
+        $resposta->assertDontSee('Editar');
+        $resposta->assertDontSee('Excluir');
+        $resposta->assertDontSee('admin/permissoes/nova');
+        $resposta->assertDontSee('admin/permissoes/editar');
     }
 
-    public function testSuperadminAcessaTelaDeNovaPermissao(): void
+    public function testRotaNovaPermissaoRetorna404ParaRequisicaoDireta(): void
     {
         $superadmin = $this->criarUsuario('superadmin');
 
-        $resposta = $this->actingAs($superadmin)->get('admin/permissoes/nova');
+        $this->expectException(PageNotFoundException::class);
 
-        $resposta->assertOK();
-        $resposta->assertSee('Cadastrar Nova Permissão');
-        $resposta->assertSee('Identificador da Permissão');
-        $resposta->assertSee('Salvar');
+        $this->actingAs($superadmin)->get('admin/permissoes/nova');
     }
 
-    public function testSalvarNovaPermissaoComSucessoEAtualizaShield(): void
+    public function testRotaSalvarPermissaoRetorna404ParaRequisicaoDireta(): void
     {
         $superadmin = $this->criarUsuario('superadmin');
 
-        $dados = [
-            'identificador' => 'projetos.aprovar',
-            'descricao'     => 'Permite aprovar projetos institucionais submetidos',
-            csrf_token()    => csrf_hash(),
-        ];
-
-        $resposta = $this->actingAs($superadmin)
-            ->withSession($_SESSION)
-            ->post('admin/permissoes/salvar', $dados);
-
-        $resposta->assertRedirectTo(url_to('permissoes.index'));
-        $resposta->assertSessionHas('success');
-
-        $registro = $this->permissaoModel->buscarPorIdentificador('projetos.aprovar');
-        $this->assertNotNull($registro);
-        $this->assertSame('customizada', $registro['origem']);
-        $this->assertSame((int) $superadmin->id, (int) $registro['created_by']);
-
-        $superadmin->addPermission('projetos.aprovar');
-        $this->assertTrue($superadmin->can('projetos.aprovar'));
-    }
-
-    public function testSalvarNovaPermissaoRecusaFormatoInvalido(): void
-    {
-        $superadmin = $this->criarUsuario('superadmin');
-
-        $dados = [
-            'identificador' => 'PROJETO_INVALIDO',
-            'descricao'     => 'Descrição válida com tamanho adequado',
-            csrf_token()    => csrf_hash(),
-        ];
-
-        $resposta = $this->actingAs($superadmin)
-            ->withSession($_SESSION)
-            ->post('admin/permissoes/salvar', $dados);
-
-        $resposta->assertRedirect();
-        $resposta->assertSessionHas('errors');
-
-        $registro = $this->permissaoModel->buscarPorIdentificador('PROJETO_INVALIDO');
-        $this->assertNull($registro);
-    }
-
-    public function testSalvarNovaPermissaoRecusaDuplicidade(): void
-    {
-        $superadmin = $this->criarUsuario('superadmin');
-
-        $dados = [
-            'identificador' => 'contas.consultar',
-            'descricao'     => 'Tentativa de duplicar permissão existente',
-            csrf_token()    => csrf_hash(),
-        ];
-
-        $resposta = $this->actingAs($superadmin)
-            ->withSession($_SESSION)
-            ->post('admin/permissoes/salvar', $dados);
-
-        $resposta->assertRedirect();
-        $resposta->assertSessionHas('error', 'Já existe uma permissão cadastrada com este identificador.');
-    }
-
-    public function testRecusaEnvioSemCsrf(): void
-    {
-        $superadmin = $this->criarUsuario('superadmin');
-
-        $this->expectException(SecurityException::class);
+        $this->expectException(PageNotFoundException::class);
 
         $this->actingAs($superadmin)->post('admin/permissoes/salvar', [
-            'identificador' => 'teste.sem_csrf',
-            'descricao'     => 'Tentativa sem token CSRF',
+            'identificador' => 'teste.salvar',
+            'descricao'     => 'Tentativa direta de persistência manual',
+            csrf_token()    => csrf_hash(),
         ]);
     }
 
-    public function testEditarEAtualizarDescricaoPermissaoIgnorandoIdentificador(): void
+    public function testRotaEditarPermissaoRetorna404ParaRequisicaoDireta(): void
     {
         $superadmin = $this->criarUsuario('superadmin');
-        $permissao  = $this->permissaoModel->buscarPorIdentificador('contas.criar');
-        $this->assertNotNull($permissao);
 
-        $respostaForm = $this->actingAs($superadmin)->get('admin/permissoes/editar/' . (int) $permissao['id']);
-        $respostaForm->assertOK();
-        $respostaForm->assertSee('Editar Permissão');
-        $respostaForm->assertSee('contas.criar');
+        $this->expectException(PageNotFoundException::class);
 
-        $respostaAtualizar = $this->actingAs($superadmin)
-            ->withSession($_SESSION)
-            ->post('admin/permissoes/atualizar/' . (int) $permissao['id'], [
-                'identificador' => 'contas.renomeada_maliciosamente',
-                'descricao'     => 'Descrição administrativa revisada para criação de contas',
-                csrf_token()    => csrf_hash(),
-            ]);
+        $this->actingAs($superadmin)->get('admin/permissoes/editar/1');
+    }
 
-        $respostaAtualizar->assertRedirectTo(url_to('permissoes.index'));
-        $respostaAtualizar->assertSessionHas('success');
+    public function testRotaAtualizarPermissaoRetorna404ParaRequisicaoDireta(): void
+    {
+        $superadmin = $this->criarUsuario('superadmin');
 
-        /** @var array<string, mixed>|null $registroAtualizado */
-        $registroAtualizado = $this->permissaoModel->find((int) $permissao['id']);
-        $this->assertNotNull($registroAtualizado);
-        $this->assertSame('contas.criar', $registroAtualizado['identificador']);
-        $this->assertSame('Descrição administrativa revisada para criação de contas', $registroAtualizado['descricao']);
-        $this->assertSame((int) $superadmin->id, (int) $registroAtualizado['updated_by']);
+        $this->expectException(PageNotFoundException::class);
+
+        $this->actingAs($superadmin)->post('admin/permissoes/atualizar/1', [
+            'descricao'  => 'Tentativa direta de atualização manual',
+            csrf_token() => csrf_hash(),
+        ]);
     }
 
     private function criarUsuario(string $grupo): User
