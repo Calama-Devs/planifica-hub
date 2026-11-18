@@ -23,11 +23,7 @@ final class PermissaoDiretaServiceTest extends CIUnitTestCase
     use DatabaseTestTrait;
     use CriaContasTrait;
 
-    protected $namespace = [
-        'CodeIgniter\Shield',
-        'CodeIgniter\Settings',
-        'App',
-    ];
+    protected $namespace = null;
 
     private PermissaoDiretaService $servico;
     private User $operador;

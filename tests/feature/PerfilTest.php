@@ -16,10 +16,7 @@ final class PerfilTest extends CIUnitTestCase
     use FeatureTestTrait;
     use AuthenticationTesting;
 
-    protected $namespace = [
-        'CodeIgniter\Shield',
-        'CodeIgniter\Settings',
-    ];
+    protected $namespace = null;
 
     private string $senha;
 

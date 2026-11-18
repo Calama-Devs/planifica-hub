@@ -18,10 +18,7 @@ final class ContaTest extends CIUnitTestCase
     use FeatureTestTrait;
     use AuthenticationTesting;
 
-    protected $namespace = [
-        'CodeIgniter\Shield',
-        'CodeIgniter\Settings',
-    ];
+    protected $namespace = null;
 
     private string $senha = 'Senha-de-teste-123!';
     private int $contador = 0;

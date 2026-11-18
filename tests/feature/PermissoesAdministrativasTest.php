@@ -24,10 +24,7 @@ final class PermissoesAdministrativasTest extends CIUnitTestCase
         'acessos.administrar',
     ];
 
-    protected $namespace = [
-        'CodeIgniter\Shield',
-        'CodeIgniter\Settings',
-    ];
+    protected $namespace = null;
 
     private AuthGroups $configuracao;
 

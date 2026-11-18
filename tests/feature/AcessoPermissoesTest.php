@@ -26,11 +26,7 @@ final class AcessoPermissoesTest extends CIUnitTestCase
     use AuthenticationTesting;
     use CriaContasTrait;
 
-    protected $namespace = [
-        'CodeIgniter\Shield',
-        'CodeIgniter\Settings',
-        'App',
-    ];
+    protected $namespace = null;
 
     private User $superadmin;
 
