@@ -27,60 +27,6 @@ final class ContaTest extends CIUnitTestCase
     {
         $this->resetServices();
         parent::setUp();
-
-        $banco = db_connect();
-        $tabelaUsuarios = $banco->prefixTable(config('Auth')->tables['users']);
-        $colunas = $banco->query(
-            'PRAGMA table_info(' . $banco->escapeIdentifiers($tabelaUsuarios) . ')',
-        )->getResultArray();
-
-        if (! in_array('nome_completo', array_column($colunas, 'name'), true)) {
-            $banco->query(
-                'ALTER TABLE '
-                . $banco->escapeIdentifiers($tabelaUsuarios)
-                . ' ADD COLUMN nome_completo VARCHAR(255) NULL',
-            );
-        }
-
-        $tabelaAuditoria = $banco->prefixTable('auditoria_edicao_contas');
-        $existeAuditoria = $banco->query(
-            'SELECT name FROM sqlite_master WHERE type = ? AND name = ?',
-            ['table', $tabelaAuditoria],
-        )->getRowArray();
-
-        if ($existeAuditoria === null) {
-            $banco->query(
-                'CREATE TABLE ' . $banco->escapeIdentifiers($tabelaAuditoria) . ' ('
-                . 'id INTEGER PRIMARY KEY AUTOINCREMENT, '
-                . 'conta_id INTEGER NOT NULL, '
-                . 'operador_id INTEGER NOT NULL, '
-                . 'campos_alterados VARCHAR(100) NOT NULL, '
-                . 'justificativa VARCHAR(500) NULL, '
-                . 'resultado VARCHAR(20) NOT NULL, '
-                . 'created_at DATETIME NOT NULL)',
-            );
-        }
-
-        $colunasAuditoria = array_column($banco->query(
-            'PRAGMA table_info(' . $banco->escapeIdentifiers($tabelaAuditoria) . ')',
-        )->getResultArray(), 'name');
-        foreach (
-            [
-            'nome_anterior' => 'VARCHAR(255) NULL',
-            'nome_novo' => 'VARCHAR(255) NULL',
-            'email_anterior' => 'VARCHAR(254) NULL',
-            'email_novo' => 'VARCHAR(254) NULL',
-            'ip' => 'VARCHAR(45) NULL',
-            ] as $coluna => $tipo
-        ) {
-            if (! in_array($coluna, $colunasAuditoria, true)) {
-                $banco->query('ALTER TABLE ' . $banco->escapeIdentifiers($tabelaAuditoria)
-                    . ' ADD COLUMN ' . $banco->escapeIdentifiers($coluna) . ' ' . $tipo);
-            }
-        }
-
-        $banco->query('DELETE FROM ' . $banco->escapeIdentifiers($tabelaAuditoria));
-        $banco->query('DROP TRIGGER IF EXISTS falha_auditoria_edicao');
     }
 
     public function testAdministradorAtualizaNomeCompletoSemAlterarIdentidadeOuGrupo(): void
