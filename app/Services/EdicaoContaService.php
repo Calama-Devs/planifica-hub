@@ -163,8 +163,8 @@ class EdicaoContaService
         $nome = preg_replace('/\s+/u', ' ', trim($nome)) ?? '';
         $nomeAtual = (string) ($conta->nome_completo ?? $conta->username);
         $emailAtual = (string) $conta->email;
-        $emailNovo = $email === null || trim($email) === '' ? $emailAtual : trim($email);
-        $alterarEmail = $emailNovo !== $emailAtual;
+        $emailNovo = $email === null || trim($email) === '' ? $emailAtual : mb_strtolower(trim($email));
+        $alterarEmail = mb_strtolower($emailNovo) !== mb_strtolower(trim($emailAtual));
 
         if (! $this->nomeValido($nome)) {
             return $this->falha(
@@ -190,6 +190,16 @@ class EdicaoContaService
 
             if (mb_strlen($emailNovo) > 254 || ! filter_var($emailNovo, FILTER_VALIDATE_EMAIL)) {
                 return $this->falha('validacao', 'EMAIL_INVALIDO', 'Informe um e-mail válido.');
+            }
+
+            if (! $this->dominioPermitido($emailNovo)) {
+                $dominios = implode(', ', config('Contas')->dominiosPermitidos);
+
+                return $this->falha(
+                    'validacao',
+                    'EMAIL_DOMINIO_NAO_PERMITIDO',
+                    'O domínio do e-mail não é permitido. Domínios aceitos: ' . $dominios . '.',
+                );
             }
 
             if ($this->emailEmUso($emailNovo, $contaId)) {
@@ -245,7 +255,7 @@ class EdicaoContaService
                 'email_novo' => $alterarEmail ? $emailNovo : null,
                 'justificativa' => $justificativa,
                 'resultado' => 'sucesso',
-                'ip' => service('request')->getIPAddress(),
+                'ip' => $this->minimizarIp(service('request')->getIPAddress()),
                 'created_at' => date('Y-m-d H:i:s'),
             ]) !== false;
 
@@ -333,6 +343,64 @@ class EdicaoContaService
         $inteiro = filter_var($valor, FILTER_VALIDATE_INT);
 
         return $inteiro !== false && $inteiro >= $minimo && $inteiro <= $maximo ? $inteiro : $padrao;
+    }
+
+    private function dominioPermitido(string $email): bool
+    {
+        $email = mb_strtolower(trim($email));
+        $posicao = strrpos($email, '@');
+
+        if ($posicao === false) {
+            return false;
+        }
+
+        $dominio = substr($email, $posicao + 1);
+
+        return in_array($dominio, array_map('mb_strtolower', config('Contas')->dominiosPermitidos), true);
+    }
+
+    /**
+     * Minimiza o endereço IP para auditoria (LGPD / minimização de dados).
+     *
+     * IPv4: último octeto zerado (ex.: 192.168.1.0).
+     * IPv6: mantém os 3 primeiros grupos (ex.: 2001:db8:85a3).
+     * Valor inválido ou vazio retorna null.
+     *
+     * Registros anteriores a esta regra permanecem como estão.
+     */
+    private function minimizarIp(string $ip): ?string
+    {
+        $ip = trim($ip);
+
+        if ($ip === '' || $ip === '0.0.0.0') {
+            return null;
+        }
+
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            $octetos = explode('.', $ip);
+            $octetos[3] = '0';
+
+            return implode('.', $octetos);
+        }
+
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            $bin = inet_pton($ip);
+
+            if ($bin === false) {
+                return null;
+            }
+
+            $hex = bin2hex($bin);
+            $grupos = str_split($hex, 4);
+            $tresPrimeiros = array_map(
+                static fn (string $g): string => ltrim($g, '0') ?: '0',
+                array_slice($grupos, 0, 3),
+            );
+
+            return implode(':', $tresPrimeiros);
+        }
+
+        return null;
     }
 
     /** @return array{sucesso: false, tipo: string, codigo: string, mensagem: string} */

@@ -20,10 +20,6 @@ class ContaController extends BaseController
 
     public function index(): string|ResponseInterface
     {
-        if (! auth()->user()->can('contas.editar')) {
-            return $this->response->setStatusCode(403)->setBody('Sem permissão para administrar contas.');
-        }
-
         $dados = [
             'operadorId' => (int) auth()->id(),
             'grupos' => config('AuthGroups')->groups,
@@ -34,13 +30,6 @@ class ContaController extends BaseController
 
     public function listar(): ResponseInterface
     {
-        if (! auth()->user()->can('contas.editar')) {
-            return $this->response->setStatusCode(403)->setJSON([
-                'sucesso' => false,
-                'mensagem' => 'Sem permissão para administrar contas.',
-            ]);
-        }
-
         $parametros = $this->request->getGet();
         $resultado = $this->edicaoContaService->listarDataTable($parametros);
 
@@ -53,13 +42,6 @@ class ContaController extends BaseController
 
     public function consultar(string $contaId): ResponseInterface
     {
-        if (! auth()->user()->can('contas.editar')) {
-            return $this->response->setStatusCode(403)->setJSON([
-                'sucesso' => false,
-                'mensagem' => 'Sem permissão para administrar contas.',
-            ]);
-        }
-
         $conta = $this->edicaoContaService->consultar($this->idValido($contaId));
 
         if ($conta === null) {

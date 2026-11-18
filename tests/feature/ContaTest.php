@@ -79,8 +79,28 @@ final class ContaTest extends CIUnitTestCase
             'senha_admin' => $this->senha,
         ]);
 
-        $resposta->assertStatus(403);
+        $resposta->assertRedirectTo(config('Auth')->permissionDeniedRedirect());
         $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => null]);
+    }
+
+    public function testServicoRecusaOperadorSemPermissaoComoDefesaEmProfundidade(): void
+    {
+        $operador = $this->criarUsuario('operadorSemPermissao');
+        $alvo = $this->criarUsuario('conta.alvo');
+        $servico = service('edicaoContaService');
+
+        $resultado = $servico->atualizar(
+            (int) $alvo->id,
+            'Nome Novo',
+            $this->senha,
+            $operador,
+        );
+
+        self::assertFalse($resultado['sucesso']);
+        self::assertSame('permissao', $resultado['tipo']);
+        self::assertSame('CONTA_SEM_PERMISSAO', $resultado['codigo']);
+        $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => null]);
+        $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
     }
 
     public function testRecusaSenhaAdministrativaIncorreta(): void
@@ -132,7 +152,7 @@ final class ContaTest extends CIUnitTestCase
         $resposta = $this->enviarAtualizacao($operador, (int) $alvo->id, [
             'nome' => 'Nome Atualizado',
             'senha_admin' => $this->senha,
-            'email' => 'novo.email@example.com',
+            'email' => 'novo.email@ifro.edu.br',
             'justificativa' => 'Correção solicitada pelo titular.',
         ]);
 
@@ -140,12 +160,12 @@ final class ContaTest extends CIUnitTestCase
         $this->seeInDatabase('auth_identities', [
             'user_id' => $alvo->id,
             'type' => 'email_password',
-            'secret' => 'novo.email@example.com',
+            'secret' => 'novo.email@ifro.edu.br',
         ]);
         $this->seeInDatabase('auditoria_edicao_contas', [
             'conta_id' => $alvo->id,
             'email_anterior' => 'conta2@example.com',
-            'email_novo' => 'novo.email@example.com',
+            'email_novo' => 'novo.email@ifro.edu.br',
             'justificativa' => 'Correção solicitada pelo titular.',
         ]);
     }
@@ -158,7 +178,7 @@ final class ContaTest extends CIUnitTestCase
         $resposta = $this->enviarAtualizacao($operador, (int) $alvo->id, [
             'nome' => 'Nome Novo',
             'senha_admin' => $this->senha,
-            'email' => 'novo.email@example.com',
+            'email' => 'novo.email@ifro.edu.br',
         ]);
 
         $resposta->assertStatus(422);
@@ -171,8 +191,12 @@ final class ContaTest extends CIUnitTestCase
         $operador = $this->criarUsuario('operador', true);
         $alvo = $this->criarUsuario('conta.alvo');
         $outro = $this->criarUsuario('conta.outro');
+        model(\CodeIgniter\Shield\Models\UserIdentityModel::class)->update(
+            $outro->getEmailIdentity()->id,
+            ['secret' => 'conta.existente@ifro.edu.br'],
+        );
 
-        foreach (['conta3@example.com', 'email-invalido'] as $email) {
+        foreach (['conta.existente@ifro.edu.br', 'email-invalido'] as $email) {
             $resposta = $this->enviarAtualizacao($operador, (int) $alvo->id, [
                 'nome' => 'Nome Novo',
                 'senha_admin' => $this->senha,
@@ -182,7 +206,7 @@ final class ContaTest extends CIUnitTestCase
             $resposta->assertStatus(422);
         }
 
-        $this->seeInDatabase('auth_identities', ['user_id' => $outro->id, 'secret' => 'conta3@example.com']);
+        $this->seeInDatabase('auth_identities', ['user_id' => $outro->id, 'secret' => 'conta.existente@ifro.edu.br']);
         $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
     }
 
@@ -235,6 +259,140 @@ final class ContaTest extends CIUnitTestCase
         $resposta->assertStatus(422);
         $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => null]);
         $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
+    }
+
+    public function testAceitaDominiosInstitucionaisPermitidos(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo1 = $this->criarUsuario('conta.alvo1');
+        $alvo2 = $this->criarUsuario('conta.alvo2');
+
+        $resposta1 = $this->enviarAtualizacao($operador, (int) $alvo1->id, [
+            'nome' => 'Servidor IFRO',
+            'senha_admin' => $this->senha,
+            'email' => 'guilherme.guimaraes@ifro.edu.br',
+            'justificativa' => 'Atualização para e-mail funcional.',
+        ]);
+        $resposta1->assertOK();
+        $this->seeInDatabase('auth_identities', [
+            'user_id' => $alvo1->id,
+            'secret' => 'guilherme.guimaraes@ifro.edu.br',
+        ]);
+
+        $resposta2 = $this->enviarAtualizacao($operador, (int) $alvo2->id, [
+            'nome' => 'Estudante IFRO',
+            'senha_admin' => $this->senha,
+            'email' => 'guilherme.guimaraes@estudante.ifro.edu.br',
+            'justificativa' => 'Atualização para e-mail discente.',
+        ]);
+        $resposta2->assertOK();
+        $this->seeInDatabase('auth_identities', [
+            'user_id' => $alvo2->id,
+            'secret' => 'guilherme.guimaraes@estudante.ifro.edu.br',
+        ]);
+    }
+
+    public function testRecusaDominiosNaoPermitidosComCodigoEspecifico(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+        $emailOriginal = (string) $alvo->email;
+
+        $dominiosInvalidos = [
+            'x@gmail.com',
+            'x@falsoifro.edu.br',
+            'x@ifro.edu.br.exemplo.com',
+            'x@outro.estudante.ifro.edu.br',
+        ];
+
+        foreach ($dominiosInvalidos as $emailInvalido) {
+            $resposta = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+                'nome' => 'Nome Atualizado',
+                'senha_admin' => $this->senha,
+                'email' => $emailInvalido,
+                'justificativa' => 'Tentativa de troca de e-mail.',
+            ]);
+
+            $resposta->assertStatus(422);
+            $dados = json_decode($resposta->getJSON(), true);
+            self::assertSame('EMAIL_DOMINIO_NAO_PERMITIDO', $dados['codigo'] ?? null);
+            self::assertSame('validacao', $dados['tipo'] ?? null);
+        }
+
+        $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => $emailOriginal]);
+        $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
+    }
+
+    public function testNormalizaMaiusculasEEspacosNoDominio(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+
+        $resposta = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Nome Novo',
+            'senha_admin' => $this->senha,
+            'email' => 'X@IFRO.EDU.BR ',
+            'justificativa' => 'Normalização de domínio de e-mail.',
+        ]);
+
+        $resposta->assertOK();
+        $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'x@ifro.edu.br']);
+        $this->seeInDatabase('auditoria_edicao_contas', [
+            'conta_id' => $alvo->id,
+            'email_novo' => 'x@ifro.edu.br',
+        ]);
+    }
+
+    public function testEdicaoApenasDeNomeEmContaComEmailExternoContinuaFuncionando(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+
+        $resposta = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Nome Alterado Sem Mudar Email',
+            'senha_admin' => $this->senha,
+        ]);
+
+        $resposta->assertOK();
+        $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => 'Nome Alterado Sem Mudar Email']);
+        $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
+    }
+
+    public function testFiltroDePermissaoBloqueiaUsuarioSemPermissaoNasQuatroRotas(): void
+    {
+        $operador = $this->criarUsuario('operadorSemPermissao');
+        $alvo = $this->criarUsuario('conta.alvo');
+        $redirectUrl = config('Auth')->permissionDeniedRedirect();
+
+        $resp1 = $this->actingAs($operador)->get('admin/contas');
+        $resp1->assertRedirectTo($redirectUrl);
+
+        $resp2 = $this->actingAs($operador)->get('admin/contas/tabela');
+        $resp2->assertRedirectTo($redirectUrl);
+
+        $resp3 = $this->actingAs($operador)->get('admin/contas/' . $alvo->id);
+        $resp3->assertRedirectTo($redirectUrl);
+
+        $resp4 = $this->actingAs($operador)->post('admin/contas/' . $alvo->id, [
+            csrf_token() => csrf_hash(),
+            'nome' => 'Tentativa Bloqueada',
+            'senha_admin' => $this->senha,
+        ]);
+        $resp4->assertRedirectTo($redirectUrl);
+    }
+
+    public function testMinimizacaoDeIpNaAuditoria(): void
+    {
+        $servico = service('edicaoContaService');
+        $metodo = new \ReflectionMethod($servico, 'minimizarIp');
+
+        self::assertSame('192.168.1.0', $metodo->invoke($servico, '192.168.1.150'));
+        self::assertSame('10.0.0.0', $metodo->invoke($servico, '10.0.0.1'));
+        self::assertSame('2001:db8:85a3', $metodo->invoke($servico, '2001:0db8:85a3:0000:0000:8a2e:0370:7334'));
+        self::assertSame('2001:db8:85a3', $metodo->invoke($servico, '2001:db8:85a3::1'));
+        self::assertNull($metodo->invoke($servico, 'invalido'));
+        self::assertNull($metodo->invoke($servico, ''));
+        self::assertNull($metodo->invoke($servico, '0.0.0.0'));
     }
 
     private function criarUsuario(string $nome, bool $podeEditar = false): User

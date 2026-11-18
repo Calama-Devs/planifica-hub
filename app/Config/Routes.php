@@ -27,9 +27,12 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
         $routes->post('(:num)/permissoes', 'AcessoController::salvar/$1', ['as' => 'acessos.permissoes.salvar']);
     });
 
+    // Administração de contas: o filtro permission redireciona (302) ao negar acesso.
+    // Em requisição AJAX com dataType:'json', o navegador segue o redirect e recebe
+    // HTML do dashboard; o jQuery interpreta como parsererror e cai no .fail().
     $routes->group(
         'admin/contas',
-        [],
+        ['filter' => 'permission:contas.editar'],
         static function (RouteCollection $routes): void {
             $routes->get('/', 'ContaController::index', ['as' => 'contas.index']);
             $routes->get('tabela', 'ContaController::listar', ['as' => 'contas.tabela']);
