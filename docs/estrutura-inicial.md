@@ -62,7 +62,8 @@ seguem a convenção de sufixos descrita acima.
   existência de telas administrativas.
 - `app/Config/Routes.php` registra as rotas do Shield e protege `/` e `/sobre`
   com o filtro `session`. As rotas de `admin/acessos` ficam no mesmo grupo e
-  somam o filtro `permission:acessos.administrar`. O logout permanece
+  somam o filtro `permission:acessos.administrar`. A tela `/admin/contas` e
+  suas operações usam `permission:contas.editar`. O logout permanece
   exclusivamente por POST.
   `app/Config/Filters.php` e `Security.php` mantêm a proteção CSRF global
   baseada em sessão.
@@ -76,6 +77,9 @@ seguem a convenção de sufixos descrita acima.
 | GET | `/admin/acessos` | `AcessoController::index`, exige a permissão `acessos.administrar` e lista as contas |
 | GET | `/admin/acessos/{id}/permissoes` | `AcessoController::permissoes`, exige `acessos.administrar` e mostra as permissões da conta em caixas de seleção, com o que ela herda dos grupos e o acesso efetivo |
 | POST | `/admin/acessos/{id}/permissoes` | `AcessoController::salvar`, exige `acessos.administrar` e CSRF, e concede ou revoga só permissões diretas, conforme as caixas marcadas |
+| GET | `/admin/contas` | `ContaController::index`, exige `contas.editar` e lista as contas para manutenção do nome completo |
+| GET | `/admin/contas/{id}` | `ContaController::consultar`, exige `contas.editar` e carrega nome completo e e-mail da conta identificada pela rota |
+| POST | `/admin/contas/{id}` | `ContaController::atualizar`, exige `contas.editar` e CSRF; atualiza somente `nome_completo` após confirmação da senha do operador e audita na mesma transação |
 | GET / POST | `/register` | Formulário e cadastro pelo Shield |
 | GET / POST | `/login` | Formulário e autenticação pelo Shield |
 | POST | `/logout` | Encerra a sessão pelo Shield, com CSRF; GET não é permitido |
@@ -96,7 +100,8 @@ necessários a uma demanda aprovada.
 | Contexto | Localização convencional, ainda não implementada |
 |---|---|
 | Perfil | `app/Controllers/PerfilController.php` e `app/Views/perfil/` |
-| Administração | `app/Controllers/AdministracaoController.php` e `app/Views/administracao/` |
+| Administração de contas | `app/Controllers/ContaController.php` e `app/Views/conta/` |
+| Administração geral | `app/Controllers/AdministracaoController.php` e `app/Views/administracao/` |
 | Regras não triviais desses contextos | `app/Services/`, somente conforme a necessidade real |
 | Persistência própria | `app/Models/`, sem duplicar as Models de autenticação do Shield |
 | Permissões | Configurações do Shield em `app/Config/AuthGroups.php` e verificação no servidor pelos Filters do pacote; Filters próprios em `app/Filters/` somente se necessários |

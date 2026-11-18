@@ -22,6 +22,17 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
         $routes->get('(:num)/permissoes', 'AcessoController::permissoes/$1', ['as' => 'acessos.permissoes']);
         $routes->post('(:num)/permissoes', 'AcessoController::salvar/$1', ['as' => 'acessos.permissoes.salvar']);
     });
+
+    $routes->group(
+        'admin/contas',
+        [],
+        static function (RouteCollection $routes): void {
+            $routes->get('/', 'ContaController::index', ['as' => 'contas.index']);
+            $routes->get('tabela', 'ContaController::listar', ['as' => 'contas.tabela']);
+            $routes->get('(:num)', 'ContaController::consultar/$1', ['as' => 'contas.consultar']);
+            $routes->post('(:num)', 'ContaController::atualizar/$1', ['as' => 'contas.atualizar']);
+        },
+    );
 });
 
 service('auth')->routes($routes, ['except' => ['logout']]);

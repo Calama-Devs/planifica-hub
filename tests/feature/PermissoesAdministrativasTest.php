@@ -20,6 +20,7 @@ final class PermissoesAdministrativasTest extends CIUnitTestCase
     private const PERMISSOES_ADMINISTRATIVAS = [
         'contas.consultar',
         'contas.criar',
+        'contas.editar',
         'acessos.administrar',
     ];
 
@@ -106,6 +107,7 @@ final class PermissoesAdministrativasTest extends CIUnitTestCase
 
         $this->assertTrue($usuario->can('contas.consultar'));
         $this->assertTrue($usuario->can('contas.criar'));
+        $this->assertFalse($usuario->can('contas.editar'));
         $this->assertFalse($usuario->can('acessos.administrar'));
     }
 

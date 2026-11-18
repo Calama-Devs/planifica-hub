@@ -53,5 +53,19 @@
                 </a>
             </li>
         <?php endif ?>
+
+        <?php if (auth()->loggedIn() && auth()->user()->can('contas.editar')) : ?>
+            <?php if (! auth()->user()->can('acessos.administrar')) : ?>
+                <li class="nav-item nav-category"><span class="nav-link">Administração</span></li>
+            <?php endif ?>
+            <li class="nav-item menu-items <?= url_is('admin/contas*') ? 'active' : '' ?>">
+                <a class="nav-link" href="<?= site_url('admin/contas') ?>">
+                    <span class="menu-icon">
+                        <i class="mdi mdi-account-edit text-success" aria-hidden="true"></i>
+                    </span>
+                    <span class="menu-title">Gerenciar usuários</span>
+                </a>
+            </li>
+        <?php endif ?>
     </ul>
 </nav>

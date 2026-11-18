@@ -5,6 +5,8 @@ namespace Config;
 use App\Services\PerfilService;
 use App\Services\PermissaoDiretaService;
 use App\Services\PermissaoService;
+use App\Services\EdicaoContaService;
+use App\Services\ConfirmacaoOperacaoService;
 use CodeIgniter\Config\BaseService;
 
 /**
@@ -22,6 +24,24 @@ use CodeIgniter\Config\BaseService;
  */
 class Services extends BaseService
 {
+    public static function confirmacaoOperacaoService(bool $getShared = true): ConfirmacaoOperacaoService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('confirmacaoOperacaoService');
+        }
+
+        return new ConfirmacaoOperacaoService();
+    }
+
+    public static function edicaoContaService(bool $getShared = true): EdicaoContaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('edicaoContaService');
+        }
+
+        return new EdicaoContaService();
+    }
+
     public static function perfilService(bool $getShared = true): PerfilService
     {
         if ($getShared) {
