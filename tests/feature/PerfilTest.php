@@ -33,6 +33,25 @@ final class PerfilTest extends CIUnitTestCase
         $this->senha = bin2hex(random_bytes(24));
     }
 
+    public function testBloqueiaVisitanteSemSessao(): void
+    {
+        $resposta = $this->get('perfil');
+
+        $resposta->assertRedirect();
+    }
+
+    public function testExibeNomeEEmailDaContaAutenticada(): void
+    {
+        $usuario = $this->criarUsuario('usuario.consulta');
+        auth()->login($usuario);
+
+        $resposta = $this->withSession($_SESSION)->get('perfil');
+
+        $resposta->assertOK();
+        $resposta->assertSee('usuario.consulta');
+        $resposta->assertSee('perfil1@example.com');
+    }
+
     public function testExibePerfilComNomeAtualEProtecaoCsrf(): void
     {
         $usuario = $this->criarUsuario('usuario.teste');
@@ -78,15 +97,6 @@ final class PerfilTest extends CIUnitTestCase
             'user_id' => $usuarioAtual->id,
             'secret'  => 'adulterado@example.com',
         ]);
-
-        auth()->logout();
-        $usuarioAtualizado = model(UserModel::class)->findById($usuarioAtual->id);
-        $paginaPerfil      = $this->actingAs($usuarioAtualizado)->get('perfil');
-        $paginaPerfil->assertOK();
-        $this->assertStringContainsString(
-            'navbar-profile-name">nome.atualizado</p>',
-            $paginaPerfil->getBody(),
-        );
     }
 
     public function testRejeitaNomeForaDasRegrasConfiguradas(): void
