@@ -18,39 +18,23 @@
             <div class="col-lg-4 grid-margin">
                 <div class="card">
                     <div class="card-body">
-                        <div class="d-flex gap-3">
-                            <div class="flex-grow-1">
-                                <dl class="ps-0 mb-0">
-                                    <dt class="fw-normal small texto-apoio">Conta</dt>
-                                    <dd class="text-break mb-3"><?= esc($conta['rotulo']) ?></dd>
-                                    <?php if ($conta['email'] !== '') : ?>
-                                        <dt class="fw-normal small texto-apoio">E-mail</dt>
-                                        <dd class="text-break mb-3"><?= esc($conta['email']) ?></dd>
-                                    <?php endif ?>
-                                    <dt class="fw-normal small texto-apoio">Grupos</dt>
-                                    <dd class="mb-0">
-                                        <?php if (empty($conta['grupos'])) : ?>
-                                            <span class="texto-apoio">nenhum</span>
-                                        <?php endif ?>
-                                        <?php foreach ($conta['grupos'] as $grupo) : ?>
-                                            <span class="badge badge-outline-info"><?= esc($grupo) ?></span>
-                                        <?php endforeach ?>
-                                    </dd>
-                                </dl>
-                            </div>
-                            <div class="d-flex flex-column align-items-end gap-2">
-                                <span class="badge <?= $conta['active'] ? 'badge-outline-success' : 'badge-outline-danger' ?>">
-                                    <i class="mdi <?= $conta['active'] ? 'mdi-check-circle-outline' : 'mdi-close-circle-outline' ?>" aria-hidden="true"></i>
-                                    <?= $conta['active'] ? 'Ativa' : 'Inativa' ?>
-                                </span>
-                                <button
-                                    type="button" class="btn btn-sm btn-outline-primary"
-                                    data-bs-toggle="modal" data-bs-target="#modalAtivacao" id="botao-ativacao"
-                                >
-                                    <?= $conta['active'] ? 'Desativar conta' : 'Ativar conta' ?>
-                                </button>
-                            </div>
-                        </div>
+                        <dl class="ps-0 mb-0">
+                            <dt class="fw-normal small texto-apoio">Conta</dt>
+                            <dd class="text-break mb-3"><?= esc($conta['rotulo']) ?></dd>
+                            <?php if ($conta['email'] !== '') : ?>
+                                <dt class="fw-normal small texto-apoio">E-mail</dt>
+                                <dd class="text-break mb-3"><?= esc($conta['email']) ?></dd>
+                            <?php endif ?>
+                            <dt class="fw-normal small texto-apoio">Grupos</dt>
+                            <dd class="mb-0">
+                                <?php if (empty($conta['grupos'])) : ?>
+                                    <span class="texto-apoio">nenhum</span>
+                                <?php endif ?>
+                                <?php foreach ($conta['grupos'] as $grupo) : ?>
+                                    <span class="badge badge-outline-info"><?= esc($grupo) ?></span>
+                                <?php endforeach ?>
+                            </dd>
+                        </dl>
 
                         <div class="d-flex flex-wrap align-items-center gap-3 border-top pt-3 mt-4">
                             <button type="submit" class="btn btn-success">
@@ -167,7 +151,6 @@
     </form>
 </div>
 
-<?= view('acesso/components/modal_ativacao', ['conta' => $conta]) ?>
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
