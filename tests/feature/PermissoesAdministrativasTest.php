@@ -151,7 +151,7 @@ final class PermissoesAdministrativasTest extends CIUnitTestCase
     private function criarUsuario(?string $grupo = null): User
     {
         $usuarios = model(UserModel::class);
-        $usuarios->save(new User(['username' => 'usuario.permissoes']));
+        $usuarios->save(new User(['username' => 'usuario.permissoes', 'active' => true]));
 
         /** @var User $usuario */
         $usuario = $usuarios->findById($usuarios->getInsertID());

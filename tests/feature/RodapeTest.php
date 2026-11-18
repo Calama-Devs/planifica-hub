@@ -130,6 +130,7 @@ final class RodapeTest extends CIUnitTestCase
     {
         $users = model(UserModel::class);
         $user  = new User([
+            'active'   => true,
             'username' => 'usuario.rodape',
             'email'    => 'rodape@example.com',
             'password' => 'SenhaForte123!',

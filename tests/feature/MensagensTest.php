@@ -265,6 +265,7 @@ final class MensagensTest extends CIUnitTestCase
     {
         $users = model(UserModel::class);
         $user  = new User([
+            'active'   => true,
             'username' => 'usuario.mensagens',
             'email'    => 'mensagens@example.com',
             'password' => 'SenhaForte123!',

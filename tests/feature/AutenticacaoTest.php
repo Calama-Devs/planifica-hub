@@ -190,7 +190,7 @@ final class AutenticacaoTest extends CIUnitTestCase
     private function criarUsuario(string $email = 'teste@example.com', string $nomeUsuario = 'usuario.teste'): User
     {
         $usuarios = model(UserModel::class);
-        $usuario  = new User(['username' => $nomeUsuario]);
+        $usuario  = new User(['username' => $nomeUsuario, 'active' => true]);
         $usuarios->save($usuario);
 
         /** @var User $usuario */
@@ -860,6 +860,7 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->db->table('users')->where('id', $usuario->id)->update(['active' => 0]);
         $hashAnterior = $this->buscarHashDaSenha();
 
+        $this->withHeaders(['X-Requested-With' => 'XMLHttpRequest']);
         $resposta = $this->executarAlteracaoPeloPerfil($this->senha, 'NovaSenha@123', 'NovaSenha@123');
 
         $resposta->assertStatus(403);
