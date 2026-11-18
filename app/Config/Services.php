@@ -2,11 +2,14 @@
 
 namespace Config;
 
+use App\Services\MenuService;
+use Config\Menu;
 use App\Services\RedefinirSenhaService;
 use App\Services\PerfilService;
 use App\Services\PermissaoDiretaService;
 use App\Services\PermissaoService;
 use CodeIgniter\Config\BaseService;
+use App\Services\CabecalhoService;
 
 /**
  * Services Configuration file.
@@ -57,5 +60,23 @@ class Services extends BaseService
         }
 
         return new PermissaoDiretaService();
+    }
+
+    public static function menu(?Menu $config = null, bool $getShared = true): MenuService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('menu', $config);
+        }
+
+        return new MenuService($config);
+    }
+
+    public static function contaCabecalho(bool $getShared = true): CabecalhoService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('contaCabecalho');
+        }
+
+        return new CabecalhoService();
     }
 }

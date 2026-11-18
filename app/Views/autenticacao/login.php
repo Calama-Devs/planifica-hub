@@ -71,13 +71,23 @@ $campoLogin = dados_campo_login();
                     <label for="password" class="form-label text-light fw-medium">
                         Senha <span class="text-danger">*</span>
                     </label>
-                    <input type="password"
-                           class="form-control p_input text-light"
-                           id="password"
-                           name="password"
-                           autocomplete="current-password"
-                           placeholder="Digite sua senha"
-                           required>
+
+                    <div class="position-relative">
+                        <input type="password"
+                            class="form-control p_input text-light"
+                            id="password"
+                            name="password"
+                            autocomplete="current-password"
+                            placeholder="Digite sua senha"
+                            required>
+
+                        <button type="button"
+                                id="togglePassword"
+                                class="btn position-absolute top-50 end-0 translate-middle-y border-0"
+                                aria-label="Mostrar senha">
+                            <i class="mdi mdi-eye" aria-hidden="true"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="form-group d-flex align-items-center justify-content-between mb-4">
@@ -112,7 +122,7 @@ $campoLogin = dados_campo_login();
         <!-- Rodapé do Card de Login -->
         <div class="mt-4 pt-3 border-top border-secondary text-center">
             <p class="text-muted small mb-1">
-                © <?= date('Y') ?> • PlanIFica • IFRO Campus Calama
+                © <?= date('Y') ?> IFRO Campus Porto Velho Calama
             </p>
         </div>
     </div>
@@ -122,9 +132,8 @@ $campoLogin = dados_campo_login();
         <div class="p-4 p-xl-5 text-white shadow-lg" style="background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 16px; max-width: 600px;">
             <h2 class="display-6 fw-bold text-white mb-2">PlanIFica</h2>
             <p class="text-muted mb-4" style="font-size: 1rem;">
-                Gestão e organização de horários acadêmicos e ensalamento.
+                    Plataforma que integra sistemas e serviços do IFRO.
             </p>
-
             <div class="p-3 rounded mb-4" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08);">
                 <p class="text-light mb-0 small" style="line-height: 1.6;">
                     Sistema construído por alunos do curso de Análise e Desenvolvimento de Sistemas para o IFRO Campus Porto Velho Calama, desenvolvido pelo time Calama Devs.
@@ -133,4 +142,27 @@ $campoLogin = dados_campo_login();
         </div>
     </div>
 </main>
+<?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
+<script>
+    const togglePassword = document.getElementById('togglePassword');
+    const passwordInput = document.getElementById('password');
+
+    togglePassword.addEventListener('click', function () {
+        const passwordIsHidden = passwordInput.type === 'password';
+
+        passwordInput.type = passwordIsHidden ? 'text' : 'password';
+
+        const icon = this.querySelector('i');
+
+        icon.classList.toggle('mdi-eye', !passwordIsHidden);
+        icon.classList.toggle('mdi-eye-off', passwordIsHidden);
+
+        this.setAttribute(
+            'aria-label',
+            passwordIsHidden ? 'Ocultar senha' : 'Mostrar senha'
+        );
+    });
+</script>
 <?= $this->endSection() ?>
