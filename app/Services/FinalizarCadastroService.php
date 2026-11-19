@@ -15,6 +15,13 @@ class FinalizarCadastroService
     public const ESTADO_ERRO_TEMPORARIO         = 'erro_temporario';
 
     /**
+     * Resolvedor de convites plugável para adaptadores ou fontes integradas.
+     *
+     * @var (callable(string): (array<string, mixed>|null))|null
+     */
+    private $resolvedorConvite = null;
+
+    /**
      * Mapeamento de rótulos amigáveis para os grupos de acesso do sistema.
      *
      * @var array<string, string>
@@ -26,6 +33,16 @@ class FinalizarCadastroService
         'developer'  => 'Desenvolvedor (developer)',
         'beta'       => 'Testador Beta (beta)',
     ];
+
+    /**
+     * Configura um resolvedor customizado ou adaptador de convites plugável.
+     *
+     * @param (callable(string): (array<string, mixed>|null))|null $resolvedor
+     */
+    public function definirResolvedorConvite(?callable $resolvedor): void
+    {
+        $this->resolvedorConvite = $resolvedor;
+    }
 
     /**
      * Retorna a lista de estados de convite suportados pelo contrato do serviço.
@@ -86,6 +103,22 @@ class FinalizarCadastroService
             ];
         }
 
+        // 1. Consulta adaptador/resolvedor plugável se registrado
+        if ($this->resolvedorConvite !== null) {
+            $resultadoResolvedor = ($this->resolvedorConvite)($tokenLimpo);
+            if ($resultadoResolvedor !== null) {
+                return $resultadoResolvedor;
+            }
+        }
+
+        // 2. Em ambiente de desenvolvimento/teste, reconhece tokens de demonstração locais
+        if (ENVIRONMENT !== 'production') {
+            $resultadoDemonstracao = $this->obterConviteDemonstracao($tokenLimpo);
+            if ($resultadoDemonstracao !== null) {
+                return $resultadoDemonstracao;
+            }
+        }
+
         // Sem infraestrutura de persistência de convites conectada,
         // o token é considerado não localizado no servidor.
         return [
@@ -96,6 +129,81 @@ class FinalizarCadastroService
             'mensagem' => 'Este link de convite não está disponível para utilização.',
             'dados'    => null,
         ];
+    }
+
+    /**
+     * Retorna dados simulados de demonstração para desenvolvimento e testes locais.
+     *
+     * @return array{
+     *     sucesso: bool,
+     *     tipo: string,
+     *     codigo: string,
+     *     estado: string,
+     *     mensagem: string,
+     *     dados: array{email: string, grupos: list<array{codigo: string, rotulo: string}>, token: string}|null
+     * }|null
+     */
+    private function obterConviteDemonstracao(string $token): ?array
+    {
+        return match ($token) {
+            'dev-token-valido', 'dev-convite-valido' => [
+                'sucesso'  => true,
+                'tipo'     => 'sucesso',
+                'codigo'   => 'CONVITE_VALIDO',
+                'estado'   => self::ESTADO_VALIDO,
+                'mensagem' => 'Convite válido.',
+                'dados'    => [
+                    'token'  => $token,
+                    'email'  => 'convidado.calama@ifro.edu.br',
+                    'grupos' => $this->formatarGrupos(['user']),
+                ],
+            ],
+            'dev-token-multiplos' => [
+                'sucesso'  => true,
+                'tipo'     => 'sucesso',
+                'codigo'   => 'CONVITE_VALIDO',
+                'estado'   => self::ESTADO_VALIDO,
+                'mensagem' => 'Convite válido.',
+                'dados'    => [
+                    'token'  => $token,
+                    'email'  => 'coordenador.calama@ifro.edu.br',
+                    'grupos' => $this->formatarGrupos(['user', 'admin', 'beta']),
+                ],
+            ],
+            'dev-token-expirado' => [
+                'sucesso'  => false,
+                'tipo'     => 'regra_negocio',
+                'codigo'   => 'CONVITE_EXPIRADO',
+                'estado'   => self::ESTADO_EXPIRADO,
+                'mensagem' => 'O prazo de validade deste convite terminou.',
+                'dados'    => null,
+            ],
+            'dev-token-cancelado' => [
+                'sucesso'  => false,
+                'tipo'     => 'regra_negocio',
+                'codigo'   => 'CONVITE_CANCELADO',
+                'estado'   => self::ESTADO_CANCELADO,
+                'mensagem' => 'Este convite foi cancelado pela administração.',
+                'dados'    => null,
+            ],
+            'dev-token-utilizado' => [
+                'sucesso'  => false,
+                'tipo'     => 'regra_negocio',
+                'codigo'   => 'CONVITE_UTILIZADO',
+                'estado'   => self::ESTADO_UTILIZADO,
+                'mensagem' => 'Este convite já foi utilizado.',
+                'dados'    => null,
+            ],
+            'dev-token-erro' => [
+                'sucesso'  => false,
+                'tipo'     => 'inesperado',
+                'codigo'   => 'ERRO_TEMPORARIO',
+                'estado'   => self::ESTADO_ERRO_TEMPORARIO,
+                'mensagem' => 'Não foi possível consultar os dados do convite no momento.',
+                'dados'    => null,
+            ],
+            default => null,
+        };
     }
 
     /**

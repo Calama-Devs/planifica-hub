@@ -77,10 +77,11 @@ final class FinalizarCadastroTest extends CIUnitTestCase
         $resposta->assertSeeElement('label[for=nome-completo]');
         $resposta->assertSeeElement('input[id=nome-completo]');
 
-        // Campo E-mail em somente leitura
+        // Campo E-mail em somente leitura e acessível por teclado (sem tabindex="-1")
         $resposta->assertSeeElement('label[for=email-institucional]');
         $resposta->assertSeeElement('input[id=email-institucional]');
         $this->assertStringContainsString('readonly', $resposta->getBody());
+        $this->assertStringNotContainsString('tabindex="-1"', $resposta->getBody());
         $resposta->assertSee('convidado@ifro.edu.br');
 
         // Grupo padrão user
@@ -384,7 +385,21 @@ final class FinalizarCadastroTest extends CIUnitTestCase
         ]);
 
         $resposta->assertRedirectTo(site_url('login'));
+        $this->assertSame('Cadastro concluído com sucesso! Acesse sua conta.', session('success'));
         $this->assertSame('Cadastro concluído com sucesso! Acesse sua conta.', session('message'));
+    }
+
+    public function testAcessoComTokenDemonstracaoExibeFormularioValidoSemMocks(): void
+    {
+        $resposta = $this->get('finalizar-cadastro?token=dev-token-valido');
+
+        $resposta->assertOK();
+        $resposta->assertSee('Finalize seu cadastro');
+        $resposta->assertSee('convidado.calama@ifro.edu.br');
+        $resposta->assertSee('Usuário (user)');
+        $resposta->assertSeeElement('input[id=senha]');
+        $resposta->assertSeeElement('input[id=confirmar-senha]');
+        $this->assertStringNotContainsString('tabindex="-1"', $resposta->getBody());
     }
 
     public function testAliasConviteFinalizarCarregaMesmaInterface(): void

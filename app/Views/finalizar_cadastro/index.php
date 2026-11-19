@@ -45,9 +45,9 @@
                     </div>
                 <?php endif ?>
 
-                <?php if (session('message') !== null || session('success') !== null) : ?>
+                <?php if (session('success') !== null) : ?>
                     <div class="alert alert-success py-2 small mb-3" role="alert">
-                        <?= esc(session('message') ?? session('success')) ?>
+                        <?= esc(session('success')) ?>
                     </div>
                 <?php endif ?>
             </div>
@@ -90,7 +90,6 @@
                                name="email_institucional"
                                value="<?= esc($dadosConvite['email'] ?? '') ?>"
                                readonly
-                               tabindex="-1"
                                aria-readonly="true">
                         <small class="text-muted d-block mt-1">Endereço de e-mail associado ao convite recebido.</small>
                     </div>

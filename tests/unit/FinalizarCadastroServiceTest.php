@@ -104,4 +104,36 @@ final class FinalizarCadastroServiceTest extends CIUnitTestCase
         $this->assertSame('cancelado', FinalizarCadastroService::ESTADO_CANCELADO);
         $this->assertSame('invalido_ou_cancelado', FinalizarCadastroService::ESTADO_INVALIDO_OU_CANCELADO);
     }
+
+    public function testResolvedorCustomizadoPlugavelRetornaDadosConfigurados(): void
+    {
+        $this->service->definirResolvedorConvite(static function (string $token): array {
+            return [
+                'sucesso'  => true,
+                'tipo'     => 'sucesso',
+                'codigo'   => 'CONVITE_VALIDO',
+                'estado'   => FinalizarCadastroService::ESTADO_VALIDO,
+                'mensagem' => 'Convite customizado.',
+                'dados'    => [
+                    'token'  => $token,
+                    'email'  => 'integracao@ifro.edu.br',
+                    'grupos' => [['codigo' => 'user', 'rotulo' => 'Usuário (user)']],
+                ],
+            ];
+        });
+
+        $resultado = $this->service->validarConvite('token-customizado-1234');
+        $this->assertTrue($resultado['sucesso']);
+        $this->assertSame(FinalizarCadastroService::ESTADO_VALIDO, $resultado['estado']);
+        $this->assertSame('integracao@ifro.edu.br', $resultado['dados']['email']);
+    }
+
+    public function testTokenDemonstracaoLocalRetornaConviteValidoComDados(): void
+    {
+        $resultado = $this->service->validarConvite('dev-token-valido');
+        $this->assertTrue($resultado['sucesso']);
+        $this->assertSame(FinalizarCadastroService::ESTADO_VALIDO, $resultado['estado']);
+        $this->assertSame('convidado.calama@ifro.edu.br', $resultado['dados']['email']);
+        $this->assertCount(1, $resultado['dados']['grupos']);
+    }
 }
