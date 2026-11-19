@@ -2,7 +2,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <form id="form-atualizar-conta" method="post">
-                <?= csrf_field() ?>
+                <span data-csrf-field><?= csrf_field() ?></span>
                 <div class="modal-header">
                     <h5 class="modal-title" id="titulo-modal-atualizar-conta">Atualizar usuário</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" data-dismiss="modal" aria-label="Fechar"></button>

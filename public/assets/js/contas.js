@@ -45,7 +45,7 @@ $(function () {
         }
 
         $('meta[name="X-CSRF-TOKEN"]').attr('content', resposta.csrf_hash);
-        form.find('input[type="hidden"]')
+        form.find('[data-csrf-field] input[type="hidden"]')
             .val(resposta.csrf_hash)
             .attr('value', resposta.csrf_hash);
     }
