@@ -28,7 +28,7 @@ class FinalizarCadastroController extends BaseController
 
         $resultado = $this->finalizarCadastroService->validarConvite($token);
 
-        return view('finalizarcadastro/index', [
+        return view('finalizar_cadastro/index', [
             'estado'       => $resultado['estado'],
             'mensagem'     => $resultado['mensagem'],
             'dadosConvite' => $resultado['dados'],
