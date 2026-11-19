@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Filters\ContaAtivaFilter;
 use App\Models\EstadoContaModel;
 use App\Services\AutenticacaoSessaoService;
 use App\Services\EstadoContaService;
 use App\Services\RedefinirSenhaService;
 use CodeIgniter\Email\Email;
 use CodeIgniter\I18n\Time;
+use CodeIgniter\Shield\Authentication\Actions\Email2FA;
 use CodeIgniter\Shield\Authentication\AuthenticationException;
 use CodeIgniter\Shield\Entities\User;
+use CodeIgniter\Shield\Filters\SessionAuth;
 use CodeIgniter\Shield\Models\RememberModel;
 use CodeIgniter\Shield\Models\UserIdentityModel;
 use CodeIgniter\Shield\Models\UserModel;
@@ -58,7 +59,7 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
 
     public function testConfiguraIntegracaoDaSessaoComOEstadoAdministrativo(): void
     {
-        $this->assertSame(ContaAtivaFilter::class, config('Filters')->aliases['session']);
+        $this->assertSame(SessionAuth::class, config('Filters')->aliases['session']);
         $this->assertInstanceOf(AutenticacaoSessaoService::class, auth()->getAuthenticator());
         $this->assertNull(setting('Auth.actions')['register']);
     }
@@ -166,6 +167,32 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
 
         $this->assertFalse(auth()->loggedIn());
         $this->assertNull(session($campo));
+    }
+
+    public function testSessaoPendenteDesativadaNaoSegueParaAcaoDoShield(): void
+    {
+        auth()->login($this->conta);
+        $campo = setting('Auth.sessionConfig')['field'];
+        $sessaoPendente = $_SESSION;
+        $sessaoPendente[$campo]['auth_action'] = Email2FA::class;
+        $this->desativarConta();
+        $this->reiniciarRequisicao();
+
+        $resposta = $this->withSession($sessaoPendente)
+            ->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])->get('admin/permissoes');
+
+        $resposta->assertStatus(403);
+        $resposta->assertJSONFragment(['codigo' => 'USUARIO_INDISPONIVEL']);
+        $this->assertNull(session($campo));
+    }
+
+    public function testConsultaDiretaDaSessaoRevogadaRetornaNaoAutenticado(): void
+    {
+        auth()->login($this->conta);
+        $this->desativarConta();
+
+        $this->assertFalse(auth()->loggedIn());
+        $this->assertNull(session(setting('Auth.sessionConfig')['field']));
     }
 
     public function testRecusaOperacaoAjaxDeSessaoAnteriorSemAlterarSenha(): void

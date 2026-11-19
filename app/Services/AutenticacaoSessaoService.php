@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use CodeIgniter\HTTP\IncomingRequest;
+use CodeIgniter\HTTP\ResponsableInterface;
+use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\Shield\Authentication\AuthenticationException;
 use CodeIgniter\Shield\Authentication\Authenticators\Session;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Result;
+use RuntimeException;
 
 /**
  * Integra a suspensão administrativa ao Shield sem confundi-la com ativação por e-mail.
@@ -53,14 +57,45 @@ class AutenticacaoSessaoService extends Session
         $this->setSessionUserKey(self::CHAVE_VERSAO_SESSAO, $versao);
     }
 
-    public function sessaoTemVersaoAtual(User $conta): bool
+    public function loggedIn(): bool
+    {
+        return $this->validarSessaoExistente() && parent::loggedIn() && $this->user !== null;
+    }
+
+    private function validarSessaoExistente(): bool
+    {
+        $usuarioId = $this->getSessionUserKey('id');
+
+        if ($usuarioId === null) {
+            return true;
+        }
+
+        $conta = $this->provider->findById($usuarioId);
+        $inativa = $conta === null || ! $conta->active;
+
+        if (! $inativa && $this->sessaoTemVersaoAtual($conta)) {
+            return true;
+        }
+
+        $this->encerrarSessaoRevogada();
+
+        // O filtro nativo só redireciona ao receber false e não distingue sessão revogada de visitante.
+        $requisicao = service('request');
+        if ($requisicao instanceof IncomingRequest && in_array('session', service('router')->getFilters(), true)) {
+            $this->responderSessaoEncerrada($requisicao->isAJAX(), $inativa);
+        }
+
+        return false;
+    }
+
+    private function sessaoTemVersaoAtual(User $conta): bool
     {
         $versaoAtual = (int) $conta->versao_sessao;
 
         return $versaoAtual > 0 && $this->getSessionUserKey(self::CHAVE_VERSAO_SESSAO) === $versaoAtual;
     }
 
-    public function encerrarSessaoRevogada(): void
+    private function encerrarSessaoRevogada(): void
     {
         $sessao = session();
         $sessao->remove(array_keys($sessao->get()));
@@ -69,9 +104,36 @@ class AutenticacaoSessaoService extends Session
         $this->user = null;
     }
 
-    public function loggedIn(): bool
+    private function responderSessaoEncerrada(bool $ajax, bool $inativa): never
     {
-        return parent::loggedIn() && $this->user !== null;
+        throw new class ($ajax, $inativa) extends RuntimeException implements ResponsableInterface {
+            public function __construct(private readonly bool $ajax, private readonly bool $inativa)
+            {
+                parent::__construct('Sessão encerrada.');
+            }
+
+            public function getResponse(): ResponseInterface
+            {
+                $mensagem = $this->inativa
+                    ? 'Sua conta está inativa e sua sessão foi encerrada. '
+                        . 'Entre em contato com o administrador para reativação do acesso.'
+                    : 'Sua sessão foi encerrada. Entre novamente para continuar.';
+
+                session()->setFlashdata('error', $mensagem);
+
+                if ($this->ajax) {
+                    return service('response')->setStatusCode(403)->setJSON([
+                        'sucesso' => false,
+                        'tipo' => 'permissao',
+                        'codigo' => $this->inativa ? 'USUARIO_INDISPONIVEL' : 'SESSAO_REVOGADA',
+                        'mensagem' => $mensagem,
+                        'redirecionamento' => url_to('login'),
+                    ]);
+                }
+
+                return redirect()->to(config('Auth')->logoutRedirect());
+            }
+        };
     }
 
     public function isPending(): bool
