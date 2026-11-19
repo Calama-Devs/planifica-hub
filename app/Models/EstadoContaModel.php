@@ -29,7 +29,7 @@ class EstadoContaModel extends UserModel
         if ($this->db->transDepth < 1) {
             throw new RuntimeException('O bloqueio exige uma transação aberta.');
         }
-        
+
         if ($this->db->DBDriver === 'SQLite3' && ENVIRONMENT === 'testing') {
             if (! $this->builder()->where('1 = 0', null, false)->set('id', 'id', false)->update()) {
                 throw new RuntimeException('Não foi possível reservar a escrita.');
