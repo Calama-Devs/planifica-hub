@@ -84,6 +84,10 @@ class AcessoService
         return is_array($definidos) ? $definidos : [];
     }
 
+    /**
+     * Filtra pela coluna canônica `users.active` do CodeIgniter Shield (1 = ativo, 0 = inativo),
+     * adotada no PlanIFica Hub (ex.: RedefinirSenhaController e RedefinirSenhaService).
+     */
     private function criarConsultaPorSituacao(string $situacao): UserModel
     {
         // Instância própria: evita acumular filtros e withX() do Shield entre consultas.
