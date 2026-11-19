@@ -25,6 +25,10 @@
                         <input type="password" class="form-control" id="perfil-confirmar-senha" name="confirmar-senha-nova"
                             autocomplete="new-password" required>
                     </div>
+                    <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="mostrar-senhas-perfil">
+                        <label class="form-check-label" for="mostrar-senhas-perfil">Mostrar senhas</label>
+                    </div>
                     <p id="regras-senha-perfil" class="text-muted small">
                         Use pelo menos <?= esc((string) config('Auth')->minimumPasswordLength) ?> caracteres. A nova senha
                         deve ser diferente da atual e não pode ser comum nem conter dados pessoais.
@@ -33,7 +37,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Alterar senha</button>
+                    <button type="submit" class="btn btn-primary">Atualizar senha</button>
                 </div>
             </form>
         </div>

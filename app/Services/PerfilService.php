@@ -10,6 +10,40 @@ use CodeIgniter\Validation\ValidationInterface;
 class PerfilService
 {
     /**
+     * Grupos da conta pelo título configurado em AuthGroups; grupo sem título aparece pelo identificador.
+     *
+     * @return list<string>
+     */
+    public function listarGrupos(User $usuario): array
+    {
+        $gruposConfigurados = config('AuthGroups')->groups;
+
+        return array_map(
+            static fn (string $grupo): string => $gruposConfigurados[$grupo]['title'] ?? $grupo,
+            $usuario->getGroups() ?? [],
+        );
+    }
+
+    /**
+     * Descrições das permissões do catálogo que a conta possui de fato, herdadas dos grupos
+     * ou concedidas diretamente. Usa o can() do Shield em vez de deduzir pelo nome do grupo.
+     *
+     * @return list<string>
+     */
+    public function listarPermissoesEfetivas(User $usuario): array
+    {
+        $permissoes = [];
+
+        foreach (config('AuthGroups')->permissions as $permissao => $descricao) {
+            if ($usuario->can($permissao)) {
+                $permissoes[] = $descricao;
+            }
+        }
+
+        return $permissoes;
+    }
+
+    /**
      * @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string, erros?: array<string, string>}
      */
     public function atualizarNome(User $usuario, string $nome): array

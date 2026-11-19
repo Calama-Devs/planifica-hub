@@ -12,13 +12,40 @@
                 <dl class="row mb-4">
                     <dt class="col-sm-3">Nome</dt>
                     <dd class="col-sm-9"><?= esc($nomeAtual) ?></dd>
-                    <dt class="col-sm-3">E-mail</dt>
-                    <dd class="col-sm-9"><?= esc($emailAtual) ?></dd>
+                    <dt class="col-sm-3">E-mail institucional</dt>
+                    <dd class="col-sm-9">
+                        <?= esc($emailAtual) ?>
+                        <small class="d-block text-muted">Somente consulta. A alteração é feita pela administração de contas.</small>
+                    </dd>
+                    <dt class="col-sm-3">Grupos</dt>
+                    <dd class="col-sm-9">
+                        <?php if ($grupos === []) : ?>
+                            Nenhum grupo vinculado à conta.
+                        <?php else : ?>
+                            <ul class="list-inline mb-0">
+                                <?php foreach ($grupos as $grupo) : ?>
+                                    <li class="list-inline-item"><span class="badge badge-outline-primary"><?= esc($grupo) ?></span></li>
+                                <?php endforeach ?>
+                            </ul>
+                        <?php endif ?>
+                    </dd>
+                    <dt class="col-sm-3">Permissões</dt>
+                    <dd class="col-sm-9">
+                        <?php if ($permissoesEfetivas === []) : ?>
+                            Nenhuma permissão administrativa.
+                        <?php else : ?>
+                            <ul class="mb-0 ps-3">
+                                <?php foreach ($permissoesEfetivas as $permissao) : ?>
+                                    <li><?= esc($permissao) ?></li>
+                                <?php endforeach ?>
+                            </ul>
+                        <?php endif ?>
+                    </dd>
                 </dl>
 
                 <hr class="mb-4">
 
-                <h5 class="card-title">Alterar nome</h5>
+                <h5 class="card-title">Editar nome</h5>
                 <p class="card-description">Altere o nome exibido na sua conta.</p>
 
                 <form action="<?= url_to('perfil.atualizar') ?>" method="post">
@@ -36,6 +63,17 @@
 
                     <button type="submit" class="btn btn-primary">Salvar nome</button>
                 </form>
+
+                <hr class="my-4">
+
+                <h5 class="card-title">Alterar senha</h5>
+                <p class="card-description">Confirme a senha atual para definir uma nova.</p>
+
+                <button type="button" id="botao-alterar-senha-perfil" class="btn btn-outline-primary"
+                        data-bs-toggle="modal" data-bs-target="#modal-alterar-senha">
+                    <i class="mdi mdi-lock-reset" aria-hidden="true"></i>
+                    Alterar senha
+                </button>
             </div>
         </div>
     </div>

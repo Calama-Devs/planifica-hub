@@ -4,7 +4,13 @@
     var modal = $('#modal-alterar-senha');
     var formulario = $('#formulario-alterar-senha');
     var alerta = $('#erro-alterar-senha');
+    var camposSenha = formulario.find('input[type="password"]');
+    var mostrarSenhas = $('#mostrar-senhas-perfil');
     var enviando = false;
+
+    function exibirSenhas(exibir) {
+        camposSenha.prop('type', exibir ? 'text' : 'password');
+    }
 
     function atualizarCsrf(resposta) {
         if (!resposta || !resposta.csrf) {
@@ -43,7 +49,12 @@
         }
     }).on('hidden.bs.modal', function () {
         formulario[0].reset();
+        exibirSenhas(false);
         alerta.text('').addClass('d-none');
+    });
+
+    mostrarSenhas.on('change', function () {
+        exibirSenhas(this.checked);
     });
 
     formulario.on('submit', function (evento) {

@@ -215,7 +215,162 @@ final class PerfilTest extends CIUnitTestCase
         }
     }
 
-    private function criarUsuario(string $nome): User
+    public function testUsuarioComumConsultaGruposSemPermissoesAdministrativas(): void
+    {
+        $usuario = $this->criarUsuario('usuario.comum', 'user');
+        auth()->login($usuario);
+
+        $resposta = $this->withSession($_SESSION)->get('perfil');
+
+        $resposta->assertOK();
+        $resposta->assertSee('E-mail institucional');
+        $resposta->assertSee('perfil1@example.com');
+        $resposta->assertSee(config('AuthGroups')->groups['user']['title']);
+        $resposta->assertSee('Nenhuma permissão administrativa.');
+        $resposta->assertDontSeeElement('input[name=email]');
+    }
+
+    public function testExibeGruposEPermissoesEfetivasDaContaAdministrativa(): void
+    {
+        $usuario = $this->criarUsuario('usuario.admin', 'admin');
+        auth()->login($usuario);
+        $configuracao = config('AuthGroups');
+
+        $resposta = $this->withSession($_SESSION)->get('perfil');
+
+        $resposta->assertOK();
+        $resposta->assertSee($configuracao->groups['admin']['title']);
+        $resposta->assertSee($configuracao->permissions['contas.consultar']);
+        $resposta->assertSee($configuracao->permissions['contas.criar']);
+        $resposta->assertDontSee($configuracao->permissions['acessos.administrar']);
+    }
+
+    public function testExibeOpcoesDeEditarNomeEAlterarSenha(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
+        $resposta = $this->withSession($_SESSION)->get('perfil');
+
+        $resposta->assertOK();
+        $resposta->assertSee('Editar nome');
+        $resposta->assertSeeElement('button[id=botao-alterar-senha-perfil]');
+        $resposta->assertSeeElement('input[id=mostrar-senhas-perfil]');
+        $resposta->assertSee('Atualizar senha');
+        $resposta->assertSee('Cancelar');
+    }
+
+    public function testListaGruposPeloTituloConfigurado(): void
+    {
+        $usuario = $this->criarUsuario('usuario.grupos', 'user');
+        $usuario->addGroup('admin');
+        $grupos = config('AuthGroups')->groups;
+
+        $this->assertSame(
+            [$grupos['user']['title'], $grupos['admin']['title']],
+            service('perfilService')->listarGrupos($usuario),
+        );
+    }
+
+    public function testListaPermissoesEfetivasHerdadasDoGrupoEConcedidasDiretamente(): void
+    {
+        $usuario = $this->criarUsuario('usuario.direto', 'user');
+        $usuario->addPermission('acessos.administrar');
+        $permissoes = config('AuthGroups')->permissions;
+
+        $this->assertSame(
+            [$permissoes['acessos.administrar']],
+            service('perfilService')->listarPermissoesEfetivas($usuario),
+        );
+
+        $usuario->addGroup('admin');
+
+        $this->assertSame(
+            [$permissoes['contas.consultar'], $permissoes['contas.criar'], $permissoes['acessos.administrar']],
+            service('perfilService')->listarPermissoesEfetivas($usuario),
+        );
+    }
+
+    public function testRecusaAlteracaoDeNomeSemSessao(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+
+        $resposta = $this->withSession($_SESSION)->post('perfil', [
+            csrf_token() => csrf_hash(),
+            'nome'       => 'Apelido',
+        ]);
+
+        $resposta->assertRedirectTo(site_url('login'));
+        $this->seeInDatabase('users', [
+            'id'       => $usuario->id,
+            'username' => 'usuario.teste',
+        ]);
+    }
+
+    public function testAlteracaoDeNomePreservaCredenciaisGruposEPermissoes(): void
+    {
+        $usuario = $this->criarUsuario('usuario.atual', 'admin');
+        $usuario->addPermission('acessos.administrar');
+        $this->ativarUsuario($usuario);
+        auth()->login($usuario);
+        $hashAnterior = $this->buscarHashDaSenha($usuario);
+
+        $resposta = $this->enviarFormulario([
+            'nome'        => 'Apelido',
+            'password'    => 'SenhaAdulterada@123',
+            'email'       => 'adulterado@example.com',
+            'groups'      => ['superadmin'],
+            'permissions' => ['contas.criar'],
+            'active'      => '0',
+        ]);
+
+        $resposta->assertRedirectTo(url_to('perfil'));
+        $resposta->assertSessionHas('success');
+        $this->seeInDatabase('users', [
+            'id'       => $usuario->id,
+            'username' => 'Apelido',
+        ]);
+        $this->assertSame($hashAnterior, $this->buscarHashDaSenha($usuario));
+        $this->assertContaPreservada($usuario, 'perfil1@example.com', ['admin'], ['acessos.administrar']);
+        $this->assertTrue(auth()->loggedIn());
+    }
+
+    public function testAlteracaoDeSenhaNaoModificaOutrosDadosNemOutraConta(): void
+    {
+        $usuario      = $this->criarUsuario('conta.principal', 'admin');
+        $outroUsuario = $this->criarUsuario('conta.vizinha');
+        $usuario->addPermission('acessos.administrar');
+        $this->ativarUsuario($usuario);
+        auth()->login($usuario);
+        $hashOutraConta = $this->buscarHashDaSenha($outroUsuario);
+
+        $resposta = $this->withSession($_SESSION)->post('perfil/alterar-senha', [
+            csrf_token()           => csrf_hash(),
+            'senha-atual'          => $this->senha,
+            'senha-nova'           => 'NovaSenha@123',
+            'confirmar-senha-nova' => 'NovaSenha@123',
+            'id'                   => (string) $outroUsuario->id,
+            'user_id'              => (string) $outroUsuario->id,
+            'nome'                 => 'Apelido',
+            'username'             => 'Apelido',
+            'email'                => 'adulterado@example.com',
+            'groups'               => ['superadmin'],
+            'permissions'          => ['contas.criar'],
+            'active'               => '0',
+        ]);
+
+        $resposta->assertOK();
+        $resposta->assertJSONFragment(['sucesso' => true]);
+        $this->assertTrue(password_verify('NovaSenha@123', $this->buscarHashDaSenha($usuario)));
+        $this->assertSame($hashOutraConta, $this->buscarHashDaSenha($outroUsuario));
+        $this->seeInDatabase('users', [
+            'id'       => $usuario->id,
+            'username' => 'conta.principal',
+        ]);
+        $this->assertContaPreservada($usuario, 'perfil1@example.com', ['admin'], ['acessos.administrar']);
+    }
+
+    private function criarUsuario(string $nome, ?string $grupo = null): User
     {
         $usuarios = model(UserModel::class);
         $usuario  = new User(['username' => $nome]);
@@ -228,7 +383,53 @@ final class PerfilTest extends CIUnitTestCase
             'password' => $this->senha,
         ]);
 
+        if ($grupo !== null) {
+            $usuario->addGroup($grupo);
+        }
+
         return $usuario;
+    }
+
+    private function ativarUsuario(User $usuario): void
+    {
+        $usuario->active = true;
+        $this->db->table('users')->where('id', $usuario->id)->update(['active' => 1]);
+    }
+
+    private function buscarHashDaSenha(User $usuario): string
+    {
+        $identidade = $this->db->table('auth_identities')
+            ->select('secret2')
+            ->where('user_id', $usuario->id)
+            ->where('type', 'email_password')
+            ->get()
+            ->getRowArray();
+
+        $this->assertNotNull($identidade);
+
+        return $identidade['secret2'];
+    }
+
+    /**
+     * @param list<string> $grupos
+     * @param list<string> $permissoesDiretas
+     */
+    private function assertContaPreservada(User $usuario, string $email, array $grupos, array $permissoesDiretas): void
+    {
+        /** @var User $conta */
+        $conta = model(UserModel::class)->findById($usuario->id);
+
+        $this->seeInDatabase('users', ['id' => $usuario->id, 'active' => 1]);
+        $this->seeInDatabase('auth_identities', [
+            'user_id' => $usuario->id,
+            'type'    => 'email_password',
+            'secret'  => $email,
+        ]);
+        $this->dontSeeInDatabase('auth_identities', ['secret' => 'adulterado@example.com']);
+        $this->assertSame($grupos, $conta->getGroups());
+        $this->assertSame($permissoesDiretas, $conta->getPermissions());
+        $this->assertTrue($conta->can('contas.consultar'));
+        $this->assertFalse($conta->inGroup('superadmin'));
     }
 
     private function enviarFormulario(array $campos): TestResponse

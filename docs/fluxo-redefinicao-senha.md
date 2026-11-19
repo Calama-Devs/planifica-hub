@@ -28,14 +28,17 @@ O Magic Link nativo do Shield mantém o tipo `magic-link` e o redirecionamento n
 | `app/Controllers/RedefinirSenhaController.php` | Coordena a troca pelo perfil e a redefinição por magic link. |
 | `app/Services/RedefinirSenhaService.php` | Valida a senha atual quando exigida, aplica as regras da nova senha e atualiza a credencial. |
 | `app/Views/partials/cabecalho.php` | Exibe a opção **Alterar Senha** no menu do perfil. |
+| `app/Views/perfil/index.php` | Exibe a opção **Alterar senha** na área Meu Perfil, abrindo o mesmo modal. |
 | `app/Views/redefinirsenha/solicitar.php` | Formulário para solicitar o magic link. |
 | `app/Views/redefinirsenha/solicitacao_recebida.php` | Confirma o envio do link. |
 | `app/Views/redefinirsenha/redefinir.php` | Formulário para informar a nova senha. |
-| `app/Views/partials/modal_alterar_senha.php` | Modal de alteração de senha pelo perfil. |
+| `app/Views/partials/modal_alterar_senha.php` | Modal de alteração de senha pelo perfil, com a opção **Mostrar senhas**. |
+| `public/assets/js/alterar-senha.js` | Envia o modal por AJAX, renova o token CSRF após erro e alterna a exibição das senhas. |
 | `app/Views/redefinirsenha/mensagem_email.php` | Modelo do e-mail para links nativos e de recuperação. |
 | `public/assets/css/recuperacao-senha.css` | Estilos das telas de recuperação de senha. |
 | `tests/feature/AutenticacaoTest.php` | Testes automatizados do fluxo de autenticação e redefinição. |
 | `tests/feature/HomeTest.php` | Testa a opção do perfil e o acesso ao formulário de alteração de senha. |
+| `tests/feature/PerfilTest.php` | Testa que a troca de senha pelo perfil não altera nome, e-mail, grupos, permissões nem outra conta. |
 
 ## Validação realizada
 
