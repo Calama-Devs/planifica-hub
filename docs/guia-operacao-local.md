@@ -114,7 +114,7 @@ exigir.
 | Tela | Caminho | Quem pode acessar | O que permite |
 |---|---|---|---|
 | Meu Perfil | `/perfil` | Qualquer pessoa autenticada | Atualizar o próprio nome completo |
-| Gerenciar usuários | `/admin/contas` | Conta com `contas.editar` | Consultar contas e editar o nome completo de outra conta |
+| Gerenciar usuários | `/admin/contas` | Conta com `contas.editar` | Consultar e editar o nome completo de outra conta; troca excepcional de e-mail |
 | Acessos | `/admin/acessos` | Conta com `acessos.administrar` | Conceder/remover permissões diretas das contas |
 | Permissões | `/admin/permissoes` | Conta com `acessos.administrar` | Consultar o catálogo de permissões |
 
@@ -124,16 +124,19 @@ acessos pode conceder `contas.editar` individualmente pela tela Acessos. A
 permissão é verificada no servidor; esconder ou exibir um item no menu não é a
 barreira de segurança.
 
-Na tela Gerenciar usuários, o ícone **Editar** abre uma modal que consulta os
-dados atuais pelo identificador real da rota. Informe o novo nome completo e a
-senha do operador autenticado para confirmar. A própria conta não é editada por
-essa tela: use Meu Perfil.
+Na tela Gerenciar usuários, **Editar** consulta os dados da conta selecionada.
+A permissão `contas.editar` permite atualizar o nome completo de outra conta.
+Toda alteração exige a senha do operador e gera auditoria em
+`auditoria_edicao_contas`, sem armazenar senha e com IP minimizado.
 
-O e-mail institucional aparece somente para consulta. A operação administrativa
-não aceita alterações de e-mail, grupos, permissões, senha da conta-alvo ou
-situação. A edição excepcional do e-mail permanece indisponível até existir uma
-política institucional definida para domínio permitido e comprovação do novo
-endereço.
+A troca de e-mail é excepcional: o campo fica somente leitura por padrão e é
+liberado pelo checkbox **Alterar e-mail (exceção)**, com aviso e justificativa
+obrigatória de 15 a 500 caracteres. O novo endereço deve ter formato válido,
+usar domínio permitido em `Config\Contas` (`ifro.edu.br` ou
+`estudante.ifro.edu.br`), não estar em uso e ser diferente do atual. Senha,
+grupos, permissões e situação da conta não são alterados. O usuário comum
+continua sem poder alterar o e-mail em Meu Perfil. Para regras, erros e auditoria,
+consulte [Edição administrativa de contas](estrutura-inicial.md#edição-administrativa-de-contas-e-política-de-auditoria).
 
 ## Executar verificações e testes
 
@@ -197,16 +200,26 @@ Depois de iniciar a aplicação local, confira:
 1. Login correto e incorreto, logout e bloqueio de páginas internas sem sessão.
 2. Em Meu Perfil, alteração do nome com acentos e espaços; envie também um
    campo `email` diretamente e confira que a identidade de e-mail não muda.
-3. Como operador com `contas.editar`, abra Gerenciar usuários e confirme que o
-   nome e e-mail atuais vêm do servidor para a conta selecionada.
-4. Salve um nome válido e confirme que nomes repetidos são aceitos; depois tente nome inválido e senha incorreta.
-   Confirme que a listagem reflete a alteração válida e que erros mantêm o
-   formulário utilizável.
-5. Tente acessar `/admin/contas` com uma conta sem `contas.editar`, inclusive
+3. Como operador com `contas.editar`, abra Gerenciar usuários, edite o nome e
+   teste uma troca excepcional com e-mail fictício permitido e justificativa.
+   Confirme também que um e-mail vazio aparece somente leitura em conta sem
+   identidade de e-mail.
+4. Execute `.\vendor\bin\phpunit --no-coverage --filter ContaTest` e confira
+   os registros da auditoria localmente com
+   `SELECT * FROM auditoria_edicao_contas ORDER BY id DESC;`. Use somente o
+   banco de desenvolvimento local.
+5. Salve duas alterações seguidas na mesma sessão para conferir a renovação do
+   token CSRF. Pelo DevTools, adicione ao formulário
+   `<input type="hidden" name="teste" value="x">`, salve e confirme que o
+   valor `x` permanece.
+6. Salve um nome válido e confirme que nomes repetidos são aceitos; depois
+   tente nome inválido e senha incorreta. Confirme que erros mantêm o formulário
+   utilizável.
+7. Tente acessar `/admin/contas` com uma conta sem `contas.editar`, inclusive
    digitando a URL diretamente.
-6. Envie propriedades extras (`groups`, `permissions`, `password`, `active` ou
+8. Envie propriedades extras (`groups`, `permissions`, `password`, `active` ou
    `email`) e confirme que a requisição é recusada e esses dados não mudam.
-7. Provoque falha de auditoria no ambiente de testes e confirme que o nome não
+9. Provoque falha de auditoria no ambiente de testes e confirme que o nome não
    é persistido sem o respectivo registro de auditoria.
 
 ## Referências de implementação
