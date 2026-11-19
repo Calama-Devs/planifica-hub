@@ -88,6 +88,10 @@ seguem a convenção de sufixos descrita acima.
 | GET | `/auth/a/show` | Exibição de ação de autenticação do Shield |
 | POST | `/auth/a/handle`, `/auth/a/verify` | Processamento e verificação de ações pelo Shield |
 
+Na administração de contas, `nome_completo` é o nome de exibição editado por
+essa tela. O campo `username` continua sendo o identificador do Shield e não é
+alterado pela edição administrativa.
+
 Os fluxos por e-mail dependem da configuração local descrita no
 [README](../README.md).
 

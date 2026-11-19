@@ -6,9 +6,12 @@ namespace App\Services;
 
 use App\Models\AuditoriaEdicaoContaModel;
 use App\Models\UsuarioAutenticacaoModel;
+use App\Validation\ValidadorNomeCompleto;
 use CodeIgniter\Database\BaseConnection;
+use CodeIgniter\Database\Exceptions\DatabaseException;
 use CodeIgniter\Shield\Authentication\Authenticators\Session;
 use CodeIgniter\Shield\Entities\User;
+use CodeIgniter\Shield\Models\DatabaseException as ShieldDatabaseException;
 use CodeIgniter\Shield\Models\UserIdentityModel;
 use CodeIgniter\Shield\Models\UserModel;
 use Throwable;
@@ -63,10 +66,14 @@ class EdicaoContaService
         $tabelaUsuarios = $configAuth->tables['users'];
         $tabelaIdentidades = $configAuth->tables['identities'];
         $tabelaGrupos = $configAuth->tables['groups_users'];
+        $tabelaUsuariosReal = $this->banco->escapeIdentifiers($this->banco->prefixTable($tabelaUsuarios));
+        $nomeExibido = 'COALESCE(' . $tabelaUsuariosReal . '.nome_completo, '
+            . $tabelaUsuariosReal . '.username)';
         $query = $this->banco->table($tabelaUsuarios)
             ->select(
                 $tabelaUsuarios . '.id, ' . $tabelaUsuarios . '.username, '
-                . $tabelaUsuarios . '.nome_completo, ' . $tabelaIdentidades . '.secret AS email',
+                . $tabelaUsuarios . '.nome_completo, ' . $nomeExibido . ' AS nome_exibido, '
+                . $tabelaIdentidades . '.secret AS email',
             )
             ->join(
                 $tabelaIdentidades,
@@ -79,7 +86,11 @@ class EdicaoContaService
 
         if ($busca !== '') {
             $query->groupStart()
-                ->like($tabelaUsuarios . '.nome_completo', $busca)
+                ->where(
+                    $nomeExibido . ' LIKE ' . $this->banco->escape('%' . $this->banco->escapeLikeString($busca) . '%'),
+                    null,
+                    false,
+                )
                 ->groupEnd();
         }
 
@@ -95,7 +106,7 @@ class EdicaoContaService
 
         $queryFiltrado = clone $query;
         $filtrados = $queryFiltrado->countAllResults();
-        $linhas = $query->orderBy($tabelaUsuarios . '.nome_completo', 'ASC')
+        $linhas = $query->orderBy($nomeExibido, 'ASC', false)
             ->orderBy($tabelaUsuarios . '.username', 'ASC')
             ->limit($limite, $inicio)
             ->get()
@@ -108,7 +119,7 @@ class EdicaoContaService
             $id = (int) $linha['id'];
             $dados[] = [
                 'id' => $id,
-                'username' => (string) ($linha['nome_completo'] ?: $linha['username']),
+                'username' => (string) $linha['nome_exibido'],
                 'email' => (string) ($linha['email'] ?? ''),
                 'grupo' => implode(', ', $gruposPorUsuario[$id] ?? []),
             ];
@@ -235,6 +246,7 @@ class EdicaoContaService
 
         $this->banco->transBegin();
         $donaDaTransacao = $this->banco->transDepth === 1;
+        $gravandoEmail = false;
 
         try {
             if ($alterarEmail && ! $this->identidadeEmailExiste($contaId)) {
@@ -255,8 +267,18 @@ class EdicaoContaService
                 throw new \RuntimeException('Falha ao atualizar nome.');
             }
 
-            if ($alterarEmail && ! $this->atualizarEmail($contaId, $emailNovo)) {
-                throw new \RuntimeException('Falha ao atualizar identidade de e-mail.');
+            if ($alterarEmail) {
+                $gravandoEmail = true;
+                $atualizado = $this->atualizarEmail($contaId, $emailNovo);
+                $gravandoEmail = false;
+
+                if (! $atualizado) {
+                    if ($this->emailDuplicadoNoBanco()) {
+                        throw new DatabaseException('Identidade de e-mail duplicada.');
+                    }
+
+                    throw new \RuntimeException('Falha ao atualizar identidade de e-mail.');
+                }
             }
 
             $auditada = $this->auditoria->insert([
@@ -279,10 +301,24 @@ class EdicaoContaService
 
             $this->banco->transCommit();
         } catch (Throwable $erro) {
+            $emailDuplicado = $gravandoEmail
+                && ($erro instanceof DatabaseException || $erro instanceof ShieldDatabaseException)
+                && (
+                    $this->violacaoEmailDuplicado($erro)
+                    || $this->emailEstaEmUsoAposFalha($emailNovo, $contaId)
+                );
             $this->banco->transRollback();
 
             if ($donaDaTransacao) {
                 $this->banco->resetTransStatus();
+            }
+
+            if ($emailDuplicado) {
+                return $this->falha(
+                    'validacao',
+                    'EMAIL_DUPLICADO',
+                    'Este e-mail já está vinculado a outra conta.',
+                );
             }
 
             log_message(
@@ -303,11 +339,10 @@ class EdicaoContaService
 
     private function nomeValido(string $nome): bool
     {
-        return mb_strlen($nome) >= 2 && mb_strlen($nome) <= 255
-            && preg_match('/\A[\p{L}\p{M}]+(?:[ \'\x{2019}-][\p{L}\p{M}]+)*\z/u', $nome) === 1;
+        return (new ValidadorNomeCompleto())->validar($nome);
     }
 
-    private function emailEmUso(string $email, int $contaId): bool
+    protected function emailEmUso(string $email, int $contaId): bool
     {
         $identidade = config('Auth')->tables['identities'];
 
@@ -327,6 +362,45 @@ class EdicaoContaService
 
         return $identidade !== null
             && model(UserIdentityModel::class)->update($identidade->id, ['secret' => $email]);
+    }
+
+    private function emailDuplicadoNoBanco(): bool
+    {
+        $erro = $this->banco->error();
+        $codigo = (int) ($erro['code'] ?? 0);
+
+        return $codigo === 1062 || $codigo === 19;
+    }
+
+    private function violacaoEmailDuplicado(Throwable $erro): bool
+    {
+        for ($excecao = $erro; $excecao !== null; $excecao = $excecao->getPrevious()) {
+            if ((int) $excecao->getCode() === 1062) {
+                return true;
+            }
+
+            if (
+                (int) $excecao->getCode() === 19
+                || (
+                    str_contains($excecao->getMessage(), 'UNIQUE constraint failed')
+                    && str_contains($excecao->getMessage(), 'auth_identities.type')
+                    && str_contains($excecao->getMessage(), 'auth_identities.secret')
+                )
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function emailEstaEmUsoAposFalha(string $email, int $contaId): bool
+    {
+        try {
+            return $this->emailEmUso($email, $contaId);
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     private function identidadeEmailExiste(int $contaId): bool

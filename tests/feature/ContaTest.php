@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\UsuarioAutenticacaoModel;
+use App\Services\EdicaoContaService;
+use CodeIgniter\Config\Services;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\Shield\Test\AuthenticationTesting;
@@ -27,6 +30,15 @@ final class ContaTest extends CIUnitTestCase
     {
         $this->resetServices();
         parent::setUp();
+
+        $banco = $this->db;
+        $tabelaUsuarios = $banco->prefixTable(config('Auth')->tables['users']);
+        if (! $banco->fieldExists('nome_completo', $tabelaUsuarios)) {
+            $banco->query(
+                'ALTER TABLE ' . $banco->escapeIdentifiers($tabelaUsuarios)
+                . ' ADD COLUMN nome_completo VARCHAR(255) NULL',
+            );
+        }
     }
 
     public function testAdministradorAtualizaNomeCompletoSemAlterarIdentidadeOuGrupo(): void
@@ -255,6 +267,59 @@ final class ContaTest extends CIUnitTestCase
         $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
     }
 
+    public function testViolacaoDeUnicidadeDuranteGravacaoDesfazNomeEAuditoria(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+        $conflito = $this->criarUsuario('conta.conflito');
+        $emailNovo = 'concorrente@ifro.edu.br';
+        $tabelaIdentidades = $this->db->prefixTable(config('Auth')->tables['identities']);
+        $this->db->query(
+            'CREATE UNIQUE INDEX IF NOT EXISTS uq_auth_identities_type_secret '
+            . 'ON ' . $this->db->escapeIdentifiers($tabelaIdentidades) . ' (type, secret)',
+        );
+
+        Services::injectMock('edicaoContaService', new class ($conflito, $emailNovo) extends EdicaoContaService {
+            private bool $conflitoInserido = false;
+
+            public function __construct(
+                private readonly User $conflito,
+                private readonly string $emailNovo,
+            ) {
+                parent::__construct();
+            }
+
+            protected function emailEmUso(string $email, int $contaId): bool
+            {
+                if (! $this->conflitoInserido) {
+                    $this->conflito->createEmailIdentity([
+                        'email' => $this->emailNovo,
+                        'password' => 'senha-de-teste',
+                    ]);
+                    $this->conflitoInserido = true;
+
+                    return false;
+                }
+
+                return parent::emailEmUso($email, $contaId);
+            }
+        });
+
+        $resposta = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Nome não deve gravar',
+            'senha_admin' => $this->senha,
+            'email' => $emailNovo,
+            'justificativa' => 'Solicitação administrativa registrada.',
+        ]);
+
+        $resposta->assertStatus(422);
+        $dados = json_decode($resposta->getJSON(), true);
+        self::assertSame('validacao', $dados['tipo']);
+        self::assertSame('EMAIL_DUPLICADO', $dados['codigo']);
+        $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => null]);
+        $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
+    }
+
     public function testListaFiltraPorNomeEGrupoERejeitaGrupoInvalido(): void
     {
         $operador = $this->criarUsuario('operador', true);
@@ -272,6 +337,52 @@ final class ContaTest extends CIUnitTestCase
 
         $invalido = $this->actingAs($operador)->get('admin/contas/tabela?draw=3&start=0&length=10&grupo=nao-existe');
         $invalido->assertStatus(400);
+    }
+
+    public function testListaEBuscaUsamNomeCompletoComFallbackParaUsername(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $editado = $this->criarUsuario('usuario.editado');
+        $semNome = $this->criarUsuario('usuario.sem.nome');
+        model(UsuarioAutenticacaoModel::class)->update(
+            $editado->id,
+            ['nome_completo' => 'Nome Exibido Atualizado'],
+        );
+
+        $resposta = $this->actingAs($operador)->get('admin/contas/tabela?draw=1&start=0&length=100');
+        $resposta->assertOK();
+        $linhas = json_decode($resposta->getJSON(), true)['data'];
+        $porId = array_column($linhas, null, 'id');
+        self::assertSame('Nome Exibido Atualizado', $porId[$editado->id]['username']);
+        self::assertSame('usuario.sem.nome', $porId[$semNome->id]['username']);
+
+        $busca = $this->actingAs($operador)->get(
+            'admin/contas/tabela?draw=2&start=0&length=10&search%5Bvalue%5D=Nome%20Exibido%20Atualizado',
+        );
+        $busca->assertOK();
+        $dadosBusca = json_decode($busca->getJSON(), true);
+        self::assertSame(1, $dadosBusca['recordsFiltered']);
+        self::assertSame('Nome Exibido Atualizado', $dadosBusca['data'][0]['username']);
+    }
+
+    public function testEdicaoAdministrativaCompartilhaRegrasDeNome(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+
+        foreach (['Ana-Maria', 'João D’Ávila'] as $nomeValido) {
+            $this->enviarAtualizacao($operador, (int) $alvo->id, [
+                'nome' => $nomeValido,
+                'senha_admin' => $this->senha,
+            ])->assertOK();
+        }
+
+        $invalido = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Nome 2',
+            'senha_admin' => $this->senha,
+        ]);
+        $invalido->assertStatus(422);
+        self::assertSame('CONTA_NOME_INVALIDO', json_decode($invalido->getJSON(), true)['codigo']);
     }
 
     public function testTelaDeContasUsaLayoutComEstilosEAssetsDoSistema(): void
