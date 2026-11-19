@@ -235,32 +235,33 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
         $this->assertSame($hashAnterior, $this->recarregar($this->conta)->password_hash);
     }
 
-    public function testNaoAutenticaPorLinkMagicoEmitidoParaContaInativa(): void
+    public function testNaoEmiteLinkMagicoDeLoginParaContaAtiva(): void
     {
-        $this->desativarConta();
-        $this->criarToken('magic-link', 'login-inativo');
-        $this->expectException(AuthenticationException::class);
-        $this->expectExceptionCode(403);
+        $this->assertFalse(setting('Auth.allowMagicLinkLogins'));
 
-        try {
-            $this->get('login/verify-magic-link?token=login-inativo');
-        } finally {
-            $this->assertFalse(auth()->loggedIn());
-            $this->assertNull(session(setting('Auth.sessionConfig')['field']));
-            $this->dontSeeInDatabase('auth_identities', ['secret' => 'login-inativo']);
-        }
+        $resposta = $this->withSession($_SESSION)->post('login/magic-link', [
+            'email' => $this->credenciais()['email'],
+            csrf_token() => csrf_hash(),
+        ]);
+
+        $resposta->assertRedirectTo('/login');
+        $resposta->assertSessionHas('error', lang('Auth.magicLinkDisabled'));
+        $this->dontSeeInDatabase('auth_identities', [
+            'user_id' => $this->conta->id,
+            'type' => 'magic-link',
+        ]);
     }
 
-    public function testPreservaLoginPorLinkMagicoDeContaAtiva(): void
+    public function testRecusaLinkMagicoDeLoginJaEmitido(): void
     {
-        $this->criarToken('magic-link', 'login-ativo');
+        $token = bin2hex(random_bytes(10));
+        $this->criarToken('magic-link', $token);
 
-        $this->get('login/verify-magic-link?token=login-ativo')
-            ->assertRedirectTo(rtrim(site_url('/'), '/'));
+        $resposta = $this->get('login/verify-magic-link?token=' . $token);
 
-        $this->assertTrue(auth()->loggedIn());
-        $this->assertSame($this->conta->id, auth()->user()?->id);
-        $this->dontSeeInDatabase('auth_identities', ['secret' => 'login-ativo']);
+        $resposta->assertRedirectTo('/login');
+        $resposta->assertSessionHas('error', lang('Auth.magicLinkDisabled'));
+        $this->assertFalse(auth()->loggedIn());
     }
 
     public function testCookieAnteriorNaoRestauraLoginMesmoAposReativacao(): void
