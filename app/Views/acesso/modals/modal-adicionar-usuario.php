@@ -29,24 +29,24 @@
                         <small class="text-muted d-block mb-2">
                             Se nenhum grupo for selecionado, a nova conta receberá automaticamente o grupo padrão <strong>user</strong> (Usuário).
                         </small>
-                        <div class="border border-secondary rounded p-2 custom-scroll" style="max-height: 160px; overflow-y: auto;">
+                        <div class="border border-secondary rounded p-2 custom-scroll lista-grupos">
                             <?php if (!empty($gruposDisponiveis)): ?>
                                 <?php foreach ($gruposDisponiveis as $slugGrupo => $dadosGrupo): ?>
                                     <div class="form-check mb-1">
                                         <input class="form-check-input" type="checkbox" name="grupos[]"
                                                value="<?= esc($slugGrupo) ?>" id="grupo-add-<?= esc($slugGrupo) ?>">
-                                        <label class="form-check-label text-white" for="grupo-add-<?= esc($slugGrupo) ?>" style="font-size: 0.82rem;">
+                                        <label class="form-check-label text-white" for="grupo-add-<?= esc($slugGrupo) ?>">
                                             <span class="fw-medium"><?= esc($dadosGrupo['title'] ?? $slugGrupo) ?></span>
-                                            <small class="text-muted d-block" style="font-size: 0.72rem; line-height: 1.2;"><?= esc($dadosGrupo['description'] ?? '') ?></small>
+                                            <small class="text-muted d-block descricao-grupo"><?= esc($dadosGrupo['description'] ?? '') ?></small>
                                         </label>
                                     </div>
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" name="grupos[]" value="user" id="grupo-add-user-default" checked disabled>
-                                    <label class="form-check-label text-white" for="grupo-add-user-default" style="font-size: 0.82rem;">
+                                    <label class="form-check-label text-white" for="grupo-add-user-default">
                                         <span class="fw-medium">Usuário (user)</span>
-                                        <small class="text-muted d-block" style="font-size: 0.72rem; line-height: 1.2;">Grupo padrão sem privilégios administrativos.</small>
+                                        <small class="text-muted d-block descricao-grupo">Grupo padrão sem privilégios administrativos.</small>
                                     </label>
                                 </div>
                             <?php endif; ?>

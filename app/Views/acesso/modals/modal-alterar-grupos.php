@@ -30,15 +30,15 @@
                         <small class="text-muted d-block mb-2">
                             Marque os grupos que a conta passará a integrar. Toda conta deve pertencer a pelo menos um grupo.
                         </small>
-                        <div class="border border-secondary rounded p-2 custom-scroll" style="max-height: 180px; overflow-y: auto;">
+                        <div class="border border-secondary rounded p-2 custom-scroll lista-grupos">
                             <?php if (!empty($gruposDisponiveis)): ?>
                                 <?php foreach ($gruposDisponiveis as $slugGrupo => $dadosGrupo): ?>
                                     <div class="form-check mb-2">
                                         <input class="form-check-input check-grupo-item" type="checkbox" name="grupos[]"
                                                value="<?= esc($slugGrupo) ?>" id="grupo-check-<?= esc($slugGrupo) ?>">
-                                        <label class="form-check-label text-white" for="grupo-check-<?= esc($slugGrupo) ?>" style="font-size: 0.82rem;">
-                                            <span class="badge bg-light text-dark me-1" style="font-size: 0.72rem;"><?= esc($dadosGrupo['title'] ?? $slugGrupo) ?></span>
-                                            <small class="text-muted d-block" style="font-size: 0.72rem; line-height: 1.2;"><?= esc($dadosGrupo['description'] ?? '') ?></small>
+                                        <label class="form-check-label text-white" for="grupo-check-<?= esc($slugGrupo) ?>">
+                                            <span class="badge bg-light text-dark me-1"><?= esc($dadosGrupo['title'] ?? $slugGrupo) ?></span>
+                                            <small class="text-muted d-block descricao-grupo"><?= esc($dadosGrupo['description'] ?? '') ?></small>
                                         </label>
                                     </div>
                                 <?php endforeach; ?>

@@ -4,29 +4,26 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Services\PermissaoDiretaService;
-use CodeIgniter\Exceptions\PageNotFoundException;
-use CodeIgniter\HTTP\RedirectResponse;
+use App\Services\AcessoService;
 use CodeIgniter\HTTP\ResponseInterface;
 use Throwable;
 
 /**
- * Administração dos acessos das contas. Por enquanto, as permissões diretas.
+ * Gerenciamento de Usuários (listagem server-side e preparação das ações administrativas).
  *
- * A barreira principal é o filtro `permission:acessos.administrar` da rota; o
- * Service repete a checagem em cada alteração (manual 6.1 e 11.3).
+ * A rota exige `session` e `permission:acessos.administrar`.
  */
 class AcessoController extends BaseController
 {
-    private PermissaoDiretaService $permissaoDiretaService;
+    private AcessoService $acessoService;
 
     public function __construct()
     {
-        $this->permissaoDiretaService = service('permissaoDiretaService');
+        $this->acessoService = service('acessoService');
     }
 
     /**
-     * Lista as contas para escolher qual administrar.
+     * Exibe a tela de Gerenciamento de Usuários.
      */
     public function index(): string
     {
@@ -35,202 +32,97 @@ class AcessoController extends BaseController
             $situacao = 'ativos';
         }
 
-        $dados                      = $this->permissaoDiretaService->listarContas(0, situacao: $situacao);
-        $dados['situacao']          = $situacao;
-        $dados['gruposDisponiveis'] = $this->permissaoDiretaService->gruposDisponiveis();
+        $operador = auth()->user();
 
-        foreach ($dados['contas'] as &$conta) {
-            $conta['rotulo']         = esc($conta['rotulo']);
-            $conta['username']       = esc($conta['username']);
-            $conta['email']          = esc($conta['email']);
-            $conta['url_permissoes'] = url_to('acessos.permissoes', $conta['id']);
-        }
-        unset($conta);
-
-        return view('acesso/index', $dados);
+        return view('acesso/index', [
+            'situacao'          => $situacao,
+            'gruposDisponiveis' => $this->acessoService->gruposDisponiveis(),
+            'podeCriarConta'    => $operador !== null && $operador->can('contas.criar'),
+        ]);
     }
 
     /**
-     * Consulta contas de usuarios
+     * Endpoint JSON server-side para listagem, busca e paginação do DataTables.
      */
-    public function consultarConta(): ResponseInterface
+    public function listar(): ResponseInterface
     {
-        $entrada = $this->request->getGet(['pesquisa', 'page', 'situacao']);
-        $regras  = [
-            'pesquisa' => 'permit_empty|string|max_length[100]',
-            'page'     => 'permit_empty|is_natural_no_zero|less_than_equal_to[999999999]',
-            'situacao' => 'permit_empty|string|in_list[ativos,inativos,todos]',
+        $searchParam = $this->request->getGet('search');
+        $pesquisa    = '';
+
+        if (is_array($searchParam) && array_key_exists('value', $searchParam)) {
+            if (! is_string($searchParam['value'])) {
+                return $this->erroValidacaoListagem();
+            }
+            $pesquisa = $searchParam['value'];
+        } elseif ($searchParam !== null) {
+            return $this->erroValidacaoListagem();
+        }
+
+        $entrada = [
+            'draw'     => $this->request->getGet('draw'),
+            'start'    => $this->request->getGet('start'),
+            'length'   => $this->request->getGet('length'),
+            'situacao' => $this->request->getGet('situacao'),
+            'pesquisa' => $pesquisa,
         ];
 
-        if (
-            (isset($entrada['pesquisa']) && ! is_string($entrada['pesquisa']))
-            || (isset($entrada['page']) && ! is_string($entrada['page']))
-            || (isset($entrada['situacao']) && ! is_string($entrada['situacao']))
-            || ! $this->validateData($entrada, $regras)
-        ) {
-            return $this->response->setStatusCode(422)->setJSON([
-                'sucesso'  => false,
-                'tipo'     => 'validacao',
-                'codigo'   => 'PESQUISA_CONTAS_INVALIDA',
-                'mensagem' => 'Informe um nome ou e-mail com até 100 caracteres e uma página válida.',
-            ]);
+        foreach (['draw', 'start', 'length', 'situacao'] as $campo) {
+            if ($entrada[$campo] !== null && ! is_string($entrada[$campo])) {
+                return $this->erroValidacaoListagem();
+            }
+        }
+
+        $regras = [
+            'draw'     => 'permit_empty|is_natural|less_than_equal_to[999999999]',
+            'start'    => 'permit_empty|is_natural|less_than_equal_to[999999999]',
+            'length'   => 'permit_empty|is_natural_no_zero|less_than_equal_to[100]',
+            'situacao' => 'permit_empty|string|in_list[ativos,inativos]',
+            'pesquisa' => 'permit_empty|string|max_length[100]',
+        ];
+
+        if (! $this->validateData($entrada, $regras)) {
+            return $this->erroValidacaoListagem();
         }
 
         try {
             $validados = $this->validator->getValidated();
+            $draw      = (int) ($validados['draw'] ?? 0);
+            $inicio    = (int) ($validados['start'] ?? 0);
+            $limite    = (int) ($validados['length'] ?? 10);
             $situacao  = isset($validados['situacao']) && $validados['situacao'] !== ''
                 ? (string) $validados['situacao']
-                : null;
-            $listagem  = $this->permissaoDiretaService->listarContas(
-                15,
-                trim((string) ($validados['pesquisa'] ?? '')),
-                (int) ($validados['page'] ?? 1),
-                $situacao,
-            );
+                : 'ativos';
+            $termo     = trim((string) ($validados['pesquisa'] ?? ''));
 
-            return $this->responderPesquisa($listagem);
+            $listagem = $this->acessoService->listarContas($inicio, $limite, $termo, $situacao);
+
+            return $this->response->setJSON([
+                'draw'            => $draw,
+                'recordsTotal'    => $listagem['total'],
+                'recordsFiltered' => $listagem['filtrados'],
+                'data'            => $listagem['contas'],
+            ]);
         } catch (Throwable $erro) {
-            log_message('error', 'Falha ao pesquisar contas na administração de acessos ({tipo}).', [
+            log_message('error', 'Falha ao listar contas no gerenciamento de usuários ({tipo}).', [
                 'tipo' => $erro::class,
             ]);
 
             return $this->response->setStatusCode(500)->setJSON([
                 'sucesso'  => false,
                 'tipo'     => 'inesperado',
-                'codigo'   => 'PESQUISA_CONTAS_INDISPONIVEL',
-                'mensagem' => 'Não foi possível pesquisar as contas. Tente novamente.',
+                'codigo'   => 'LISTAGEM_CONTAS_INDISPONIVEL',
+                'mensagem' => 'Não foi possível carregar os usuários. Tente novamente.',
             ]);
         }
     }
 
-    /**
-     * @param array{contas: list<array<string, mixed>>, paginador: \CodeIgniter\Pager\Pager} $listagem
-     */
-    private function responderPesquisa(array $listagem): ResponseInterface
+    private function erroValidacaoListagem(): ResponseInterface
     {
-        $contas = [];
-
-        foreach ($listagem['contas'] as $conta) {
-            $contas[] = [
-                'id'             => $conta['id'],
-                'rotulo'         => $conta['rotulo'],
-                'email'          => $conta['email'],
-                'grupos'         => $conta['grupos'],
-                'total_diretas'  => $conta['total_diretas'],
-                'url_permissoes' => url_to('acessos.permissoes', $conta['id']),
-            ];
-        }
-
-        return $this->response->setHeader('Cache-Control', 'no-store')->setJSON([
-            'sucesso'   => true,
-            'tipo'      => 'sucesso',
-            'codigo'    => 'CONTAS_PESQUISADAS',
-            'mensagem'  => $contas === [] ? 'Nenhuma conta encontrada.' : 'Pesquisa concluída.',
-            'contas'    => $contas,
-            'paginacao' => [
-                'pagina_atual'  => $listagem['paginador']->getCurrentPage(),
-                'total_paginas' => $listagem['paginador']->getPageCount(),
-                'total_contas'  => $listagem['paginador']->getTotal(),
-            ],
+        return $this->response->setStatusCode(422)->setJSON([
+            'sucesso'  => false,
+            'tipo'     => 'validacao',
+            'codigo'   => 'LISTAGEM_CONTAS_INVALIDA',
+            'mensagem' => 'Parâmetros de listagem inválidos.',
         ]);
-    }
-
-    /**
-     * Mostra as permissões disponíveis, herdadas, diretas e efetivas de uma conta.
-     */
-    public function permissoes(string $contaId): string
-    {
-        $visao = $this->permissaoDiretaService->consultar($this->contaDaUrl($contaId));
-
-        if ($visao === null) {
-            throw PageNotFoundException::forPageNotFound();
-        }
-
-        return view('acesso/permissoes', $visao);
-    }
-
-    /**
-     * Salva as caixas marcadas: concede as permissões diretas que faltam e revoga as que foram desmarcadas,
-     * sem tocar no que a conta herda dos grupos. O operador vem sempre da sessão, nunca do formulário.
-     */
-    public function salvar(string $contaId): RedirectResponse
-    {
-        $id         = $this->contaDaUrl($contaId);
-        $permissoes = $this->permissoesMarcadas();
-
-        if ($permissoes === null) {
-            return redirect()->to(url_to('acessos.permissoes', $id))
-                ->with('error', 'A seleção de permissões é inválida.');
-        }
-
-        $resultado = $this->permissaoDiretaService->sincronizar($id, $permissoes, (int) auth()->id());
-
-        return $this->responder($id, $resultado);
-    }
-
-    /**
-     * O `(:num)` da rota aceita qualquer quantidade de dígitos. Fora da faixa de um id (1 a 999.999.999)
-     * a conta não existe: devolve 404 em vez de estourar o tipo inteiro (manual 11.4).
-     */
-    private function contaDaUrl(string $contaId): int
-    {
-        if (preg_match('/^[1-9][0-9]{0,8}$/', $contaId) !== 1) {
-            throw PageNotFoundException::forPageNotFound();
-        }
-
-        return (int) $contaId;
-    }
-
-    /**
-     * Lê as caixas marcadas do formulário. Sem nenhuma caixa marcada o navegador não envia o campo, e isso vale
-     * como lista vazia (todas desmarcadas). O formato da lista é conferido aqui; cada identificador ainda é
-     * conferido contra o catálogo no Service.
-     *
-     * @return list<string>|null Nulo quando o formato é inválido.
-     */
-    private function permissoesMarcadas(): ?array
-    {
-        $enviadas = $this->request->getPost('permissoes') ?? [];
-
-        if (! is_array($enviadas)) {
-            return null;
-        }
-
-        $marcadas = [];
-
-        foreach ($enviadas as $permissao) {
-            if (! is_string($permissao) || $permissao === '' || mb_strlen($permissao) > 100) {
-                return null;
-            }
-
-            $marcadas[] = $permissao;
-        }
-
-        return $marcadas;
-    }
-
-    /**
-     * Traduz o retorno do Service em mensagem para a tela. Desmarcou o vínculo direto mas o acesso
-     * continua por herança: o resultado vai como aviso, para ninguém achar que o acesso acabou.
-     *
-     * @param array{
-     *     sucesso: bool,
-     *     tipo: string,
-     *     codigo: string,
-     *     mensagem: string,
-     *     mantidas_por_heranca?: list<string>
-     * } $resultado
-     */
-    private function responder(int $contaId, array $resultado): RedirectResponse
-    {
-        $destino = redirect()->to(url_to('acessos.permissoes', $contaId));
-
-        if (! $resultado['sucesso']) {
-            return $destino->with('error', $resultado['mensagem']);
-        }
-
-        $manteveAcesso = ($resultado['mantidas_por_heranca'] ?? []) !== [];
-
-        return $destino->with($manteveAcesso ? 'warning' : 'success', $resultado['mensagem']);
     }
 }
