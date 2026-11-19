@@ -129,9 +129,9 @@ $(document).ready(function () {
             columns: [
                 {
                     data: 'rotulo',
-                    render: function (data, type, row) {
+                    render: function (data) {
                         var nome = escapeHtml(data);
-                        return `<a href="#" class="link-usuario fw-medium text-truncate d-inline-block texto-celula btn-consultar-permissoes" data-user-id="${row.id}" title="Ver permissões de ${nome}">${nome}</a>`;
+                        return `<span class="fw-medium text-truncate d-inline-block texto-celula" title="${nome}">${nome}</span>`;
                     }
                 },
                 {
@@ -211,9 +211,10 @@ $(document).ready(function () {
                                         <i class="mdi mdi-account-multiple"></i>
                                     </button>
                                 </span>
-                                <span data-bs-toggle="tooltip" title="Consultar permissões">
-                                    <button type="button" class="btn btn-inverse-primary button-trans-primary btn-icon btn-consultar-permissoes"
-                                        data-user-id="${userId}" aria-label="Ver permissões de ${nome}">
+                                <!-- Rota /admin/acessos/{id}/permissoes removida na PLAN-55; botão mantido desabilitado até nova integração -->
+                                <span data-bs-toggle="tooltip" title="Consulta de permissões pendente de nova integração">
+                                    <button type="button" class="btn btn-inverse-primary button-trans-primary btn-icon"
+                                        disabled aria-disabled="true" aria-label="Consulta de permissões indisponível para ${nome}">
                                         <i class="mdi mdi-shield-account"></i>
                                     </button>
                                 </span>
@@ -236,10 +237,6 @@ $(document).ready(function () {
     }
 
     initTooltips();
-
-    tableElement.on('click', 'a.btn-consultar-permissoes', function (e) {
-        e.preventDefault();
-    });
 
     // Estado da ação administrativa aguardando confirmação de senha
     var acaoPendente = {
@@ -492,6 +489,7 @@ $(document).ready(function () {
     });
 
     // Submissão do Formulário de Confirmação com Senha de Admin
+    // Sem simulação de sucesso: exibe estado explícito até integração com endpoint real.
     $('#form-confirmar-senha-admin').on('submit', function (e) {
         e.preventDefault();
         var senhaAdmin = $('#admin-password-confirm').val();
@@ -500,20 +498,20 @@ $(document).ready(function () {
             $('#admin-password-confirm').addClass('is-invalid');
             return;
         }
-        $('#admin-password-confirm').removeClass('is-invalid');
+        $('#admin-password-confirm').removeClass('is-invalid').val('');
 
-        $('#spinner-confirmar-senha').removeClass('d-none');
-        $('#btn-executar-confirmacao').prop('disabled', true);
-
-        setTimeout(function () {
-            $('#spinner-confirmar-senha').addClass('d-none');
-            $('#btn-executar-confirmacao').prop('disabled', false);
-            fecharModalPorId('modal-confirmar-senha-admin');
-            $('#admin-password-confirm').val('');
-        }, 400);
+        $('#alerta-confirmar-senha')
+            .removeClass('d-none alert-danger alert-success')
+            .addClass('alert-warning')
+            .text('Esta ação administrativa ainda aguarda integração com o servidor. Nenhuma alteração foi realizada.');
     });
 
     // Adicionar Usuário (Modal de Convite)
+    $('#modal-adicionar-usuario').on('show.bs.modal', function () {
+        $('#alerta-adicionar-usuario').addClass('d-none').text('');
+        $('#convite-email').removeClass('is-invalid');
+    });
+
     $('#form-adicionar-usuario').on('submit', function (e) {
         e.preventDefault();
         var emailInput = $('#convite-email');
@@ -524,17 +522,9 @@ $(document).ready(function () {
         }
         emailInput.removeClass('is-invalid');
 
-        var btnSubmit = $('#btn-enviar-convite');
-        var spinner = btnSubmit.find('.spinner-border');
-
-        spinner.removeClass('d-none');
-        btnSubmit.prop('disabled', true);
-
-        setTimeout(function () {
-            spinner.addClass('d-none');
-            btnSubmit.prop('disabled', false);
-            fecharModalPorId('modal-adicionar-usuario');
-            $('#form-adicionar-usuario')[0].reset();
-        }, 400);
+        $('#alerta-adicionar-usuario')
+            .removeClass('d-none alert-danger alert-success')
+            .addClass('alert-warning')
+            .text('O envio de convite ainda aguarda integração com o servidor. Nenhum convite foi enviado.');
     });
 });
