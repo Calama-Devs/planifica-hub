@@ -4,6 +4,18 @@ A tabela `eventos_auditoria` registra ações administrativas, armazenando o mó
 
 O campo `usuario_id` é preenchido automaticamente pelo Shield e pode ser `NULL` em processos automáticos. Quando preenchido, referencia `users.id`; a chave estrangeira usa `RESTRICT` para preservar o vínculo histórico. A `descricao` deve ser legível e informar as alterações realizadas, quando aplicável, sem JSON ou dados sensíveis.
 
+```php
+$auditoria->registrar([
+    'modulo'        => 'acessos',
+    'usuario_id'    => null,
+    'acao'          => 'desativar_permissao',
+    'entidade_tipo' => 'usuario',
+    'entidade_id'   => (string) $usuarioId,
+    'descricao'     => 'Permissão expirada desativada automaticamente.',
+    'resultado'     => 'concluida',
+]);
+```
+
 Eventos são somente de inclusão: não têm `updated_at`, `deleted_at`, `updated_by` ou `deleted_by`.
 
 ## Uso pelos Services
