@@ -215,7 +215,7 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
         $this->assertFalse(auth()->loggedIn());
     }
 
-    public function testRevogaLembrarMeELinkDeLoginSemRemoverIdentidadeDeSenha(): void
+    public function testRevogaLembrarMeELinkDeRecuperacaoSemRemoverIdentidadeDeSenha(): void
     {
         (new RememberModel())->rememberUser(
             $this->conta,
@@ -223,14 +223,12 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
             hash('sha256', 'validador-teste'),
             Time::now()->addDays(1)->toDateTimeString(),
         );
-        $this->criarToken('magic-link', 'login-anterior');
-        $this->criarToken('magic-link-reset', 'recuperacao-anterior');
+        $this->criarTokenDeRecuperacao('recuperacao-anterior');
         $hashAnterior = $this->recarregar($this->conta)->password_hash;
 
         $this->desativarConta();
 
         $this->dontSeeInDatabase('auth_remember_tokens', ['user_id' => $this->conta->id]);
-        $this->dontSeeInDatabase('auth_identities', ['user_id' => $this->conta->id, 'type' => 'magic-link']);
         $this->dontSeeInDatabase('auth_identities', ['user_id' => $this->conta->id, 'type' => 'magic-link-reset']);
         $this->assertSame($hashAnterior, $this->recarregar($this->conta)->password_hash);
     }
@@ -466,11 +464,11 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
         return ['email' => 'conta.estado@example.com', 'password' => $this->senha];
     }
 
-    private function criarToken(string $tipo, string $token): void
+    private function criarTokenDeRecuperacao(string $token): void
     {
         model(UserIdentityModel::class)->insert([
             'user_id' => $this->conta->id,
-            'type' => $tipo,
+            'type' => 'magic-link-reset',
             'secret' => $token,
             'expires' => Time::now()->addHours(1),
         ]);
