@@ -11,7 +11,7 @@
                     <div class="alert alert-danger d-none" id="erro-atualizar-conta" role="alert"></div>
                     <div class="mb-3">
                         <label for="conta-email-atual" class="form-label">E-mail institucional</label>
-                        <input type="email" id="conta-email-atual" class="form-control" maxlength="254" readonly>
+                        <input type="email" id="conta-email-atual" name="email" class="form-control" maxlength="254" disabled>
                     </div>
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" id="alterar-email-excepcional">
@@ -20,7 +20,7 @@
                     <div class="alert alert-warning d-none" id="aviso-alteracao-email" role="alert">A alteração de e-mail é excepcional. Ela muda o login do usuário e será registrada em auditoria com a sua justificativa.</div>
                     <div class="mb-3 d-none" id="grupo-justificativa-email">
                         <label for="justificativa-email" class="form-label">Justificativa</label>
-                        <textarea id="justificativa-email" class="form-control" maxlength="500" rows="3"></textarea>
+                        <textarea id="justificativa-email" name="justificativa" class="form-control" maxlength="500" rows="3" disabled></textarea>
                         <div class="form-text"><span id="contador-justificativa">0</span>/500 caracteres (mínimo 15).</div>
                     </div>
                     <div class="mb-3">

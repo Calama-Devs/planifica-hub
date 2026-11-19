@@ -8,7 +8,8 @@ $(function () {
 
     function restaurarEstadoEmail() {
         $('#alterar-email-excepcional').prop('checked', false);
-        $('#conta-email-atual').prop('readonly', true).val(emailOriginal);
+        $('#conta-email-atual').prop('disabled', true).val(emailOriginal);
+        $('#justificativa-email').prop('disabled', true);
         $('#aviso-alteracao-email, #grupo-justificativa-email').addClass('d-none');
         $('#justificativa-email').val('');
         $('#contador-justificativa').text('0');
@@ -16,7 +17,7 @@ $(function () {
 
     $('#alterar-email-excepcional').on('change', function () {
         const habilitado = $(this).is(':checked');
-        $('#conta-email-atual').prop('readonly', !habilitado);
+        $('#conta-email-atual, #justificativa-email').prop('disabled', !habilitado);
         $('#aviso-alteracao-email').toggleClass('d-none', !habilitado);
         $('#grupo-justificativa-email').toggleClass('d-none', !habilitado || $('#conta-email-atual').val() === emailOriginal);
         if (!habilitado) {
@@ -89,17 +90,10 @@ $(function () {
             return;
         }
 
-        const dados = {};
-        form.serializeArray().forEach(function (campo) { dados[campo.name] = campo.value; });
-        if (alteracaoEmail) {
-            dados.email = emailNovo;
-            dados.justificativa = justificativa;
-        }
-
         $.ajax({
             url: urlSalvar,
             type: 'POST',
-            data: dados,
+            data: form.serialize(),
             dataType: 'json'
         }).done(function (resposta) {
             atualizarTokenCsrf(resposta);
