@@ -16,9 +16,14 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
     $routes->get('perfil', 'PerfilController::index', ['as' => 'perfil']);
     $routes->post('perfil', 'PerfilController::atualizar', ['as' => 'perfil.atualizar']);
 
-    // A autorização específica e a senha do operador são conferidas pelo Service.
-    $routes->post('admin/contas/(:segment)/desativar', 'EstadoContaController::desativar/$1', ['as' => 'contas.desativar']);
-    $routes->post('admin/contas/(:segment)/reativar', 'EstadoContaController::reativar/$1', ['as' => 'contas.reativar']);
+    $routes->post('admin/contas/(:segment)/desativar', 'EstadoContaController::desativar/$1', [
+        'as' => 'contas.desativar',
+        'filter' => 'permission:contas.desativar',
+    ]);
+    $routes->post('admin/contas/(:segment)/reativar', 'EstadoContaController::reativar/$1', [
+        'as' => 'contas.reativar',
+        'filter' => 'permission:contas.reativar',
+    ]);
 
     $routes->group('admin/permissoes', ['filter' => 'permission:acessos.administrar'], static function (RouteCollection $routes): void {
         $routes->get('/', 'PermissaoController::index', ['as' => 'permissoes.index']);
