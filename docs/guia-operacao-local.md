@@ -126,8 +126,15 @@ barreira de segurança.
 
 Na tela Gerenciar usuários, **Editar** consulta os dados da conta selecionada.
 A permissão `contas.editar` permite atualizar o nome completo de outra conta.
-Toda alteração exige a senha do operador e gera auditoria em
-`auditoria_edicao_contas`, sem armazenar senha e com IP minimizado.
+Na primeira alteração, o operador informa a própria senha. A confirmação vale
+por até 300 segundos para a mesma operação e conta, pode ser reutilizada nesse
+período e é encerrada no logout. A troca excepcional de e-mail usa a mesma
+janela. Senha e hash não são armazenados; as edições geram auditoria em
+`auditoria_edicao_contas`, com IP minimizado. A consulta da conta acrescenta
+`confirmacao_recente` e `confirmacao_expira_em` (segundos restantes ou `null`).
+Sem senha válida ou confirmação vigente, a API responde HTTP 422 com
+`CONFIRMACAO_INVALIDA`; propriedades extras continuam retornando HTTP 400 com
+`DADOS_CONTA_INVALIDOS`.
 
 A troca de e-mail é excepcional: o campo fica somente leitura por padrão e é
 liberado pelo checkbox **Alterar e-mail (exceção)**, com aviso e justificativa

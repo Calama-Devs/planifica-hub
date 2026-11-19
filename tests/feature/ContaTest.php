@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Models\UsuarioAutenticacaoModel;
 use App\Services\EdicaoContaService;
 use CodeIgniter\Config\Services;
+use CodeIgniter\I18n\Time;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\Shield\Test\AuthenticationTesting;
@@ -126,6 +127,10 @@ final class ContaTest extends CIUnitTestCase
         ]);
 
         $resposta->assertStatus(422);
+        $consulta = $this->actingAs($operador)->get('admin/contas/' . $alvo->id);
+        $dadosConsulta = json_decode($consulta->getJSON(), true)['conta'];
+        self::assertFalse($dadosConsulta['confirmacao_recente']);
+        self::assertNull($dadosConsulta['confirmacao_expira_em']);
         self::assertTrue(db_connect()->transStatus());
         $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => null]);
         $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
@@ -136,6 +141,60 @@ final class ContaTest extends CIUnitTestCase
         ]);
 
         $inexistente->assertStatus(404);
+    }
+
+    public function testConfirmacaoRecentePodeSerReutilizadaSomenteNaMesmaContaEOperador(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $outroOperador = $this->criarUsuario('outro.operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+        $outraConta = $this->criarUsuario('conta.outra');
+
+        $servico = service('edicaoContaService');
+        $senhaIncorreta = $servico->atualizar((int) $alvo->id, 'Nome Não Gravado', 'incorreta', $operador);
+        self::assertFalse($senhaIncorreta['sucesso']);
+        self::assertNull($servico->consultar((int) $alvo->id, $operador)['confirmacao_expira_em']);
+        $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
+        self::assertTrue($servico->atualizar((int) $alvo->id, 'Primeiro Nome', $this->senha, $operador)['sucesso']);
+
+        $confirmacao = $servico->consultar((int) $alvo->id, $operador);
+        self::assertTrue($confirmacao['confirmacao_recente']);
+        self::assertGreaterThan(0, $confirmacao['confirmacao_expira_em']);
+        self::assertLessThanOrEqual(300, $confirmacao['confirmacao_expira_em']);
+
+        self::assertTrue($servico->atualizar((int) $alvo->id, 'Segundo Nome', '', $operador)['sucesso']);
+        self::assertTrue($servico->atualizar(
+            (int) $alvo->id,
+            'Segundo Nome',
+            '',
+            $operador,
+            'conta.atualizada@ifro.edu.br',
+            'Atualização solicitada pelo titular.',
+        )['sucesso']);
+        self::assertFalse($servico->atualizar((int) $outraConta->id, 'Nome Outra', '', $operador)['sucesso']);
+        self::assertFalse($servico->atualizar((int) $alvo->id, 'Nome Outro Operador', '', $outroOperador)['sucesso']);
+        $this->seeNumRecords(3, 'auditoria_edicao_contas', ['conta_id' => $alvo->id]);
+        $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $outraConta->id]);
+    }
+
+    public function testConfirmacaoExpiradaExigeSenhaNovamente(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+        Time::setTestNow('2026-11-19 12:00:00');
+
+        try {
+            $servico = service('edicaoContaService');
+            self::assertTrue($servico->atualizar((int) $alvo->id, 'Primeiro Nome', $this->senha, $operador)['sucesso']);
+            Time::setTestNow('2026-11-19 12:05:01');
+            $expirada = $servico->atualizar((int) $alvo->id, 'Nome Expirado', '', $operador);
+            self::assertFalse($expirada['sucesso']);
+            self::assertSame('CONFIRMACAO_INVALIDA', $expirada['codigo']);
+            $this->seeNumRecords(1, 'auditoria_edicao_contas', ['conta_id' => $alvo->id]);
+            $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => 'Primeiro Nome']);
+        } finally {
+            Time::setTestNow();
+        }
     }
 
     public function testRejeitaPropriedadesExtrasSemAlterarGrupoOuSenha(): void
@@ -322,21 +381,30 @@ final class ContaTest extends CIUnitTestCase
 
     public function testListaFiltraPorNomeEGrupoERejeitaGrupoInvalido(): void
     {
+        $sql = $this->db->table('auth_groups_users')
+            ->select('auth_groups_users.user_id, auth_groups_users.group')
+            ->where('group', 'user')
+            ->getCompiledSelect();
+        self::assertStringContainsString('`.`group`', $sql);
+
         $operador = $this->criarUsuario('operador', true);
         $alvo = $this->criarUsuario('conta.alvo');
         $alvo->addGroup('user');
+        $alvo->addGroup('admin');
         model(\App\Models\UsuarioAutenticacaoModel::class)->update($alvo->id, ['nome_completo' => 'Conta Alvo']);
 
-        $resposta = $this->actingAs($operador)->get(
-            'admin/contas/tabela?draw=2&start=0&length=10&search%5Bvalue%5D=Conta%20Alvo&grupo=user',
-        );
-        $resposta->assertOK();
-        $dados = json_decode($resposta->getJSON(), true);
+        $dados = service('edicaoContaService')->listarDataTable([
+            'draw' => 2,
+            'start' => 0,
+            'length' => 10,
+            'search' => ['value' => 'Conta Alvo'],
+            'grupo' => 'user',
+        ])['dados'];
         self::assertSame(1, $dados['recordsFiltered']);
         self::assertSame((int) $alvo->id, $dados['data'][0]['id']);
 
-        $invalido = $this->actingAs($operador)->get('admin/contas/tabela?draw=3&start=0&length=10&grupo=nao-existe');
-        $invalido->assertStatus(400);
+        $invalido = service('edicaoContaService')->listarDataTable(['grupo' => 'nao-existe']);
+        self::assertSame('GRUPO_INVALIDO', $invalido['codigo']);
     }
 
     public function testListaEBuscaUsamNomeCompletoComFallbackParaUsername(): void

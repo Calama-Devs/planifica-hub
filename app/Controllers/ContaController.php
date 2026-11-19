@@ -42,7 +42,11 @@ class ContaController extends BaseController
 
     public function consultar(string $contaId): ResponseInterface
     {
-        $conta = $this->edicaoContaService->consultar($this->idValido($contaId));
+        $operador = auth()->user();
+        $conta = $this->edicaoContaService->consultar(
+            $this->idValido($contaId),
+            $operador instanceof User ? $operador : null,
+        );
 
         if ($conta === null) {
             throw PageNotFoundException::forPageNotFound();
@@ -80,7 +84,7 @@ class ContaController extends BaseController
         if (
             $extras !== []
             || ! is_string($dados['nome'] ?? null)
-            || ! is_string($dados['senha_admin'] ?? null)
+            || (array_key_exists('senha_admin', $dados) && ! is_string($dados['senha_admin']))
             || (isset($dados['email']) && ! is_string($dados['email']))
             || (isset($dados['justificativa']) && ! is_string($dados['justificativa']))
         ) {
@@ -95,7 +99,7 @@ class ContaController extends BaseController
         $resultado = $this->edicaoContaService->atualizar(
             $this->idValido($contaId),
             $dados['nome'],
-            $dados['senha_admin'],
+            $dados['senha_admin'] ?? '',
             $operador,
             $dados['email'] ?? null,
             $dados['justificativa'] ?? null,

@@ -27,11 +27,11 @@
                         <label for="conta-nome" class="form-label">Nome completo</label>
                         <input type="text" id="conta-nome" name="nome" class="form-control" maxlength="255" required>
                     </div>
-                    <div class="mb-3">
+                    <div id="grupo-senha-admin-conta" class="mb-3">
                         <label for="senha-admin-conta" class="form-label">Sua senha de administrador</label>
                         <input type="password" id="senha-admin-conta" name="senha_admin" class="form-control" autocomplete="current-password" required>
-                        <div class="form-text">Necessária para confirmar esta alteração.</div>
                     </div>
+                    <div class="form-text mb-3" id="texto-confirmacao-senha">Necessária para confirmar esta alteração.</div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal" data-dismiss="modal">Cancelar</button>

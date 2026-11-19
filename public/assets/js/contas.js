@@ -5,6 +5,13 @@ $(function () {
     const form = $('#form-atualizar-conta');
     let urlSalvar = '';
     let emailOriginal = '';
+    function atualizarEstadoSenha(recente) {
+        $('#grupo-senha-admin-conta').toggleClass('d-none', recente);
+        $('#senha-admin-conta').prop('disabled', recente).prop('required', !recente);
+        $('#texto-confirmacao-senha').text(recente
+            ? 'Sua confirmação de senha continua válida por alguns minutos.'
+            : 'Necessária para confirmar esta alteração.');
+    }
 
     function restaurarEstadoEmail() {
         $('#alterar-email-excepcional').prop('checked', false);
@@ -59,6 +66,7 @@ $(function () {
         $('#conta-nome').val('');
         $('#conta-email-atual').val('');
         emailOriginal = '';
+        atualizarEstadoSenha(false);
         restaurarEstadoEmail();
 
         $.getJSON(botao.data('consultar-url'))
@@ -66,6 +74,7 @@ $(function () {
                 $('#conta-nome').val(resposta.conta.nome);
                 $('#conta-email-atual').val(resposta.conta.email);
                 emailOriginal = resposta.conta.email;
+                atualizarEstadoSenha(Boolean(resposta.conta.confirmacao_recente));
                 restaurarEstadoEmail();
             })
             .fail(function () {
@@ -105,6 +114,10 @@ $(function () {
         }).fail(function (xhr) {
             const resposta = xhr.responseJSON || {};
             atualizarTokenCsrf(resposta);
+            if (resposta.codigo === 'CONFIRMACAO_INVALIDA') {
+                atualizarEstadoSenha(false);
+                $('#senha-admin-conta').trigger('focus');
+            }
             $('#erro-atualizar-conta').removeClass('d-none').text(resposta.mensagem || 'Não foi possível atualizar o usuário.');
             $.toast({
                 heading: 'Erro',

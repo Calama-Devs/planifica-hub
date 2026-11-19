@@ -8,6 +8,7 @@ use App\Models\AuditoriaEdicaoContaModel;
 use App\Models\UsuarioAutenticacaoModel;
 use App\Validation\ValidadorNomeCompleto;
 use CodeIgniter\Database\BaseConnection;
+use CodeIgniter\Database\BaseBuilder;
 use CodeIgniter\Database\Exceptions\DatabaseException;
 use CodeIgniter\Shield\Authentication\Authenticators\Session;
 use CodeIgniter\Shield\Entities\User;
@@ -95,13 +96,14 @@ class EdicaoContaService
         }
 
         if ($grupo !== '') {
-            $membros = $this->banco->table($tabelaGrupos)
-                ->select('user_id')
-                ->where('group', $grupo)
-                ->get()
-                ->getResultArray();
-            $ids = array_map(static fn (array $linha): int => (int) $linha['user_id'], $membros);
-            $query->whereIn($tabelaUsuarios . '.id', $ids === [] ? [0] : $ids);
+            $query->whereIn(
+                $tabelaUsuarios . '.id',
+                static function (BaseBuilder $subconsulta) use ($tabelaGrupos, $grupo): BaseBuilder {
+                    return $subconsulta->select('user_id')
+                        ->from($tabelaGrupos)
+                        ->where('group', $grupo);
+                },
+            );
         }
 
         $queryFiltrado = clone $query;
@@ -133,7 +135,7 @@ class EdicaoContaService
         ]];
     }
 
-    public function consultar(int $contaId): ?array
+    public function consultar(int $contaId, ?User $operador = null): ?array
     {
         $conta = $this->contas->findById($contaId);
 
@@ -141,10 +143,16 @@ class EdicaoContaService
             return null;
         }
 
+        $segundosRestantes = $operador === null
+            ? null
+            : $this->confirmacao->segundosRestantes($operador, self::OPERACAO, $contaId);
+
         return [
             'id' => (int) $conta->id,
             'nome' => (string) ($conta->nome_completo ?? $conta->username),
             'email' => (string) $conta->email,
+            'confirmacao_recente' => $segundosRestantes !== null,
+            'confirmacao_expira_em' => $segundosRestantes,
         ];
     }
 
@@ -227,8 +235,8 @@ class EdicaoContaService
         }
 
         if (
-            ! $this->confirmacao->confirmar($operador, $senha, self::OPERACAO, $contaId)
-            || ! $this->confirmacao->consumir($operador, self::OPERACAO, $contaId)
+            $this->confirmacao->segundosRestantes($operador, self::OPERACAO, $contaId) === null
+            && ! $this->confirmacao->registrar($operador, $senha, self::OPERACAO, $contaId)
         ) {
             return $this->falha('permissao', 'CONFIRMACAO_INVALIDA', 'Confirme a operação com sua senha atual.');
         }
@@ -419,7 +427,7 @@ class EdicaoContaService
         }
 
         $vinculos = $this->banco->table($tabelaGrupos)
-            ->select('user_id, `group`')
+            ->select('auth_groups_users.user_id, auth_groups_users.group')
             ->whereIn('user_id', $ids)
             ->get()
             ->getResultArray();
