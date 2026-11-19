@@ -203,16 +203,16 @@
                     </a>
                 </div>
 
-            <?php elseif ($estado === 'cancelado') : ?>
-                <!-- Estado: Convite Cancelado -->
+            <?php elseif (in_array($estado, ['cancelado', 'invalido', 'invalido_ou_cancelado'], true)) : ?>
+                <!-- Estado Combinado: Convite Inválido ou Cancelado -->
                 <div class="finalizar-cadastro-status-card">
-                    <i class="mdi mdi-close-circle-outline text-danger finalizar-cadastro-status-icon" aria-hidden="true"></i>
-                    <h4 class="finalizar-cadastro-status-titulo">Convite Cancelado</h4>
+                    <i class="mdi mdi-alert-circle-outline text-danger finalizar-cadastro-status-icon" aria-hidden="true"></i>
+                    <h4 class="finalizar-cadastro-status-titulo">Convite Inválido ou Cancelado</h4>
                     <p class="finalizar-cadastro-status-texto">
-                        Este convite foi cancelado pelo administrador do sistema e não está mais disponível para utilização.<br><br>
-                        Caso necessite de acesso ao PlanIFica Hub, solicite um novo convite ao responsável institucional.
+                        Este link de convite não está disponível para utilização. Ele pode ter sido cancelado pela administração ou conter um endereço incorreto.<br><br>
+                        Verifique se o link foi copiado integralmente ou solicite um novo convite ao responsável institucional.
                     </p>
-                    <a href="<?= esc(url_to('login'), 'attr') ?>" class="btn btn-outline-secondary w-100 py-2">
+                    <a href="<?= esc(url_to('login'), 'attr') ?>" class="btn btn-primary w-100 py-2">
                         <i class="mdi mdi-arrow-left me-1" aria-hidden="true"></i> Voltar ao login
                     </a>
                 </div>
@@ -245,28 +245,13 @@
                     </a>
                 </div>
 
-            <?php elseif ($estado === 'invalido') : ?>
-                <!-- Estado: Convite Inválido -->
-                <div class="finalizar-cadastro-status-card">
-                    <i class="mdi mdi-alert-circle-outline text-danger finalizar-cadastro-status-icon" aria-hidden="true"></i>
-                    <h4 class="finalizar-cadastro-status-titulo">Convite Inválido</h4>
-                    <p class="finalizar-cadastro-status-texto">
-                        O link de convite acessado é inválido ou contém parâmetros incorretos.<br><br>
-                        Verifique se o link foi copiado integralmente ou solicite um novo convite ao responsável institucional.
-                    </p>
-                    <a href="<?= esc(url_to('login'), 'attr') ?>" class="btn btn-primary w-100 py-2">
-                        <i class="mdi mdi-arrow-left me-1" aria-hidden="true"></i> Voltar ao login
-                    </a>
-                </div>
-
             <?php else : ?>
-                <!-- Estado Padrão / Convite Indisponível -->
+                <!-- Estado Padrão: Convite Inválido ou Cancelado -->
                 <div class="finalizar-cadastro-status-card">
                     <i class="mdi mdi-alert-circle-outline text-danger finalizar-cadastro-status-icon" aria-hidden="true"></i>
-                    <h4 class="finalizar-cadastro-status-titulo">Convite Indisponível</h4>
+                    <h4 class="finalizar-cadastro-status-titulo">Convite Inválido ou Cancelado</h4>
                     <p class="finalizar-cadastro-status-texto">
-                        O link de convite acessado não está disponível para utilização no momento.<br><br>
-                        Verifique se o endereço foi copiado integralmente ou solicite um novo convite ao responsável institucional.
+                        Este link de convite não está disponível para utilização. Verifique se o endereço foi copiado integralmente ou solicite um novo convite ao responsável institucional.
                     </p>
                     <a href="<?= esc(url_to('login'), 'attr') ?>" class="btn btn-primary w-100 py-2">
                         <i class="mdi mdi-arrow-left me-1" aria-hidden="true"></i> Voltar ao login

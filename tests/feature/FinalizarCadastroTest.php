@@ -41,7 +41,8 @@ final class FinalizarCadastroTest extends CIUnitTestCase
 
         $resposta->assertOK();
         $resposta->assertSee('Finalize seu cadastro');
-        $resposta->assertSee('Convite Inválido');
+        $resposta->assertSee('Convite Inválido ou Cancelado');
+        $resposta->assertSee('Este link de convite não está disponível para utilização');
         $resposta->assertSee('Voltar ao login');
         $this->assertStringNotContainsString('<form', $resposta->getBody());
     }
@@ -172,8 +173,31 @@ final class FinalizarCadastroTest extends CIUnitTestCase
         $resposta = $this->get('finalizar-cadastro?token=token-cancelado');
 
         $resposta->assertOK();
-        $resposta->assertSee('Convite Cancelado');
-        $resposta->assertSee('Este convite foi cancelado pelo administrador do sistema');
+        $resposta->assertSee('Convite Inválido ou Cancelado');
+        $resposta->assertSee('Este link de convite não está disponível para utilização');
+        $resposta->assertSee('Voltar ao login');
+        $this->assertStringNotContainsString('<form', $resposta->getBody());
+        $this->assertStringNotContainsString('name="password"', $resposta->getBody());
+    }
+
+    public function testAcessoComEstadoInvalidoOuCanceladoExibeCardCombinadoSemFormulario(): void
+    {
+        $mockService = $this->createMock(FinalizarCadastroService::class);
+        $mockService->method('validarConvite')->willReturn([
+            'sucesso'  => false,
+            'tipo'     => 'regra_negocio',
+            'codigo'   => 'CONVITE_INVALIDO_OU_CANCELADO',
+            'estado'   => FinalizarCadastroService::ESTADO_INVALIDO_OU_CANCELADO,
+            'mensagem' => 'Este link de convite não está disponível para utilização.',
+            'dados'    => null,
+        ]);
+        Services::injectMock('finalizarCadastroService', $mockService);
+
+        $resposta = $this->get('finalizar-cadastro?token=token-invalido-cancelado');
+
+        $resposta->assertOK();
+        $resposta->assertSee('Convite Inválido ou Cancelado');
+        $resposta->assertSee('Este link de convite não está disponível para utilização');
         $resposta->assertSee('Voltar ao login');
         $this->assertStringNotContainsString('<form', $resposta->getBody());
         $this->assertStringNotContainsString('name="password"', $resposta->getBody());

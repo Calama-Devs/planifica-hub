@@ -98,8 +98,10 @@ final class FinalizarCadastroServiceTest extends CIUnitTestCase
         $this->assertContains(FinalizarCadastroService::ESTADO_EXPIRADO, $estados);
         $this->assertContains(FinalizarCadastroService::ESTADO_INVALIDO, $estados);
         $this->assertContains(FinalizarCadastroService::ESTADO_CANCELADO, $estados);
+        $this->assertContains(FinalizarCadastroService::ESTADO_INVALIDO_OU_CANCELADO, $estados);
         $this->assertContains(FinalizarCadastroService::ESTADO_UTILIZADO, $estados);
         $this->assertContains(FinalizarCadastroService::ESTADO_ERRO_TEMPORARIO, $estados);
         $this->assertSame('cancelado', FinalizarCadastroService::ESTADO_CANCELADO);
+        $this->assertSame('invalido_ou_cancelado', FinalizarCadastroService::ESTADO_INVALIDO_OU_CANCELADO);
     }
 }

@@ -6,12 +6,13 @@ namespace App\Services;
 
 class FinalizarCadastroService
 {
-    public const ESTADO_VALIDO         = 'valido';
-    public const ESTADO_EXPIRADO        = 'expirado';
-    public const ESTADO_INVALIDO        = 'invalido';
-    public const ESTADO_CANCELADO       = 'cancelado';
-    public const ESTADO_UTILIZADO       = 'utilizado';
-    public const ESTADO_ERRO_TEMPORARIO = 'erro_temporario';
+    public const ESTADO_VALIDO                 = 'valido';
+    public const ESTADO_EXPIRADO                = 'expirado';
+    public const ESTADO_INVALIDO                = 'invalido';
+    public const ESTADO_CANCELADO               = 'cancelado';
+    public const ESTADO_INVALIDO_OU_CANCELADO   = 'invalido_ou_cancelado';
+    public const ESTADO_UTILIZADO               = 'utilizado';
+    public const ESTADO_ERRO_TEMPORARIO         = 'erro_temporario';
 
     /**
      * Mapeamento de rótulos amigáveis para os grupos de acesso do sistema.
@@ -38,6 +39,7 @@ class FinalizarCadastroService
             self::ESTADO_EXPIRADO,
             self::ESTADO_INVALIDO,
             self::ESTADO_CANCELADO,
+            self::ESTADO_INVALIDO_OU_CANCELADO,
             self::ESTADO_UTILIZADO,
             self::ESTADO_ERRO_TEMPORARIO,
         ];
@@ -46,13 +48,13 @@ class FinalizarCadastroService
     /**
      * Valida o token de convite e retorna o estado correspondente.
      *
-     * Estados possíveis: valido, expirado, invalido, cancelado, utilizado, erro_temporario.
+     * Estados possíveis: valido, expirado, invalido, cancelado, invalido_ou_cancelado, utilizado, erro_temporario.
      *
      * @return array{
      *     sucesso: bool,
      *     tipo: string,
      *     codigo: string,
-     *     estado: 'valido'|'expirado'|'invalido'|'cancelado'|'utilizado'|'erro_temporario',
+     *     estado: 'valido'|'expirado'|'invalido'|'cancelado'|'invalido_ou_cancelado'|'utilizado'|'erro_temporario',
      *     mensagem: string,
      *     dados: array{email: string, grupos: list<array{codigo: string, rotulo: string}>, token: string}|null
      * }
