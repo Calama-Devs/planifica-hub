@@ -30,7 +30,24 @@ class AcessoController extends BaseController
      */
     public function index(): string
     {
-        return view('acesso/index', $this->permissaoDiretaService->listarContas());
+        $situacao = $this->request->getGet('situacao');
+        if (! in_array($situacao, ['ativos', 'inativos'], true)) {
+            $situacao = 'ativos';
+        }
+
+        $dados                      = $this->permissaoDiretaService->listarContas(0, situacao: $situacao);
+        $dados['situacao']          = $situacao;
+        $dados['gruposDisponiveis'] = $this->permissaoDiretaService->gruposDisponiveis();
+
+        foreach ($dados['contas'] as &$conta) {
+            $conta['rotulo']         = esc($conta['rotulo']);
+            $conta['username']       = esc($conta['username']);
+            $conta['email']          = esc($conta['email']);
+            $conta['url_permissoes'] = url_to('acessos.permissoes', $conta['id']);
+        }
+        unset($conta);
+
+        return view('acesso/index', $dados);
     }
 
     /**
@@ -38,15 +55,17 @@ class AcessoController extends BaseController
      */
     public function consultarConta(): ResponseInterface
     {
-        $entrada = $this->request->getGet(['pesquisa', 'page']);
+        $entrada = $this->request->getGet(['pesquisa', 'page', 'situacao']);
         $regras  = [
             'pesquisa' => 'permit_empty|string|max_length[100]',
             'page'     => 'permit_empty|is_natural_no_zero|less_than_equal_to[999999999]',
+            'situacao' => 'permit_empty|string|in_list[ativos,inativos,todos]',
         ];
 
         if (
             (isset($entrada['pesquisa']) && ! is_string($entrada['pesquisa']))
             || (isset($entrada['page']) && ! is_string($entrada['page']))
+            || (isset($entrada['situacao']) && ! is_string($entrada['situacao']))
             || ! $this->validateData($entrada, $regras)
         ) {
             return $this->response->setStatusCode(422)->setJSON([
@@ -59,10 +78,14 @@ class AcessoController extends BaseController
 
         try {
             $validados = $this->validator->getValidated();
+            $situacao  = isset($validados['situacao']) && $validados['situacao'] !== ''
+                ? (string) $validados['situacao']
+                : null;
             $listagem  = $this->permissaoDiretaService->listarContas(
                 15,
                 trim((string) ($validados['pesquisa'] ?? '')),
                 (int) ($validados['page'] ?? 1),
+                $situacao,
             );
 
             return $this->responderPesquisa($listagem);
@@ -85,10 +108,17 @@ class AcessoController extends BaseController
      */
     private function responderPesquisa(array $listagem): ResponseInterface
     {
-        $contas = $listagem['contas'];
+        $contas = [];
 
-        foreach ($contas as $indice => $conta) {
-            $contas[$indice]['url_permissoes'] = url_to('acessos.permissoes', $conta['id']);
+        foreach ($listagem['contas'] as $conta) {
+            $contas[] = [
+                'id'             => $conta['id'],
+                'rotulo'         => $conta['rotulo'],
+                'email'          => $conta['email'],
+                'grupos'         => $conta['grupos'],
+                'total_diretas'  => $conta['total_diretas'],
+                'url_permissoes' => url_to('acessos.permissoes', $conta['id']),
+            ];
         }
 
         return $this->response->setHeader('Cache-Control', 'no-store')->setJSON([

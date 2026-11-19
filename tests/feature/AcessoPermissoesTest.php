@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\Security\Exceptions\SecurityException;
 use CodeIgniter\Shield\Entities\User;
+use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\Shield\Test\AuthenticationTesting;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
@@ -617,13 +618,59 @@ final class AcessoPermissoesTest extends CIUnitTestCase
             $this->criarConta(sprintf('conta.%02d', $i), 'user');
         }
 
-        $primeira = $this->abrir($this->superadmin, 'admin/acessos');
-        $primeira->assertSee('Página 1 de 2');
-        $primeira->assertSee('Próxima');
+        $resposta = $this->abrir($this->superadmin, 'admin/acessos');
+        $resposta->assertOK();
+        $resposta->assertSee('conta.01');
+        $resposta->assertSee('conta.16');
+        $resposta->assertDontSee('Página 1 de 2');
+    }
 
-        $segunda = $this->abrir($this->superadmin, 'admin/acessos', ['page' => '2']);
-        $segunda->assertSee('Página 2 de 2');
-        $segunda->assertSee('Anterior');
+    public function testTelaDeGerenciamentoDeUsuariosContemElementosEModaisAdministrativos(): void
+    {
+        $alvo = $this->criarConta('usuario.ativo', 'user');
+        $alvo->active = 1;
+        model(UserModel::class)->save($alvo);
+
+        $resposta = $this->abrir($this->superadmin, 'admin/acessos');
+        $resposta->assertOK();
+        $resposta->assertSee('Gerenciamento de Usuários');
+        $resposta->assertSee('Ações');
+        $resposta->assertSee('Adicionar Usuário');
+        $resposta->assertSee('Usuários Inativos');
+        $resposta->assertSee('tabela-usuarios');
+        $resposta->assertSee('Situação');
+        $resposta->assertSee('modal-adicionar-usuario');
+        $resposta->assertSee('modal-atualizar-usuario');
+        $resposta->assertSee('modal-resetar-senha');
+        $resposta->assertSee('modal-desativar-usuario');
+        $resposta->assertSee('modal-alterar-grupos');
+        $resposta->assertSee('modal-confirmar-senha-admin');
+        $resposta->assertSee('Confirmar Ação Administrativa');
+    }
+
+    public function testFiltroDeSituacaoAtivosEInativos(): void
+    {
+        $ativo = $this->criarConta('conta.ativa', 'user');
+        $ativo->active = 1;
+        model(UserModel::class)->save($ativo);
+
+        $inativo = $this->criarConta('conta.inativa', 'user');
+        $inativo->active = 0;
+        model(UserModel::class)->save($inativo);
+
+        // Primeiro acesso (sem parâmetro): deve listar apenas os ativos
+        $primeiroAcesso = $this->abrir($this->superadmin, 'admin/acessos');
+        $primeiroAcesso->assertOK();
+        $primeiroAcesso->assertSee('conta.ativa');
+        $primeiroAcesso->assertDontSee('conta.inativa');
+        $primeiroAcesso->assertSee('Usuários Inativos');
+
+        // Acesso explícito aos inativos
+        $respostaInativos = $this->abrir($this->superadmin, 'admin/acessos', ['situacao' => 'inativos']);
+        $respostaInativos->assertOK();
+        $respostaInativos->assertSee('conta.inativa');
+        $respostaInativos->assertDontSee('conta.ativa');
+        $respostaInativos->assertSee('Usuários Ativos');
     }
 
     /**

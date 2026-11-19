@@ -56,17 +56,32 @@ class PermissaoDiretaService
      *
      * @return array{contas: list<array<string, mixed>>, paginador: Pager}
      */
-    public function listarContas(int $porPagina = 15, string $pesquisa = '', ?int $pagina = null): array
-    {
+    public function listarContas(
+        int $porPagina = 15,
+        string $pesquisa = '',
+        ?int $pagina = null,
+        ?string $situacao = null
+    ): array {
         // Instância própria: os withX() do Shield ficam ligados no modelo até o fim da requisição.
         $modelo = model(UserModel::class, false);
         $this->filtrarContasPorPesquisa($modelo, $pesquisa);
 
-        $usuarios = $modelo->withIdentities()
+        if ($situacao === 'inativos') {
+            $modelo->where('active', 0);
+        } elseif ($situacao === 'ativos') {
+            $modelo->where('active', 1);
+        }
+
+        $query = $modelo->withIdentities()
             ->withGroups()
             ->withPermissions()
-            ->orderBy('username', 'ASC')
-            ->paginate($porPagina, 'default', $pagina);
+            ->orderBy('username', 'ASC');
+
+        if ($porPagina > 0) {
+            $usuarios = $query->paginate($porPagina, 'default', $pagina);
+        } else {
+            $usuarios = $query->findAll();
+        }
 
         $contas = [];
 
@@ -663,6 +678,18 @@ class PermissaoDiretaService
     }
 
     /**
+     * Retorna o catálogo de grupos disponíveis e suas descrições.
+     *
+     * @return array<string, array{title: string, description: string}>
+     */
+    public function gruposDisponiveis(): array
+    {
+        $definidos = setting('AuthGroups.groups');
+
+        return is_array($definidos) ? $definidos : [];
+    }
+
+    /**
      * Linha da listagem de contas. Grupos e permissões já vêm carregados em lote pelo `listarContas()`.
      *
      * @return array<string, mixed>
@@ -672,9 +699,12 @@ class PermissaoDiretaService
         return [
             'id'            => (int) $conta->id,
             'rotulo'        => $this->rotular($conta),
+            'username'      => (string) $conta->username,
             'email'         => (string) $conta->email,
             'grupos'        => $this->titulosDosGrupos($conta->getGroups() ?? []),
+            'raw_grupos'    => array_values($conta->getGroups() ?? []),
             'total_diretas' => count($conta->getPermissions() ?? []),
+            'ativo'         => (bool) $conta->active,
         ];
     }
 
