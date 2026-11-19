@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Services\FinalizarCadastroService;
-use CodeIgniter\Config\Services;
+use Config\Services;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
@@ -386,12 +386,31 @@ final class FinalizarCadastroTest extends CIUnitTestCase
 
         $resposta->assertRedirectTo(site_url('login'));
         $this->assertSame('Cadastro concluído com sucesso! Acesse sua conta.', session('success'));
-        $this->assertSame('Cadastro concluído com sucesso! Acesse sua conta.', session('message'));
     }
 
-    public function testAcessoComTokenDemonstracaoExibeFormularioValidoSemMocks(): void
+    public function testAcessoComResolvedorPlugavelExibeFormularioValido(): void
     {
-        $resposta = $this->get('finalizar-cadastro?token=dev-token-valido');
+        $servico = Services::finalizarCadastroService();
+        $servico->definirResolvedorConvite(static function (string $token): ?array {
+            if ($token === 'token-adaptado-valido-123') {
+                return [
+                    'sucesso'  => true,
+                    'tipo'     => 'sucesso',
+                    'codigo'   => 'CONVITE_VALIDO',
+                    'estado'   => FinalizarCadastroService::ESTADO_VALIDO,
+                    'mensagem' => 'Convite válido.',
+                    'dados'    => [
+                        'token'  => $token,
+                        'email'  => 'convidado.teste@example.com',
+                        'grupos' => [['codigo' => 'user', 'rotulo' => 'Usuário (user)']],
+                    ],
+                ];
+            }
+
+            return null;
+        });
+
+        $resposta = $this->get('finalizar-cadastro?token=token-adaptado-valido-123');
 
         $resposta->assertOK();
         $resposta->assertSee('Finalize seu cadastro');
@@ -400,6 +419,14 @@ final class FinalizarCadastroTest extends CIUnitTestCase
         $resposta->assertSeeElement('input[id=senha]');
         $resposta->assertSeeElement('input[id=confirmar-senha]');
         $this->assertStringNotContainsString('tabindex="-1"', $resposta->getBody());
+    }
+
+    public function testAcessoComTokenSemAdaptadorExibeEstadoInvalido(): void
+    {
+        $resposta = $this->get('finalizar-cadastro?token=token-sem-integracao-123');
+
+        $resposta->assertOK();
+        $resposta->assertSee('Convite Inválido ou Cancelado');
     }
 
     public function testAliasConviteFinalizarCarregaMesmaInterface(): void

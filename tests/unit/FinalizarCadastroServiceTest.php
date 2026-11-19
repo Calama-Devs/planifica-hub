@@ -128,12 +128,11 @@ final class FinalizarCadastroServiceTest extends CIUnitTestCase
         $this->assertSame('integracao.teste@example.com', $resultado['dados']['email']);
     }
 
-    public function testTokenDemonstracaoLocalRetornaConviteValidoComDados(): void
+    public function testTokenSemAdaptadorConfiguradoRetornaInvalidoSemSimulacao(): void
     {
-        $resultado = $this->service->validarConvite('dev-token-valido');
-        $this->assertTrue($resultado['sucesso']);
-        $this->assertSame(FinalizarCadastroService::ESTADO_VALIDO, $resultado['estado']);
-        $this->assertSame('convidado.teste@example.com', $resultado['dados']['email']);
-        $this->assertCount(1, $resultado['dados']['grupos']);
+        $resultado = $this->service->validarConvite('token-valido-mas-sem-adaptador');
+        $this->assertFalse($resultado['sucesso']);
+        $this->assertSame(FinalizarCadastroService::ESTADO_INVALIDO, $resultado['estado']);
+        $this->assertSame(FinalizarCadastroService::CODIGO_CONVITE_NAO_ENCONTRADO, $resultado['codigo']);
     }
 }

@@ -13,6 +13,7 @@ class FinalizarCadastroService
     public const ESTADO_INVALIDO_OU_CANCELADO   = 'invalido_ou_cancelado';
     public const ESTADO_UTILIZADO               = 'utilizado';
     public const ESTADO_ERRO_TEMPORARIO         = 'erro_temporario';
+    public const CODIGO_CONVITE_NAO_ENCONTRADO  = 'CONVITE_NAO_ENCONTRADO';
 
     /**
      * Resolvedor de convites plugável para adaptadores ou fontes integradas.
@@ -103,7 +104,7 @@ class FinalizarCadastroService
             ];
         }
 
-        // 1. Consulta adaptador/resolvedor plugável se registrado
+        // Consulta adaptador/resolvedor plugável se registrado
         if ($this->resolvedorConvite !== null) {
             $resultadoResolvedor = ($this->resolvedorConvite)($tokenLimpo);
             if ($resultadoResolvedor !== null) {
@@ -111,99 +112,16 @@ class FinalizarCadastroService
             }
         }
 
-        // 2. Em ambiente de desenvolvimento/teste, reconhece tokens de demonstração locais
-        if (ENVIRONMENT !== 'production') {
-            $resultadoDemonstracao = $this->obterConviteDemonstracao($tokenLimpo);
-            if ($resultadoDemonstracao !== null) {
-                return $resultadoDemonstracao;
-            }
-        }
-
         // Sem infraestrutura de persistência de convites conectada,
-        // o token é considerado não localizado no servidor.
+        // o token é considerado não localizado no servidor (sem simulação de validação).
         return [
             'sucesso'  => false,
             'tipo'     => 'regra_negocio',
-            'codigo'   => 'CONVITE_NAO_ENCONTRADO',
+            'codigo'   => self::CODIGO_CONVITE_NAO_ENCONTRADO,
             'estado'   => self::ESTADO_INVALIDO,
             'mensagem' => 'Este link de convite não está disponível para utilização.',
             'dados'    => null,
         ];
-    }
-
-    /**
-     * Retorna dados simulados de demonstração para desenvolvimento e testes locais.
-     *
-     * @return array{
-     *     sucesso: bool,
-     *     tipo: string,
-     *     codigo: string,
-     *     estado: string,
-     *     mensagem: string,
-     *     dados: array{email: string, grupos: list<array{codigo: string, rotulo: string}>, token: string}|null
-     * }|null
-     */
-    private function obterConviteDemonstracao(string $token): ?array
-    {
-        return match ($token) {
-            'dev-token-valido', 'dev-convite-valido' => [
-                'sucesso'  => true,
-                'tipo'     => 'sucesso',
-                'codigo'   => 'CONVITE_VALIDO',
-                'estado'   => self::ESTADO_VALIDO,
-                'mensagem' => 'Convite válido.',
-                'dados'    => [
-                    'token'  => $token,
-                    'email'  => 'convidado.teste@example.com',
-                    'grupos' => $this->formatarGrupos(['user']),
-                ],
-            ],
-            'dev-token-multiplos' => [
-                'sucesso'  => true,
-                'tipo'     => 'sucesso',
-                'codigo'   => 'CONVITE_VALIDO',
-                'estado'   => self::ESTADO_VALIDO,
-                'mensagem' => 'Convite válido.',
-                'dados'    => [
-                    'token'  => $token,
-                    'email'  => 'coordenador.teste@example.com',
-                    'grupos' => $this->formatarGrupos(['user', 'admin', 'beta']),
-                ],
-            ],
-            'dev-token-expirado' => [
-                'sucesso'  => false,
-                'tipo'     => 'regra_negocio',
-                'codigo'   => 'CONVITE_EXPIRADO',
-                'estado'   => self::ESTADO_EXPIRADO,
-                'mensagem' => 'O prazo de validade deste convite terminou.',
-                'dados'    => null,
-            ],
-            'dev-token-cancelado' => [
-                'sucesso'  => false,
-                'tipo'     => 'regra_negocio',
-                'codigo'   => 'CONVITE_CANCELADO',
-                'estado'   => self::ESTADO_CANCELADO,
-                'mensagem' => 'Este convite foi cancelado pela administração.',
-                'dados'    => null,
-            ],
-            'dev-token-utilizado' => [
-                'sucesso'  => false,
-                'tipo'     => 'regra_negocio',
-                'codigo'   => 'CONVITE_UTILIZADO',
-                'estado'   => self::ESTADO_UTILIZADO,
-                'mensagem' => 'Este convite já foi utilizado.',
-                'dados'    => null,
-            ],
-            'dev-token-erro' => [
-                'sucesso'  => false,
-                'tipo'     => 'inesperado',
-                'codigo'   => 'ERRO_TEMPORARIO',
-                'estado'   => self::ESTADO_ERRO_TEMPORARIO,
-                'mensagem' => 'Não foi possível consultar os dados do convite no momento.',
-                'dados'    => null,
-            ],
-            default => null,
-        };
     }
 
     /**

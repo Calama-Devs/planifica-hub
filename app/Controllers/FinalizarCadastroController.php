@@ -98,7 +98,6 @@ class FinalizarCadastroController extends BaseController
         }
 
         return redirect()->route('login')
-            ->with('success', $resultado['mensagem'])
-            ->with('message', $resultado['mensagem']);
+            ->with('success', $resultado['mensagem']);
     }
 }
