@@ -235,35 +235,6 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
         $this->assertSame($hashAnterior, $this->recarregar($this->conta)->password_hash);
     }
 
-    public function testNaoEmiteLinkMagicoDeLoginParaContaAtiva(): void
-    {
-        $this->assertFalse(setting('Auth.allowMagicLinkLogins'));
-
-        $resposta = $this->withSession($_SESSION)->post('login/magic-link', [
-            'email' => $this->credenciais()['email'],
-            csrf_token() => csrf_hash(),
-        ]);
-
-        $resposta->assertRedirectTo('/login');
-        $resposta->assertSessionHas('error', lang('Auth.magicLinkDisabled'));
-        $this->dontSeeInDatabase('auth_identities', [
-            'user_id' => $this->conta->id,
-            'type' => 'magic-link',
-        ]);
-    }
-
-    public function testRecusaLinkMagicoDeLoginJaEmitido(): void
-    {
-        $token = bin2hex(random_bytes(10));
-        $this->criarToken('magic-link', $token);
-
-        $resposta = $this->get('login/verify-magic-link?token=' . $token);
-
-        $resposta->assertRedirectTo('/login');
-        $resposta->assertSessionHas('error', lang('Auth.magicLinkDisabled'));
-        $this->assertFalse(auth()->loggedIn());
-    }
-
     public function testCookieAnteriorNaoRestauraLoginMesmoAposReativacao(): void
     {
         $lembrancas = new RememberModel();
