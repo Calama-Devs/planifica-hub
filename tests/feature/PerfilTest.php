@@ -19,6 +19,7 @@ final class PerfilTest extends CIUnitTestCase
     protected $namespace = [
         'CodeIgniter\Shield',
         'CodeIgniter\Settings',
+        'App',
     ];
 
     private string $senha;
@@ -218,7 +219,7 @@ final class PerfilTest extends CIUnitTestCase
     private function criarUsuario(string $nome): User
     {
         $usuarios = model(UserModel::class);
-        $usuario  = new User(['username' => $nome]);
+        $usuario  = new User(['username' => $nome, 'active' => true]);
         $usuarios->save($usuario);
 
         /** @var User $usuario */

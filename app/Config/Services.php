@@ -7,6 +7,7 @@ use Config\Menu;
 use App\Services\RedefinirSenhaService;
 use App\Services\PerfilService;
 use App\Services\PermissaoService;
+use App\Services\EstadoContaService;
 use CodeIgniter\Config\BaseService;
 use App\Services\CabecalhoService;
 
@@ -25,6 +26,15 @@ use App\Services\CabecalhoService;
  */
 class Services extends BaseService
 {
+    public static function estadoContaService(bool $getShared = true): EstadoContaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('estadoContaService');
+        }
+
+        return new EstadoContaService();
+    }
+
     public static function redefinirSenhaService(bool $getShared = true): RedefinirSenhaService
     {
         if ($getShared) {
