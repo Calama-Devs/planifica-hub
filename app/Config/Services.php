@@ -2,9 +2,10 @@
 
 namespace Config;
 
+use App\Services\MenuService;
+use Config\Menu;
 use App\Services\RedefinirSenhaService;
 use App\Services\PerfilService;
-use App\Services\PermissaoDiretaService;
 use App\Services\PermissaoService;
 use App\Services\EdicaoContaService;
 use App\Services\ConfirmacaoOperacaoService;
@@ -71,13 +72,13 @@ class Services extends BaseService
         return new PermissaoService();
     }
 
-    public static function permissaoDiretaService(bool $getShared = true): PermissaoDiretaService
+    public static function menu(?Menu $config = null, bool $getShared = true): MenuService
     {
         if ($getShared) {
-            return static::getSharedInstance('permissaoDiretaService');
+            return static::getSharedInstance('menu', $config);
         }
 
-        return new PermissaoDiretaService();
+        return new MenuService($config);
     }
 
     public static function contaCabecalho(bool $getShared = true): CabecalhoService
