@@ -1,89 +1,80 @@
-(function () {
+$(function () {
     'use strict';
 
     // 1. Alternância de visibilidade de senha (mostrar/ocultar)
-    const botoesToggleSenha = document.querySelectorAll('[data-toggle-senha]');
+    $(document).on('click', '[data-toggle-senha]', function () {
+        var $botao = $(this);
+        var idAlvo = $botao.attr('data-toggle-senha');
+        var $inputAlvo = $('#' + idAlvo);
 
-    botoesToggleSenha.forEach(function (botao) {
-        botao.addEventListener('click', function () {
-            const idAlvo = this.getAttribute('data-toggle-senha');
-            const inputAlvo = document.getElementById(idAlvo);
+        if ($inputAlvo.length === 0) {
+            return;
+        }
 
-            if (!inputAlvo) {
-                return;
-            }
+        var senhaOculta = $inputAlvo.attr('type') === 'password';
+        $inputAlvo.attr('type', senhaOculta ? 'text' : 'password');
 
-            const senhaOculta = inputAlvo.type === 'password';
-            inputAlvo.type = senhaOculta ? 'text' : 'password';
+        var $icone = $botao.find('i');
+        if ($icone.length > 0) {
+            $icone.toggleClass('mdi-eye', !senhaOculta)
+                  .toggleClass('mdi-eye-off', senhaOculta);
+        }
 
-            const icone = this.querySelector('i');
-            if (icone) {
-                icone.classList.toggle('mdi-eye', !senhaOculta);
-                icone.classList.toggle('mdi-eye-off', senhaOculta);
-            }
-
-            this.setAttribute(
-                'aria-label',
-                senhaOculta ? 'Ocultar senha' : 'Mostrar senha'
-            );
-        });
+        $botao.attr('aria-label', senhaOculta ? 'Ocultar senha' : 'Mostrar senha');
     });
 
     // 2. Proteção de envio único e validações visuais
-    const formulario = document.querySelector('[data-envio-unico]');
-    if (!formulario) {
+    var $formulario = $('form[data-envio-unico]');
+    if ($formulario.length === 0) {
         return;
     }
 
-    const botaoSubmit = formulario.querySelector('button[type="submit"]');
-    const inputSenha = document.getElementById('senha');
-    const inputConfirmar = document.getElementById('confirmar-senha');
-    const feedbackDivergencia = document.getElementById('erro-divergencia-senha');
-    const textoOriginal = botaoSubmit ? botaoSubmit.innerHTML : '';
+    var $botaoSubmit = $formulario.find('button[type="submit"]');
+    var $inputSenha = $('#senha');
+    var $inputConfirmar = $('#confirmar-senha');
+    var $feedbackDivergencia = $('#erro-divergencia-senha');
+    var textoOriginal = $botaoSubmit.html() || '';
 
-    formulario.addEventListener('submit', function (evento) {
+    $formulario.on('submit', function (evento) {
         // Limpar estados visuais prévios de divergência
-        if (inputConfirmar && feedbackDivergencia) {
-            inputConfirmar.classList.remove('is-invalid');
-            feedbackDivergencia.classList.add('d-none');
-        }
+        $inputConfirmar.removeClass('is-invalid');
+        $feedbackDivergencia.addClass('d-none');
 
         // Validação de correspondência de senhas no front-end
-        if (inputSenha && inputConfirmar && inputSenha.value !== inputConfirmar.value) {
+        if ($inputSenha.length > 0 && $inputConfirmar.length > 0 && $inputSenha.val() !== $inputConfirmar.val()) {
             evento.preventDefault();
-            inputConfirmar.classList.add('is-invalid');
-            if (feedbackDivergencia) {
-                feedbackDivergencia.classList.remove('d-none');
-            }
-            inputConfirmar.focus();
+            $inputConfirmar.addClass('is-invalid');
+            $feedbackDivergencia.removeClass('d-none');
+            $inputConfirmar.trigger('focus');
             return;
         }
 
         // Prevenção de múltiplos envios acidentais
-        if (formulario.dataset.enviando === 'true') {
+        if ($formulario.data('enviando') === true) {
             evento.preventDefault();
             return;
         }
 
-        if (formulario.checkValidity && !formulario.checkValidity()) {
+        var formEl = $formulario[0];
+        if (formEl && formEl.checkValidity && !formEl.checkValidity()) {
             return;
         }
 
-        if (botaoSubmit) {
-            formulario.dataset.enviando = 'true';
-            botaoSubmit.disabled = true;
+        if ($botaoSubmit.length > 0) {
+            $formulario.data('enviando', true);
+            $botaoSubmit.prop('disabled', true);
 
-            const textoProcessando = botaoSubmit.getAttribute('data-texto-processando') || 'Processando...';
-            botaoSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>' + textoProcessando;
+            var textoProcessando = $botaoSubmit.attr('data-texto-processando') || 'Processando...';
+            $botaoSubmit.html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>' + textoProcessando);
         }
     });
 
     // Reativação dos botões ao navegar pelo histórico (pageshow)
-    window.addEventListener('pageshow', function () {
-        formulario.dataset.enviando = 'false';
-        if (botaoSubmit) {
-            botaoSubmit.disabled = false;
-            botaoSubmit.innerHTML = textoOriginal;
+    $(window).on('pageshow', function () {
+        $formulario.data('enviando', false);
+        if ($botaoSubmit.length > 0) {
+            $botaoSubmit.prop('disabled', false);
+            $botaoSubmit.html(textoOriginal);
         }
     });
-}());
+});

@@ -54,7 +54,7 @@
 
             <!-- Corpo da Página: Conforme o Estado do Convite -->
             <?php if ($estado === 'valido') : ?>
-                <form action="<?= esc(url_to('finalizar-cadastro.concluir'), 'attr') ?>" method="post" data-envio-unico="true" novalidate>
+                <form action="<?= esc(url_to('finalizar_cadastro.concluir'), 'attr') ?>" method="post" data-envio-unico="true" novalidate>
                     <?= csrf_field() ?>
                     <input type="hidden" name="token" value="<?= esc($dadosConvite['token'] ?? '') ?>">
 

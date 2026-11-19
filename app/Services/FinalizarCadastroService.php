@@ -154,7 +154,7 @@ class FinalizarCadastroService
                 'mensagem' => 'Convite válido.',
                 'dados'    => [
                     'token'  => $token,
-                    'email'  => 'convidado.calama@ifro.edu.br',
+                    'email'  => 'convidado.teste@example.com',
                     'grupos' => $this->formatarGrupos(['user']),
                 ],
             ],
@@ -166,7 +166,7 @@ class FinalizarCadastroService
                 'mensagem' => 'Convite válido.',
                 'dados'    => [
                     'token'  => $token,
-                    'email'  => 'coordenador.calama@ifro.edu.br',
+                    'email'  => 'coordenador.teste@example.com',
                     'grupos' => $this->formatarGrupos(['user', 'admin', 'beta']),
                 ],
             ],

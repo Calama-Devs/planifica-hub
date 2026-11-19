@@ -58,7 +58,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
             'mensagem' => 'Convite válido.',
             'dados'    => [
                 'token'  => 'token-valido-123456',
-                'email'  => 'convidado@ifro.edu.br',
+                'email'  => 'convidado.teste@example.com',
                 'grupos' => [
                     ['codigo' => 'user', 'rotulo' => 'Usuário (user)'],
                 ],
@@ -82,7 +82,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
         $resposta->assertSeeElement('input[id=email-institucional]');
         $this->assertStringContainsString('readonly', $resposta->getBody());
         $this->assertStringNotContainsString('tabindex="-1"', $resposta->getBody());
-        $resposta->assertSee('convidado@ifro.edu.br');
+        $resposta->assertSee('convidado.teste@example.com');
 
         // Grupo padrão user
         $resposta->assertSee('Usuário (user)');
@@ -114,7 +114,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
             'mensagem' => 'Convite válido.',
             'dados'    => [
                 'token'  => 'token-valido-multiplos',
-                'email'  => 'coordenador@ifro.edu.br',
+                'email'  => 'coordenador.teste@example.com',
                 'grupos' => [
                     ['codigo' => 'user', 'rotulo' => 'Usuário (user)'],
                     ['codigo' => 'admin', 'rotulo' => 'Administrador (admin)'],
@@ -395,7 +395,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
 
         $resposta->assertOK();
         $resposta->assertSee('Finalize seu cadastro');
-        $resposta->assertSee('convidado.calama@ifro.edu.br');
+        $resposta->assertSee('convidado.teste@example.com');
         $resposta->assertSee('Usuário (user)');
         $resposta->assertSeeElement('input[id=senha]');
         $resposta->assertSeeElement('input[id=confirmar-senha]');
@@ -421,7 +421,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
             'mensagem' => 'Convite válido.',
             'dados'    => [
                 'token'  => 'token-valido-123456',
-                'email'  => 'convidado@ifro.edu.br',
+                'email'  => 'convidado.teste@example.com',
                 'grupos' => [['codigo' => 'user', 'rotulo' => 'Usuário (user)']],
             ],
         ]);

@@ -116,7 +116,7 @@ final class FinalizarCadastroServiceTest extends CIUnitTestCase
                 'mensagem' => 'Convite customizado.',
                 'dados'    => [
                     'token'  => $token,
-                    'email'  => 'integracao@ifro.edu.br',
+                    'email'  => 'integracao.teste@example.com',
                     'grupos' => [['codigo' => 'user', 'rotulo' => 'Usuário (user)']],
                 ],
             ];
@@ -125,7 +125,7 @@ final class FinalizarCadastroServiceTest extends CIUnitTestCase
         $resultado = $this->service->validarConvite('token-customizado-1234');
         $this->assertTrue($resultado['sucesso']);
         $this->assertSame(FinalizarCadastroService::ESTADO_VALIDO, $resultado['estado']);
-        $this->assertSame('integracao@ifro.edu.br', $resultado['dados']['email']);
+        $this->assertSame('integracao.teste@example.com', $resultado['dados']['email']);
     }
 
     public function testTokenDemonstracaoLocalRetornaConviteValidoComDados(): void
@@ -133,7 +133,7 @@ final class FinalizarCadastroServiceTest extends CIUnitTestCase
         $resultado = $this->service->validarConvite('dev-token-valido');
         $this->assertTrue($resultado['sucesso']);
         $this->assertSame(FinalizarCadastroService::ESTADO_VALIDO, $resultado['estado']);
-        $this->assertSame('convidado.calama@ifro.edu.br', $resultado['dados']['email']);
+        $this->assertSame('convidado.teste@example.com', $resultado['dados']['email']);
         $this->assertCount(1, $resultado['dados']['grupos']);
     }
 }

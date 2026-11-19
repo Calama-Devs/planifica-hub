@@ -80,7 +80,7 @@ class FinalizarCadastroController extends BaseController
         $validacaoConvite = $this->finalizarCadastroService->validarConvite($token);
 
         if (! $validacaoConvite['sucesso'] || $validacaoConvite['estado'] !== FinalizarCadastroService::ESTADO_VALIDO) {
-            return redirect()->to(url_to('finalizar-cadastro') . '?token=' . urlencode($token))
+            return redirect()->to(url_to('finalizar_cadastro') . '?token=' . urlencode($token))
                 ->with('error', $validacaoConvite['mensagem']);
         }
 
