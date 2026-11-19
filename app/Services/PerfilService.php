@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
-use CodeIgniter\Shield\Entities\User;
 use App\Models\UsuarioAutenticacaoModel;
+use App\Validation\ValidadorNomeCompleto;
+use CodeIgniter\Shield\Entities\User;
 
 class PerfilService
 {
@@ -60,9 +63,7 @@ class PerfilService
 
     private function nomeCompletoValido(string $nome): bool
     {
-        return mb_strlen($nome) >= 2
-            && mb_strlen($nome) <= 255
-            && preg_match('/\A[\p{L}\p{M}]+(?:[ \'\x{2019}-][\p{L}\p{M}]+)*\z/u', $nome) === 1;
+        return (new ValidadorNomeCompleto())->validar($nome);
     }
 
     private function salvarNome(User $usuario, string $nome): bool
