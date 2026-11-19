@@ -237,6 +237,20 @@ class EdicaoContaService
         $donaDaTransacao = $this->banco->transDepth === 1;
 
         try {
+            if ($alterarEmail && ! $this->identidadeEmailExiste($contaId)) {
+                $this->banco->transRollback();
+
+                if ($donaDaTransacao) {
+                    $this->banco->resetTransStatus();
+                }
+
+                return $this->falha(
+                    'validacao',
+                    'IDENTIDADE_EMAIL_AUSENTE',
+                    'Esta conta não possui uma identidade de e-mail para atualizar.',
+                );
+            }
+
             if ($nome !== $nomeAtual && ! $this->contas->update($contaId, ['nome_completo' => $nome])) {
                 throw new \RuntimeException('Falha ao atualizar nome.');
             }
@@ -313,6 +327,14 @@ class EdicaoContaService
 
         return $identidade !== null
             && model(UserIdentityModel::class)->update($identidade->id, ['secret' => $email]);
+    }
+
+    private function identidadeEmailExiste(int $contaId): bool
+    {
+        return model(UserIdentityModel::class)
+            ->where('user_id', $contaId)
+            ->where('type', Session::ID_TYPE_EMAIL_PASSWORD)
+            ->first() !== null;
     }
 
     /** @param list<int> $ids @param array<string, mixed> $grupos @return array<int, list<string>> */

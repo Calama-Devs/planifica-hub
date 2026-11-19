@@ -170,6 +170,51 @@ final class ContaTest extends CIUnitTestCase
         ]);
     }
 
+    public function testRecusaTrocaDeEmailQuandoIdentidadeEstaAusenteSemAlterarDados(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuarioSemIdentidadeEmail('conta.sem.email');
+
+        $consulta = $this->actingAs($operador)->get('admin/contas/' . $alvo->id);
+        $consulta->assertOK();
+        self::assertSame('', json_decode($consulta->getJSON(), true)['conta']['email']);
+
+        $resposta = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Nome Não Gravado',
+            'senha_admin' => $this->senha,
+            'email' => 'novo.email@ifro.edu.br',
+            'justificativa' => 'Solicitação de troca registrada.',
+        ]);
+
+        $resposta->assertStatus(422);
+        $dados = json_decode($resposta->getJSON(), true);
+        self::assertSame('validacao', $dados['tipo']);
+        self::assertSame('IDENTIDADE_EMAIL_AUSENTE', $dados['codigo']);
+        $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => null]);
+        $this->dontSeeInDatabase('auth_identities', ['user_id' => $alvo->id, 'type' => 'email_password']);
+        $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
+    }
+
+    public function testPermiteEdicaoDoNomeSemIdentidadeEmail(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuarioSemIdentidadeEmail('conta.sem.email');
+
+        $resposta = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Nome Atualizado',
+            'senha_admin' => $this->senha,
+        ]);
+
+        $resposta->assertOK();
+        $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => 'Nome Atualizado']);
+        $this->dontSeeInDatabase('auth_identities', ['user_id' => $alvo->id, 'type' => 'email_password']);
+        $this->seeInDatabase('auditoria_edicao_contas', [
+            'conta_id' => $alvo->id,
+            'campos_alterados' => 'nome_completo',
+            'resultado' => 'sucesso',
+        ]);
+    }
+
     public function testRecusaEmailSemJustificativaSuficiente(): void
     {
         $operador = $this->criarUsuario('operador', true);
@@ -411,6 +456,13 @@ final class ContaTest extends CIUnitTestCase
         }
 
         return $usuario;
+    }
+
+    private function criarUsuarioSemIdentidadeEmail(string $nome): User
+    {
+        $modelo = model(UserModel::class);
+        $modelo->save(new User(['username' => $nome]));
+        return $modelo->findById($modelo->getInsertID());
     }
 
     /** @param array<string, mixed> $campos */
