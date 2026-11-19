@@ -74,8 +74,18 @@ class FinalizarCadastroController extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
+        $token = (string) $this->request->getPost('token');
+
+        // Revalida o estado do convite no servidor antes de prosseguir com o cadastro
+        $validacaoConvite = $this->finalizarCadastroService->validarConvite($token);
+
+        if (! $validacaoConvite['sucesso'] || $validacaoConvite['estado'] !== FinalizarCadastroService::ESTADO_VALIDO) {
+            return redirect()->to(url_to('finalizar-cadastro') . '?token=' . urlencode($token))
+                ->with('error', $validacaoConvite['mensagem']);
+        }
+
         $dadosValidados = [
-            'token'            => (string) $this->request->getPost('token'),
+            'token'            => $token,
             'nome_completo'    => trim((string) $this->request->getPost('nome_completo')),
             'password'         => (string) $this->request->getPost('password'),
             'password_confirm' => (string) $this->request->getPost('password_confirm'),
