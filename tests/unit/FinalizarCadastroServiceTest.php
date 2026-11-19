@@ -89,4 +89,17 @@ final class FinalizarCadastroServiceTest extends CIUnitTestCase
         $this->assertSame('user', $formatados[0]['codigo']);
         $this->assertSame('Usuário (user)', $formatados[0]['rotulo']);
     }
+
+    public function testObterEstadosSuportadosContemplaCanceladoETodosOsCenarios(): void
+    {
+        $estados = $this->service->obterEstadosSuportados();
+
+        $this->assertContains(FinalizarCadastroService::ESTADO_VALIDO, $estados);
+        $this->assertContains(FinalizarCadastroService::ESTADO_EXPIRADO, $estados);
+        $this->assertContains(FinalizarCadastroService::ESTADO_INVALIDO, $estados);
+        $this->assertContains(FinalizarCadastroService::ESTADO_CANCELADO, $estados);
+        $this->assertContains(FinalizarCadastroService::ESTADO_UTILIZADO, $estados);
+        $this->assertContains(FinalizarCadastroService::ESTADO_ERRO_TEMPORARIO, $estados);
+        $this->assertSame('cancelado', FinalizarCadastroService::ESTADO_CANCELADO);
+    }
 }

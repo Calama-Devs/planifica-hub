@@ -41,7 +41,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
 
         $resposta->assertOK();
         $resposta->assertSee('Finalize seu cadastro');
-        $resposta->assertSee('Convite Indisponível');
+        $resposta->assertSee('Convite Inválido');
         $resposta->assertSee('Voltar ao login');
         $this->assertStringNotContainsString('<form', $resposta->getBody());
     }
@@ -151,6 +151,29 @@ final class FinalizarCadastroTest extends CIUnitTestCase
         $resposta->assertOK();
         $resposta->assertSee('Convite Expirado');
         $resposta->assertSee('solicite um novo convite ao responsável');
+        $resposta->assertSee('Voltar ao login');
+        $this->assertStringNotContainsString('<form', $resposta->getBody());
+        $this->assertStringNotContainsString('name="password"', $resposta->getBody());
+    }
+
+    public function testAcessoComConviteCanceladoExibeCardAvisoESemFormulario(): void
+    {
+        $mockService = $this->createMock(FinalizarCadastroService::class);
+        $mockService->method('validarConvite')->willReturn([
+            'sucesso'  => false,
+            'tipo'     => 'regra_negocio',
+            'codigo'   => 'CONVITE_CANCELADO',
+            'estado'   => FinalizarCadastroService::ESTADO_CANCELADO,
+            'mensagem' => 'Este convite foi cancelado.',
+            'dados'    => null,
+        ]);
+        Services::injectMock('finalizarCadastroService', $mockService);
+
+        $resposta = $this->get('finalizar-cadastro?token=token-cancelado');
+
+        $resposta->assertOK();
+        $resposta->assertSee('Convite Cancelado');
+        $resposta->assertSee('Este convite foi cancelado pelo administrador do sistema');
         $resposta->assertSee('Voltar ao login');
         $this->assertStringNotContainsString('<form', $resposta->getBody());
         $this->assertStringNotContainsString('name="password"', $resposta->getBody());

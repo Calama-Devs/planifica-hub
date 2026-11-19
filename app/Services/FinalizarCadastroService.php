@@ -6,6 +6,13 @@ namespace App\Services;
 
 class FinalizarCadastroService
 {
+    public const ESTADO_VALIDO         = 'valido';
+    public const ESTADO_EXPIRADO        = 'expirado';
+    public const ESTADO_INVALIDO        = 'invalido';
+    public const ESTADO_CANCELADO       = 'cancelado';
+    public const ESTADO_UTILIZADO       = 'utilizado';
+    public const ESTADO_ERRO_TEMPORARIO = 'erro_temporario';
+
     /**
      * Mapeamento de rótulos amigáveis para os grupos de acesso do sistema.
      *
@@ -20,6 +27,23 @@ class FinalizarCadastroService
     ];
 
     /**
+     * Retorna a lista de estados de convite suportados pelo contrato do serviço.
+     *
+     * @return list<string>
+     */
+    public function obterEstadosSuportados(): array
+    {
+        return [
+            self::ESTADO_VALIDO,
+            self::ESTADO_EXPIRADO,
+            self::ESTADO_INVALIDO,
+            self::ESTADO_CANCELADO,
+            self::ESTADO_UTILIZADO,
+            self::ESTADO_ERRO_TEMPORARIO,
+        ];
+    }
+
+    /**
      * Valida o token de convite e retorna o estado correspondente.
      *
      * Estados possíveis: valido, expirado, invalido, cancelado, utilizado, erro_temporario.
@@ -28,7 +52,7 @@ class FinalizarCadastroService
      *     sucesso: bool,
      *     tipo: string,
      *     codigo: string,
-     *     estado: string,
+     *     estado: 'valido'|'expirado'|'invalido'|'cancelado'|'utilizado'|'erro_temporario',
      *     mensagem: string,
      *     dados: array{email: string, grupos: list<array{codigo: string, rotulo: string}>, token: string}|null
      * }
@@ -40,7 +64,7 @@ class FinalizarCadastroService
                 'sucesso'  => false,
                 'tipo'     => 'validacao',
                 'codigo'   => 'CONVITE_INVALIDO',
-                'estado'   => 'invalido',
+                'estado'   => self::ESTADO_INVALIDO,
                 'mensagem' => 'O link de convite informado não é válido ou está incompleto.',
                 'dados'    => null,
             ];
@@ -54,7 +78,7 @@ class FinalizarCadastroService
                 'sucesso'  => false,
                 'tipo'     => 'validacao',
                 'codigo'   => 'CONVITE_INVALIDO',
-                'estado'   => 'invalido',
+                'estado'   => self::ESTADO_INVALIDO,
                 'mensagem' => 'O formato do link de convite é inválido.',
                 'dados'    => null,
             ];
@@ -66,7 +90,7 @@ class FinalizarCadastroService
             'sucesso'  => false,
             'tipo'     => 'regra_negocio',
             'codigo'   => 'CONVITE_NAO_ENCONTRADO',
-            'estado'   => 'invalido',
+            'estado'   => self::ESTADO_INVALIDO,
             'mensagem' => 'Este link de convite não está disponível para utilização.',
             'dados'    => null,
         ];

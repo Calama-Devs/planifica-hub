@@ -10,12 +10,12 @@
 <?= $this->section('conteudo') ?>
 <main class="content-wrapper full-page-wrapper auth login-2 login-bg p-0 d-flex flex-wrap align-items-stretch">
     <!-- Coluna Esquerda: Formulário ou Estado do Convite -->
-    <div class="card col-12 col-md-5 col-lg-4 d-flex flex-column justify-content-between p-4 p-xl-5 border-0 shadow-lg" style="min-height: 100vh; background-color: #191c24;">
+    <div class="card col-12 col-md-5 col-lg-4 d-flex flex-column justify-content-between p-4 p-xl-5 border-0 shadow-lg finalizar-cadastro-col-card">
         <div class="my-auto w-100">
             <!-- Identidade Visual Institucional -->
             <div class="mb-4 text-center">
                 <div class="d-flex align-items-center justify-content-center mb-3">
-                    <img src="<?= base_url('assets/images/logo-ifro-mini.png') ?>" alt="Logo IFRO" class="me-2" style="width: 36px; height: auto;">
+                    <img src="<?= base_url('assets/images/logo-ifro-mini.png') ?>" alt="Logo IFRO" class="me-2 finalizar-cadastro-logo">
                     <div class="text-start">
                         <h4 class="text-white mb-0 fw-bold">PlanIFica</h4>
                         <small class="text-muted">Acesso ao Sistema</small>
@@ -203,6 +203,20 @@
                     </a>
                 </div>
 
+            <?php elseif ($estado === 'cancelado') : ?>
+                <!-- Estado: Convite Cancelado -->
+                <div class="finalizar-cadastro-status-card">
+                    <i class="mdi mdi-close-circle-outline text-danger finalizar-cadastro-status-icon" aria-hidden="true"></i>
+                    <h4 class="finalizar-cadastro-status-titulo">Convite Cancelado</h4>
+                    <p class="finalizar-cadastro-status-texto">
+                        Este convite foi cancelado pelo administrador do sistema e não está mais disponível para utilização.<br><br>
+                        Caso necessite de acesso ao PlanIFica Hub, solicite um novo convite ao responsável institucional.
+                    </p>
+                    <a href="<?= esc(url_to('login'), 'attr') ?>" class="btn btn-outline-secondary w-100 py-2">
+                        <i class="mdi mdi-arrow-left me-1" aria-hidden="true"></i> Voltar ao login
+                    </a>
+                </div>
+
             <?php elseif ($estado === 'utilizado') : ?>
                 <!-- Estado: Convite Já Utilizado -->
                 <div class="finalizar-cadastro-status-card">
@@ -231,14 +245,28 @@
                     </a>
                 </div>
 
+            <?php elseif ($estado === 'invalido') : ?>
+                <!-- Estado: Convite Inválido -->
+                <div class="finalizar-cadastro-status-card">
+                    <i class="mdi mdi-alert-circle-outline text-danger finalizar-cadastro-status-icon" aria-hidden="true"></i>
+                    <h4 class="finalizar-cadastro-status-titulo">Convite Inválido</h4>
+                    <p class="finalizar-cadastro-status-texto">
+                        O link de convite acessado é inválido ou contém parâmetros incorretos.<br><br>
+                        Verifique se o link foi copiado integralmente ou solicite um novo convite ao responsável institucional.
+                    </p>
+                    <a href="<?= esc(url_to('login'), 'attr') ?>" class="btn btn-primary w-100 py-2">
+                        <i class="mdi mdi-arrow-left me-1" aria-hidden="true"></i> Voltar ao login
+                    </a>
+                </div>
+
             <?php else : ?>
-                <!-- Estado Padrão / Inválido / Cancelado -->
+                <!-- Estado Padrão / Convite Indisponível -->
                 <div class="finalizar-cadastro-status-card">
                     <i class="mdi mdi-alert-circle-outline text-danger finalizar-cadastro-status-icon" aria-hidden="true"></i>
                     <h4 class="finalizar-cadastro-status-titulo">Convite Indisponível</h4>
                     <p class="finalizar-cadastro-status-texto">
-                        O link de convite acessado não está disponível para utilização. Ele pode ter sido cancelado pela administração ou conter um endereço incorreto.<br><br>
-                        Verifique se o link foi copiado integralmente ou solicite um novo convite ao responsável institucional.
+                        O link de convite acessado não está disponível para utilização no momento.<br><br>
+                        Verifique se o endereço foi copiado integralmente ou solicite um novo convite ao responsável institucional.
                     </p>
                     <a href="<?= esc(url_to('login'), 'attr') ?>" class="btn btn-primary w-100 py-2">
                         <i class="mdi mdi-arrow-left me-1" aria-hidden="true"></i> Voltar ao login
@@ -257,13 +285,13 @@
 
     <!-- Coluna Direita: Identidade Visual e Informações do Campus -->
     <div class="col-12 col-md-7 col-lg-8 d-none d-md-flex flex-column justify-content-center align-items-center p-4 p-xl-5">
-        <div class="p-4 p-xl-5 text-white shadow-lg" style="background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 16px; max-width: 600px;">
+        <div class="p-4 p-xl-5 text-white shadow-lg finalizar-cadastro-lateral-box">
             <h2 class="display-6 fw-bold text-white mb-2">PlanIFica</h2>
-            <p class="text-muted mb-4" style="font-size: 1rem;">
+            <p class="text-muted mb-4 finalizar-cadastro-subtitulo-lateral">
                 Plataforma que integra sistemas e serviços do IFRO.
             </p>
-            <div class="p-3 rounded mb-4" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08);">
-                <p class="text-light mb-0 small" style="line-height: 1.6;">
+            <div class="p-3 rounded mb-4 finalizar-cadastro-descricao-box">
+                <p class="text-light mb-0 small finalizar-cadastro-descricao-texto">
                     Sistema construído por alunos do curso de Análise e Desenvolvimento de Sistemas para o IFRO Campus Porto Velho Calama, desenvolvido pelo time Calama Devs.
                 </p>
             </div>
