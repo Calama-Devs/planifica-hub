@@ -221,6 +221,44 @@ final class ContaTest extends CIUnitTestCase
         $this->dontSeeInDatabase('auth_groups_users', ['user_id' => $alvo->id, 'group' => 'admin']);
     }
 
+    public function testRejeitaEmailVazioOuJustificativaSemEmailSemPersistirDados(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+
+        $casosEmailVazio = [
+            ['email' => ''],
+            ['email' => '', 'justificativa' => 'Correção solicitada pelo titular.'],
+            ['email' => '   ', 'justificativa' => 'Correção solicitada pelo titular.'],
+        ];
+
+        foreach ($casosEmailVazio as $dadosEmailVazio) {
+            $resposta = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+                'nome' => 'Nome não deve ser salvo',
+                'senha_admin' => $this->senha,
+                ...$dadosEmailVazio,
+            ]);
+
+            $resposta->assertStatus(422);
+            self::assertSame('EMAIL_INVALIDO', json_decode($resposta->getJSON(), true)['codigo']);
+        }
+
+        $justificativaSemEmail = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Nome não deve ser salvo',
+            'senha_admin' => $this->senha,
+            'justificativa' => 'Correção solicitada pelo titular.',
+        ]);
+        $justificativaSemEmail->assertStatus(422);
+        self::assertSame(
+            'JUSTIFICATIVA_EMAIL_INVALIDA',
+            json_decode($justificativaSemEmail->getJSON(), true)['codigo'],
+        );
+
+        $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => null]);
+        $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
+        $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
+    }
+
     public function testExigeConfirmacaoNoNovoEmailAntesDeAtualizarLogin(): void
     {
         $operador = $this->criarUsuario('operador', true);
@@ -260,6 +298,13 @@ final class ContaTest extends CIUnitTestCase
             'resultado' => 'pendente_confirmacao',
             'justificativa' => 'Correção solicitada pelo titular.',
         ]);
+        $auditoriaPendente = $this->db->table('auditoria_edicao_contas')
+            ->where('conta_id', $alvo->id)
+            ->where('email_novo', 'novo.email@ifro.edu.br')
+            ->get()
+            ->getRowArray();
+        self::assertIsArray($auditoriaPendente);
+        $createdAtOriginal = $auditoriaPendente['created_at'];
         $token = $this->tokenDaMensagem(0);
         $this->seeInDatabase('solicitacoes_troca_email', [
             'conta_id' => $alvo->id,
@@ -290,6 +335,14 @@ final class ContaTest extends CIUnitTestCase
             'resultado' => 'sucesso',
             'justificativa' => 'Correção solicitada pelo titular.',
         ]);
+        $auditoriaFinalizada = $this->db->table('auditoria_edicao_contas')
+            ->where('conta_id', $alvo->id)
+            ->where('email_novo', 'novo.email@ifro.edu.br')
+            ->get()
+            ->getRowArray();
+        self::assertIsArray($auditoriaFinalizada);
+        self::assertSame($createdAtOriginal, $auditoriaFinalizada['created_at']);
+        self::assertNotEmpty($auditoriaFinalizada['updated_at']);
         $this->dontSeeInDatabase('solicitacoes_troca_email', ['conta_id' => $alvo->id]);
         self::assertCount(2, $this->emailFake->corpos, 'O sistema confirma o endereço novo e avisa o anterior.');
         $this->dontSeeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'token-recuperacao-pendente']);

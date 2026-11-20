@@ -72,6 +72,8 @@ class EdicaoContaService
         User $operador,
         ?string $email = null,
         ?string $justificativa = null,
+        ?bool $emailInformado = null,
+        ?bool $justificativaInformada = null,
     ): array {
         if (! $operador->can(self::PERMISSAO)) {
             return $this->falha('permissao', 'CONTA_SEM_PERMISSAO', 'Você não tem permissão para editar contas.');
@@ -90,7 +92,22 @@ class EdicaoContaService
         $nome = preg_replace('/\s+/u', ' ', trim($nome)) ?? '';
         $nomeAtual = (string) ($conta->nome_completo ?? $conta->username);
         $emailAtual = (string) $conta->email;
-        $emailNovo = $email === null || trim($email) === '' ? $emailAtual : mb_strtolower(trim($email));
+        $emailInformado ??= $email !== null;
+        $justificativaInformada ??= $justificativa !== null;
+
+        if (! $emailInformado && $justificativaInformada) {
+            return $this->falha(
+                'validacao',
+                'JUSTIFICATIVA_EMAIL_INVALIDA',
+                'A justificativa só pode ser enviada junto com o e-mail excepcional.',
+            );
+        }
+
+        if ($emailInformado && ($email === null || trim($email) === '')) {
+            return $this->falha('validacao', 'EMAIL_INVALIDO', 'Informe um e-mail válido.');
+        }
+
+        $emailNovo = $emailInformado ? mb_strtolower(trim((string) $email)) : $emailAtual;
         $alterarEmail = mb_strtolower($emailNovo) !== mb_strtolower(trim($emailAtual));
 
         if (! $this->nomeValido($nome)) {

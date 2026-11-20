@@ -26,6 +26,7 @@ class AuditoriaEdicaoContaModel extends Model
         'resultado',
         'ip',
         'created_at',
+        'updated_at',
     ];
     protected $useTimestamps = false;
 }

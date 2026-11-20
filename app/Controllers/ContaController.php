@@ -60,8 +60,12 @@ class ContaController extends BaseController
             $extras !== []
             || ! is_string($dados['nome'] ?? null)
             || (array_key_exists('senha_admin', $dados) && ! is_string($dados['senha_admin']))
-            || (isset($dados['email']) && ! is_string($dados['email']))
-            || (isset($dados['justificativa']) && ! is_string($dados['justificativa']))
+            || (array_key_exists('email', $dados) && $dados['email'] !== null && ! is_string($dados['email']))
+            || (
+                array_key_exists('justificativa', $dados)
+                && $dados['justificativa'] !== null
+                && ! is_string($dados['justificativa'])
+            )
         ) {
             return $this->jsonResponse([
                 'sucesso' => false,
@@ -78,6 +82,8 @@ class ContaController extends BaseController
             $operador,
             $dados['email'] ?? null,
             $dados['justificativa'] ?? null,
+            array_key_exists('email', $dados),
+            array_key_exists('justificativa', $dados),
         );
 
         $status = $resultado['sucesso'] ? 200 : 422;

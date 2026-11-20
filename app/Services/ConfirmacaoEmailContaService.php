@@ -295,7 +295,7 @@ class ConfirmacaoEmailContaService
     {
         $dados = [
             'resultado' => $resultado,
-            'created_at' => Time::now()->toDateTimeString(),
+            'updated_at' => Time::now()->toDateTimeString(),
         ];
 
         if (! $this->auditoria->update($auditoriaId, $dados)) {
