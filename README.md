@@ -8,6 +8,9 @@ diretórios e namespaces, as convenções e a política de uso seletivo do templ
 oficial. O desenvolvimento usa `develop`, a homologação usa `homolog` e a
 produção usa `main`.
 
+Para preparar o ambiente local, abrir as telas autenticadas e executar os testes,
+consulte o [guia de execução e uso](docs/guia-operacao-local.md).
+
 ## Autenticação com CodeIgniter Shield
 
 O projeto utiliza o Shield `^1.4`, instalado via Composer. A configuração segue a

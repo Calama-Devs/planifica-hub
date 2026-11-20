@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers;
 
 use CodeIgniter\HTTP\RedirectResponse;
@@ -16,7 +18,7 @@ class PerfilController extends BaseController
         }
 
         return view('perfil/index', [
-            'nomeAtual'         => $usuario->username ?? '',
+            'nomeAtual'         => (string) ($usuario->nome_completo ?? $usuario->username ?? ''),
             'emailAtual'        => $usuario->email ?? '',
             'comprimentoMaximo' => service('perfilService')->obterComprimentoMaximoNome(),
         ]);
@@ -30,7 +32,26 @@ class PerfilController extends BaseController
             return redirect()->to(url_to('login'));
         }
 
-        $nome = $this->request->getPost('nome');
+        $dados = $this->request->getPost();
+        $propriedadesSensiveis = [
+            'email',
+            'password',
+            'groups',
+            'permissions',
+            'active',
+            'status',
+            'status_message',
+            'username',
+        ];
+        $extrasSensiveis = array_intersect(array_keys($dados), $propriedadesSensiveis);
+
+        if ($extrasSensiveis !== []) {
+            return redirect()->back()->with('errors', [
+                'nome' => 'O formulário contém campos não permitidos.',
+            ]);
+        }
+
+        $nome = $dados['nome'] ?? null;
 
         if (! is_string($nome)) {
             return redirect()->back()->with('errors', [

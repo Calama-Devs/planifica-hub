@@ -42,6 +42,7 @@ O Shield recusa (`AuthorizationException`) qualquer permissão atribuída a um u
 |---|---|---|
 | `contas.consultar` | Consultar a lista e os dados das contas de usuário | `superadmin`, `admin` |
 | `contas.criar` | Criar novas contas de usuário | `superadmin`, `admin` |
+| `contas.editar` | Editar nome de outras contas e solicitar troca excepcional de e-mail com justificativa e confirmação no novo endereço | `superadmin`, `admin` |
 | `acessos.administrar` | Conceder e remover grupos e permissões das contas de usuário | `superadmin` |
 
 - `acessos.administrar` fica num contexto separado de `contas` para que uma concessão a `contas` nunca libere, por engano, a administração de acessos.
@@ -95,7 +96,7 @@ return view('contas/index', ['podeCriarConta' => auth()->user()->can('contas.cri
 
 ### 4. Para atribuir a um usuário
 
-Prefira atribuir pelo grupo. Use a permissão individual só como exceção justificada.
+Prefira atribuir pelo grupo. Use a permissão individual só como exceção justificada. A concessão e a revogação de permissões individuais têm tela própria (**Administração > Acessos**) e estão descritas em [permissões diretas](../autorizacao/permissoes-diretas.md), inclusive o que fazer quando o acesso continua por herança do grupo.
 
 ```php
 $usuario->addGroup('admin');

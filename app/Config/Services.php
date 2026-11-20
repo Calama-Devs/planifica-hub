@@ -2,11 +2,13 @@
 
 namespace Config;
 
-use App\Services\MenuService;
-use Config\Menu;
 use App\Services\RedefinirSenhaService;
 use App\Services\PerfilService;
+use App\Services\PermissaoDiretaService;
 use App\Services\PermissaoService;
+use App\Services\EdicaoContaService;
+use App\Services\ConfirmacaoOperacaoService;
+use App\Services\ConfirmacaoEmailContaService;
 use CodeIgniter\Config\BaseService;
 use App\Services\CabecalhoService;
 
@@ -25,6 +27,33 @@ use App\Services\CabecalhoService;
  */
 class Services extends BaseService
 {
+    public static function confirmacaoEmailContaService(bool $getShared = true): ConfirmacaoEmailContaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('confirmacaoEmailContaService');
+        }
+
+        return new ConfirmacaoEmailContaService();
+    }
+
+    public static function confirmacaoOperacaoService(bool $getShared = true): ConfirmacaoOperacaoService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('confirmacaoOperacaoService');
+        }
+
+        return new ConfirmacaoOperacaoService();
+    }
+
+    public static function edicaoContaService(bool $getShared = true): EdicaoContaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('edicaoContaService');
+        }
+
+        return new EdicaoContaService();
+    }
+
     public static function redefinirSenhaService(bool $getShared = true): RedefinirSenhaService
     {
         if ($getShared) {
@@ -52,13 +81,13 @@ class Services extends BaseService
         return new PermissaoService();
     }
 
-    public static function menu(?Menu $config = null, bool $getShared = true): MenuService
+    public static function permissaoDiretaService(bool $getShared = true): PermissaoDiretaService
     {
         if ($getShared) {
-            return static::getSharedInstance('menu', $config);
+            return static::getSharedInstance('permissaoDiretaService');
         }
 
-        return new MenuService($config);
+        return new PermissaoDiretaService();
     }
 
     public static function contaCabecalho(bool $getShared = true): CabecalhoService
