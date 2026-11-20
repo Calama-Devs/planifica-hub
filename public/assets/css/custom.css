@@ -184,9 +184,36 @@ html, body {
     outline-offset: 2px;
 }
 
-#botao-alterar-senha .text-primary {
-    color: #7952b3 !important;
+/* Input-group-text e campos desabilitados no perfil — tema usa #2A3038 hardcoded para .form-control,
+   mas --bs-tertiary-bg / --bs-secondary-bg resolvem para cores claras sem data-bs-theme=dark */
+#formulario-perfil .input-group-text {
+    background-color: #2A3038;
+    color: var(--bs-gray-light);
+    border-color: var(--bs-border-color);
 }
+
+#formulario-perfil .form-control:disabled {
+    background-color: #2A3038;
+    color: var(--bs-gray-light);
+    opacity: 1;
+}
+
+/* Avatar do perfil — tamanho fixo; bg, radius e flex via Bootstrap (bg-primary rounded-3 d-flex…) */
+.perfil-avatar {
+    width: 60px;
+    height: 60px;
+    min-width: 60px;
+}
+
+/* Ícone de seta da seção expansível */
+.icone-secao {
+    transition: transform 0.2s ease;
+}
+
+.secao-expandida .icone-secao {
+    transform: rotate(180deg);
+}
+
 
 /* Campos de autenticação */
 .login-2 .form-control {

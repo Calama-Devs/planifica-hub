@@ -1,9 +1,8 @@
 (function ($) {
     'use strict';
 
-    var modal = $('#modal-alterar-senha');
-    var formulario = $('#formulario-alterar-senha');
-    var alerta = $('#erro-alterar-senha');
+    var formulario = $('#formulario-trocar-senha');
+    var alerta = $('#alerta-trocar-senha');
     var enviando = false;
 
     function atualizarCsrf(resposta) {
@@ -34,17 +33,6 @@
 
         return true;
     }
-
-    modal.on('shown.bs.modal', function () {
-        $('#perfil-senha-atual').trigger('focus');
-    }).on('hide.bs.modal', function (evento) {
-        if (enviando) {
-            evento.preventDefault();
-        }
-    }).on('hidden.bs.modal', function () {
-        formulario[0].reset();
-        alerta.text('').addClass('d-none');
-    });
 
     formulario.on('submit', function (evento) {
         evento.preventDefault();
