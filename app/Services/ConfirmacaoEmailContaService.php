@@ -125,7 +125,7 @@ class ConfirmacaoEmailContaService
         }
 
         $contaId = (int) $solicitacao['conta_id'];
-        $emailNovo = (string) $solicitacao['email_novo'];
+        $emailNovo = mb_strtolower(trim((string) $solicitacao['email_novo']));
         $this->banco->transBegin();
         $donaDaTransacao = $this->banco->transDepth === 1;
 
@@ -179,6 +179,30 @@ class ConfirmacaoEmailContaService
                     'regra_negocio',
                     'SOLICITACAO_EMAIL_DESATUALIZADA',
                     'A solicitação de e-mail não pode mais ser confirmada.',
+                );
+            }
+
+            if (mb_strlen($emailNovo) > 254 || filter_var($emailNovo, FILTER_VALIDATE_EMAIL) === false) {
+                $this->finalizarAuditoria((int) $solicitacao['auditoria_id'], 'email_invalido');
+                $this->solicitacoes->delete((int) $solicitacao['id']);
+                $this->confirmarTransacao();
+
+                return $this->falha(
+                    'regra_negocio',
+                    'EMAIL_INVALIDO',
+                    'Este link não pode ser confirmado. Solicite uma nova alteração ao administrador.',
+                );
+            }
+
+            if (! config('Contas')->emailInstitucionalPermitido($emailNovo)) {
+                $this->finalizarAuditoria((int) $solicitacao['auditoria_id'], 'dominio_bloqueado');
+                $this->solicitacoes->delete((int) $solicitacao['id']);
+                $this->confirmarTransacao();
+
+                return $this->falha(
+                    'regra_negocio',
+                    'EMAIL_DOMINIO_NAO_PERMITIDO',
+                    'Este link não pode ser confirmado. Solicite uma nova alteração ao administrador.',
                 );
             }
 

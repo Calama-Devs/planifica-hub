@@ -136,7 +136,7 @@ class EdicaoContaService
                 return $this->falha('validacao', 'EMAIL_INVALIDO', 'Informe um e-mail válido.');
             }
 
-            if (! $this->dominioPermitido($emailNovo)) {
+            if (! config('Contas')->emailInstitucionalPermitido($emailNovo)) {
                 $dominios = implode(', ', config('Contas')->dominiosPermitidos);
 
                 return $this->falha(
@@ -326,20 +326,6 @@ class EdicaoContaService
             ->where('user_id', $contaId)
             ->where('type', Session::ID_TYPE_EMAIL_PASSWORD)
             ->first() !== null;
-    }
-
-    private function dominioPermitido(string $email): bool
-    {
-        $email = mb_strtolower(trim($email));
-        $posicao = strrpos($email, '@');
-
-        if ($posicao === false) {
-            return false;
-        }
-
-        $dominio = substr($email, $posicao + 1);
-
-        return in_array($dominio, array_map('mb_strtolower', config('Contas')->dominiosPermitidos), true);
     }
 
     private function mensagemAtualizacao(bool $nomeAlterado, bool $emailPendente): string

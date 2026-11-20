@@ -28,4 +28,22 @@ class Contas extends BaseConfig
 
     /** Prazo, em segundos, para confirmar o novo endereço institucional. */
     public int $prazoConfirmacaoEmailSegundos = 86400;
+
+    public function emailInstitucionalPermitido(string $email): bool
+    {
+        $email = mb_strtolower(trim($email));
+        $posicaoArroba = strrpos($email, '@');
+
+        if ($posicaoArroba === false) {
+            return false;
+        }
+
+        $dominio = substr($email, $posicaoArroba + 1);
+        $dominiosPermitidos = array_map(
+            static fn (string $dominioPermitido): string => mb_strtolower(trim($dominioPermitido)),
+            $this->dominiosPermitidos,
+        );
+
+        return in_array($dominio, $dominiosPermitidos, true);
+    }
 }

@@ -412,6 +412,69 @@ final class ContaTest extends CIUnitTestCase
         ]);
     }
 
+    public function testDominioRevogadoAntesDaConfirmacaoCancelaSolicitacao(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+        $emailNovo = 'novo.email@ifro.edu.br';
+
+        $solicitacao = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Conta Alvo',
+            'senha_admin' => $this->senha,
+            'email' => $emailNovo,
+            'justificativa' => 'Correção solicitada pelo titular.',
+        ]);
+        $solicitacao->assertOK();
+
+        $auditoria = $this->db->table('auditoria_edicao_contas')
+            ->where('conta_id', $alvo->id)
+            ->where('email_novo', $emailNovo)
+            ->get()
+            ->getRowArray();
+        self::assertIsArray($auditoria);
+        $createdAtOriginal = $auditoria['created_at'];
+        $dominiosOriginais = config('Contas')->dominiosPermitidos;
+
+        try {
+            config('Contas')->dominiosPermitidos = ['outro.edu.br'];
+            $confirmacao = $this->confirmarEmailDaMensagem(0);
+        } finally {
+            config('Contas')->dominiosPermitidos = $dominiosOriginais;
+        }
+
+        $confirmacao->assertStatus(409);
+        self::assertStringContainsString(
+            'Este link não pode ser confirmado.',
+            html_entity_decode(strip_tags($confirmacao->getBody()), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+        );
+        self::assertStringNotContainsString('ifro.edu.br', $confirmacao->getBody());
+        $this->seeInDatabase('auth_identities', [
+            'user_id' => $alvo->id,
+            'type' => 'email_password',
+            'secret' => 'conta2@example.com',
+        ]);
+        $this->dontSeeInDatabase('solicitacoes_troca_email', ['conta_id' => $alvo->id]);
+        $auditoriaFinalizada = $this->db->table('auditoria_edicao_contas')
+            ->where('id', $auditoria['id'])
+            ->get()
+            ->getRowArray();
+        self::assertIsArray($auditoriaFinalizada);
+        self::assertSame('dominio_bloqueado', $auditoriaFinalizada['resultado']);
+        self::assertSame($createdAtOriginal, $auditoriaFinalizada['created_at']);
+        self::assertNotEmpty($auditoriaFinalizada['updated_at']);
+        self::assertCount(
+            1,
+            $this->emailFake->corpos,
+            'O endereço anterior não recebe aviso quando a confirmação é bloqueada.',
+        );
+
+        $repeticao = $this->post('confirmar-troca-email', [
+            csrf_token() => csrf_hash(),
+            'token' => $this->tokenDaMensagem(0),
+        ]);
+        $repeticao->assertStatus(422);
+    }
+
     public function testLinkExpiradoNaoAtualizaIdentidade(): void
     {
         $operador = $this->criarUsuario('operador', true);

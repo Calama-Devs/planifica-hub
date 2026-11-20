@@ -60,6 +60,18 @@ final class PerfilTest extends CIUnitTestCase
         $resposta->assertSee('perfil1@example.com');
     }
 
+    public function testExibeNomeCompletoComFallbackParaUsername(): void
+    {
+        $usuario = $this->criarUsuario('usuario.nome');
+        $this->db->table('users')->where('id', $usuario->id)->update(['nome_completo' => 'Nome Completo Atual']);
+        auth()->login(model(UserModel::class)->findById($usuario->id));
+
+        $resposta = $this->withSession($_SESSION)->get('perfil');
+
+        $resposta->assertOK();
+        $resposta->assertSee('Nome Completo Atual');
+    }
+
     public function testExibePerfilComNomeAtualEProtecaoCsrf(): void
     {
         $usuario = $this->criarUsuario('usuario.teste');
