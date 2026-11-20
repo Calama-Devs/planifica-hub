@@ -25,4 +25,7 @@ class Contas extends BaseConfig
         'ifro.edu.br',
         'estudante.ifro.edu.br',
     ];
+
+    /** Prazo, em segundos, para confirmar o novo endereço institucional. */
+    public int $prazoConfirmacaoEmailSegundos = 86400;
 }

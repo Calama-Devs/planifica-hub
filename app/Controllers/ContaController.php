@@ -18,59 +18,35 @@ class ContaController extends BaseController
         $this->edicaoContaService = service('edicaoContaService');
     }
 
-    public function index(): string|ResponseInterface
-    {
-        $dados = [
-            'operadorId' => (int) auth()->id(),
-            'grupos' => config('AuthGroups')->groups,
-        ];
-
-        return view('conta/index', $dados);
-    }
-
-    public function listar(): ResponseInterface
-    {
-        $parametros = $this->request->getGet();
-        $resultado = $this->edicaoContaService->listarDataTable($parametros);
-
-        if (! $resultado['sucesso']) {
-            return $this->response->setStatusCode(400)->setJSON($resultado);
-        }
-
-        return $this->response->setJSON($resultado['dados']);
-    }
-
     public function consultar(string $contaId): ResponseInterface
     {
+        $operador = $this->obterOperadorAutorizado();
+
+        if ($operador instanceof ResponseInterface) {
+            return $operador;
+        }
+
         $conta = $this->edicaoContaService->consultar($this->idValido($contaId));
 
         if ($conta === null) {
-            throw PageNotFoundException::forPageNotFound();
+            return $this->jsonResponse([
+                'sucesso' => false,
+                'tipo' => 'regra_negocio',
+                'codigo' => 'CONTA_NAO_ENCONTRADA',
+                'mensagem' => 'Conta não encontrada.',
+            ], 404);
         }
 
-        return $this->response->setJSON(['sucesso' => true, 'conta' => $conta]);
+        return $this->response->setHeader('Cache-Control', 'no-store')
+            ->setJSON(['sucesso' => true, 'conta' => $conta]);
     }
 
     public function atualizar(string $contaId): ResponseInterface
     {
-        $operador = auth()->user();
+        $operador = $this->obterOperadorAutorizado();
 
-        if (! $operador instanceof User) {
-            return $this->jsonResponse([
-                'sucesso' => false,
-                'tipo' => 'permissao',
-                'codigo' => 'AUTENTICACAO_NECESSARIA',
-                'mensagem' => 'Entre novamente para continuar.',
-            ], 401);
-        }
-
-        if (! $operador->can('contas.editar')) {
-            return $this->jsonResponse([
-                'sucesso' => false,
-                'tipo' => 'permissao',
-                'codigo' => 'CONTA_SEM_PERMISSAO',
-                'mensagem' => 'Sem permissão para administrar contas.',
-            ], 403);
+        if ($operador instanceof ResponseInterface) {
+            return $operador;
         }
 
         $dados = $this->request->getPost();
@@ -107,6 +83,8 @@ class ContaController extends BaseController
             $status = 404;
         } elseif ($resultado['codigo'] === 'CONTA_SEM_PERMISSAO') {
             $status = 403;
+        } elseif ($resultado['tipo'] === 'inesperado') {
+            $status = 500;
         }
 
         return $this->jsonResponse($resultado, $status);
@@ -116,7 +94,34 @@ class ContaController extends BaseController
     {
         $dados['csrf_hash'] = csrf_hash();
 
-        return $this->response->setStatusCode($status)->setJSON($dados);
+        return $this->response->setStatusCode($status)
+            ->setHeader('Cache-Control', 'no-store')
+            ->setJSON($dados);
+    }
+
+    private function obterOperadorAutorizado(): User|ResponseInterface
+    {
+        $operador = auth()->user();
+
+        if (! $operador instanceof User) {
+            return $this->jsonResponse([
+                'sucesso' => false,
+                'tipo' => 'permissao',
+                'codigo' => 'AUTENTICACAO_NECESSARIA',
+                'mensagem' => 'Entre novamente para continuar.',
+            ], 401);
+        }
+
+        if (! $operador->can('contas.editar')) {
+            return $this->jsonResponse([
+                'sucesso' => false,
+                'tipo' => 'permissao',
+                'codigo' => 'CONTA_SEM_PERMISSAO',
+                'mensagem' => 'Sem permissão para editar contas.',
+            ], 403);
+        }
+
+        return $operador;
     }
 
     private function idValido(string $contaId): int

@@ -14,6 +14,7 @@ use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
 use CodeIgniter\Test\TestResponse;
+use Tests\Support\Fakes\EmailContaFake;
 
 final class ContaTest extends CIUnitTestCase
 {
@@ -25,11 +26,15 @@ final class ContaTest extends CIUnitTestCase
 
     private string $senha = 'Senha-de-teste-123!';
     private int $contador = 0;
+    private EmailContaFake $emailFake;
 
     protected function setUp(): void
     {
         $this->resetServices();
         parent::setUp();
+
+        $this->emailFake = new EmailContaFake();
+        Services::injectMock('email', $this->emailFake);
 
         $banco = $this->db;
         $tabelaUsuarios = $banco->prefixTable(config('Auth')->tables['users']);
@@ -91,7 +96,8 @@ final class ContaTest extends CIUnitTestCase
             'senha_admin' => $this->senha,
         ]);
 
-        $resposta->assertRedirectTo(config('Auth')->permissionDeniedRedirect());
+        $resposta->assertStatus(403);
+        self::assertSame('CONTA_SEM_PERMISSAO', json_decode($resposta->getJSON(), true)['codigo']);
         $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => null]);
     }
 
@@ -136,6 +142,12 @@ final class ContaTest extends CIUnitTestCase
         ]);
 
         $inexistente->assertStatus(404);
+        $consultaInexistente = $this->actingAs($operador)->get('admin/contas/99999999');
+        $consultaInexistente->assertStatus(404);
+        self::assertSame(
+            'CONTA_NAO_ENCONTRADA',
+            json_decode($consultaInexistente->getJSON(), true)['codigo'],
+        );
     }
 
     public function testRejeitaPropriedadesExtrasSemAlterarGrupoOuSenha(): void
@@ -156,10 +168,23 @@ final class ContaTest extends CIUnitTestCase
         $this->dontSeeInDatabase('auth_groups_users', ['user_id' => $alvo->id, 'group' => 'admin']);
     }
 
-    public function testAlteraEmailComJustificativaERegistraValoresNaAuditoria(): void
+    public function testExigeConfirmacaoNoNovoEmailAntesDeAtualizarLogin(): void
     {
         $operador = $this->criarUsuario('operador', true);
         $alvo = $this->criarUsuario('conta.alvo');
+        $identidades = model(\CodeIgniter\Shield\Models\UserIdentityModel::class);
+        $identidades->insert([
+            'user_id' => $alvo->id,
+            'type' => 'magic-link-reset',
+            'secret' => 'token-recuperacao-pendente',
+            'expires' => date('Y-m-d H:i:s', time() + 600),
+        ]);
+        $identidades->insert([
+            'user_id' => $alvo->id,
+            'type' => 'magic-link',
+            'secret' => 'token-login-pendente',
+            'expires' => date('Y-m-d H:i:s', time() + 600),
+        ]);
 
         $resposta = $this->enviarAtualizacao($operador, (int) $alvo->id, [
             'nome' => 'Nome Atualizado',
@@ -172,14 +197,178 @@ final class ContaTest extends CIUnitTestCase
         $this->seeInDatabase('auth_identities', [
             'user_id' => $alvo->id,
             'type' => 'email_password',
+            'secret' => 'conta2@example.com',
+        ]);
+        $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => 'Nome Atualizado']);
+        $this->seeInDatabase('auditoria_edicao_contas', [
+            'conta_id' => $alvo->id,
+            'email_anterior' => 'conta2@example.com',
+            'email_novo' => 'novo.email@ifro.edu.br',
+            'resultado' => 'pendente_confirmacao',
+            'justificativa' => 'Correção solicitada pelo titular.',
+        ]);
+        $token = $this->tokenDaMensagem(0);
+        $this->seeInDatabase('solicitacoes_troca_email', [
+            'conta_id' => $alvo->id,
+            'email_novo' => 'novo.email@ifro.edu.br',
+            'token_hash' => hash('sha256', $token),
+        ]);
+
+        $pagina = $this->get('confirmar-troca-email?token=' . rawurlencode($token));
+        $pagina->assertOK();
+        self::assertStringContainsString('Confirmar novo e-mail', $pagina->getBody());
+        $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
+
+        $confirmacao = $this->post('confirmar-troca-email', [
+            csrf_token() => csrf_hash(),
+            'token' => $token,
+        ]);
+        $confirmacao->assertOK();
+        self::assertStringContainsString('Novo e-mail confirmado', $confirmacao->getBody());
+        $this->seeInDatabase('auth_identities', [
+            'user_id' => $alvo->id,
+            'type' => 'email_password',
             'secret' => 'novo.email@ifro.edu.br',
         ]);
         $this->seeInDatabase('auditoria_edicao_contas', [
             'conta_id' => $alvo->id,
             'email_anterior' => 'conta2@example.com',
             'email_novo' => 'novo.email@ifro.edu.br',
+            'resultado' => 'sucesso',
             'justificativa' => 'Correção solicitada pelo titular.',
         ]);
+        $this->dontSeeInDatabase('solicitacoes_troca_email', ['conta_id' => $alvo->id]);
+        self::assertCount(2, $this->emailFake->corpos, 'O sistema confirma o endereço novo e avisa o anterior.');
+        $this->dontSeeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'token-recuperacao-pendente']);
+        $this->dontSeeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'token-login-pendente']);
+
+        $repeticao = $this->post('confirmar-troca-email', [
+            csrf_token() => csrf_hash(),
+            'token' => $token,
+        ]);
+        $repeticao->assertStatus(422);
+        self::assertStringContainsString(
+            'inválido ou expirou',
+            html_entity_decode(strip_tags($repeticao->getBody()), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+        );
+    }
+
+    public function testFalhaNoEnvioDeConfirmacaoDesfazNomeESolicitacao(): void
+    {
+        $this->emailFake->enviar = false;
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+
+        $resposta = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Nome não deve gravar',
+            'senha_admin' => $this->senha,
+            'email' => 'novo.email@ifro.edu.br',
+            'justificativa' => 'Correção solicitada pelo titular.',
+        ]);
+
+        $resposta->assertStatus(500);
+        $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => null]);
+        $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
+        $this->dontSeeInDatabase('solicitacoes_troca_email', ['conta_id' => $alvo->id]);
+        $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
+    }
+
+    public function testEmailQueSeTornaDuplicadoAntesDaConfirmacaoERecusado(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+        $outro = $this->criarUsuario('conta.outro');
+        $emailNovo = 'concorrente@ifro.edu.br';
+
+        $solicitacao = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Conta Alvo',
+            'senha_admin' => $this->senha,
+            'email' => $emailNovo,
+            'justificativa' => 'Correção solicitada pelo titular.',
+        ]);
+        $solicitacao->assertOK();
+
+        model(\CodeIgniter\Shield\Models\UserIdentityModel::class)->update(
+            $outro->getEmailIdentity()->id,
+            ['secret' => $emailNovo],
+        );
+        $confirmacao = $this->post('confirmar-troca-email', [
+            csrf_token() => csrf_hash(),
+            'token' => $this->tokenDaMensagem(0),
+        ]);
+
+        $confirmacao->assertStatus(409);
+        $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
+        $this->seeInDatabase('auditoria_edicao_contas', [
+            'conta_id' => $alvo->id,
+            'email_novo' => $emailNovo,
+            'resultado' => 'conflito',
+        ]);
+    }
+
+    public function testLinkExpiradoNaoAtualizaIdentidade(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+
+        $solicitacao = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Conta Alvo',
+            'senha_admin' => $this->senha,
+            'email' => 'novo.email@ifro.edu.br',
+            'justificativa' => 'Correção solicitada pelo titular.',
+        ]);
+        $solicitacao->assertOK();
+        db_connect()->table('solicitacoes_troca_email')
+            ->where('conta_id', $alvo->id)
+            ->update(['expira_em' => date('Y-m-d H:i:s', time() - 1)]);
+
+        $confirmacao = $this->post('confirmar-troca-email', [
+            csrf_token() => csrf_hash(),
+            'token' => $this->tokenDaMensagem(0),
+        ]);
+
+        $confirmacao->assertStatus(422);
+        $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
+        $this->seeInDatabase('auditoria_edicao_contas', [
+            'conta_id' => $alvo->id,
+            'email_novo' => 'novo.email@ifro.edu.br',
+            'resultado' => 'expirada',
+        ]);
+        $this->dontSeeInDatabase('solicitacoes_troca_email', ['conta_id' => $alvo->id]);
+    }
+
+    public function testFalhaNaAuditoriaDaConfirmacaoMantemLoginAnterior(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+        $solicitacao = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Conta Alvo',
+            'senha_admin' => $this->senha,
+            'email' => 'novo.email@ifro.edu.br',
+            'justificativa' => 'Correção solicitada pelo titular.',
+        ]);
+        $solicitacao->assertOK();
+
+        $tabelaAuditoria = $this->db->prefixTable('auditoria_edicao_contas');
+        $this->db->query(
+            'CREATE TRIGGER falha_auditoria_confirmacao BEFORE UPDATE ON '
+            . $this->db->escapeIdentifiers($tabelaAuditoria) . ' '
+            . 'BEGIN SELECT RAISE(ABORT, "falha de auditoria"); END',
+        );
+
+        $confirmacao = $this->post('confirmar-troca-email', [
+            csrf_token() => csrf_hash(),
+            'token' => $this->tokenDaMensagem(0),
+        ]);
+
+        $confirmacao->assertStatus(500);
+        $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
+        $this->seeInDatabase('auditoria_edicao_contas', [
+            'conta_id' => $alvo->id,
+            'email_novo' => 'novo.email@ifro.edu.br',
+            'resultado' => 'pendente_confirmacao',
+        ]);
+        $this->seeInDatabase('solicitacoes_troca_email', ['conta_id' => $alvo->id]);
     }
 
     public function testRecusaTrocaDeEmailQuandoIdentidadeEstaAusenteSemAlterarDados(): void
@@ -320,51 +509,6 @@ final class ContaTest extends CIUnitTestCase
         $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
     }
 
-    public function testListaFiltraPorNomeEGrupoERejeitaGrupoInvalido(): void
-    {
-        $operador = $this->criarUsuario('operador', true);
-        $alvo = $this->criarUsuario('conta.alvo');
-        $alvo->addGroup('user');
-        model(\App\Models\UsuarioAutenticacaoModel::class)->update($alvo->id, ['nome_completo' => 'Conta Alvo']);
-
-        $resposta = $this->actingAs($operador)->get(
-            'admin/contas/tabela?draw=2&start=0&length=10&search%5Bvalue%5D=Conta%20Alvo&grupo=user',
-        );
-        $resposta->assertOK();
-        $dados = json_decode($resposta->getJSON(), true);
-        self::assertSame(1, $dados['recordsFiltered']);
-        self::assertSame((int) $alvo->id, $dados['data'][0]['id']);
-
-        $invalido = $this->actingAs($operador)->get('admin/contas/tabela?draw=3&start=0&length=10&grupo=nao-existe');
-        $invalido->assertStatus(400);
-    }
-
-    public function testListaEBuscaUsamNomeCompletoComFallbackParaUsername(): void
-    {
-        $operador = $this->criarUsuario('operador', true);
-        $editado = $this->criarUsuario('usuario.editado');
-        $semNome = $this->criarUsuario('usuario.sem.nome');
-        model(UsuarioAutenticacaoModel::class)->update(
-            $editado->id,
-            ['nome_completo' => 'Nome Exibido Atualizado'],
-        );
-
-        $resposta = $this->actingAs($operador)->get('admin/contas/tabela?draw=1&start=0&length=100');
-        $resposta->assertOK();
-        $linhas = json_decode($resposta->getJSON(), true)['data'];
-        $porId = array_column($linhas, null, 'id');
-        self::assertSame('Nome Exibido Atualizado', $porId[$editado->id]['username']);
-        self::assertSame('usuario.sem.nome', $porId[$semNome->id]['username']);
-
-        $busca = $this->actingAs($operador)->get(
-            'admin/contas/tabela?draw=2&start=0&length=10&search%5Bvalue%5D=Nome%20Exibido%20Atualizado',
-        );
-        $busca->assertOK();
-        $dadosBusca = json_decode($busca->getJSON(), true);
-        self::assertSame(1, $dadosBusca['recordsFiltered']);
-        self::assertSame('Nome Exibido Atualizado', $dadosBusca['data'][0]['username']);
-    }
-
     public function testEdicaoAdministrativaCompartilhaRegrasDeNome(): void
     {
         $operador = $this->criarUsuario('operador', true);
@@ -385,18 +529,6 @@ final class ContaTest extends CIUnitTestCase
         self::assertSame('CONTA_NOME_INVALIDO', json_decode($invalido->getJSON(), true)['codigo']);
     }
 
-    public function testTelaDeContasUsaLayoutComEstilosEAssetsDoSistema(): void
-    {
-        $operador = $this->criarUsuario('operador', true);
-
-        $resposta = $this->actingAs($operador)->get('admin/contas');
-
-        $resposta->assertOK();
-        self::assertStringContainsString('assets/css/modern-vertical/style.css', $resposta->getBody());
-        self::assertStringContainsString('assets/css/custom.css', $resposta->getBody());
-        self::assertStringContainsString('assets/vendor/js/vendor.bundle.base.js', $resposta->getBody());
-    }
-
     public function testFalhaDeAuditoriaDesfazAtualizacao(): void
     {
         $operador = $this->criarUsuario('operador', true);
@@ -412,7 +544,7 @@ final class ContaTest extends CIUnitTestCase
             'senha_admin' => $this->senha,
         ]);
 
-        $resposta->assertStatus(422);
+        $resposta->assertStatus(500);
         $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => null]);
         $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
     }
@@ -430,6 +562,8 @@ final class ContaTest extends CIUnitTestCase
             'justificativa' => 'Atualização para e-mail funcional.',
         ]);
         $resposta1->assertOK();
+        $this->seeInDatabase('auth_identities', ['user_id' => $alvo1->id, 'secret' => 'conta2@example.com']);
+        $this->confirmarEmailDaMensagem(0);
         $this->seeInDatabase('auth_identities', [
             'user_id' => $alvo1->id,
             'secret' => 'guilherme.guimaraes@ifro.edu.br',
@@ -442,6 +576,8 @@ final class ContaTest extends CIUnitTestCase
             'justificativa' => 'Atualização para e-mail discente.',
         ]);
         $resposta2->assertOK();
+        $this->seeInDatabase('auth_identities', ['user_id' => $alvo2->id, 'secret' => 'conta3@example.com']);
+        $this->confirmarEmailDaMensagem(2);
         $this->seeInDatabase('auth_identities', [
             'user_id' => $alvo2->id,
             'secret' => 'guilherme.guimaraes@estudante.ifro.edu.br',
@@ -492,6 +628,8 @@ final class ContaTest extends CIUnitTestCase
         ]);
 
         $resposta->assertOK();
+        $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
+        $this->confirmarEmailDaMensagem(0);
         $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'x@ifro.edu.br']);
         $this->seeInDatabase('auditoria_edicao_contas', [
             'conta_id' => $alvo->id,
@@ -514,27 +652,22 @@ final class ContaTest extends CIUnitTestCase
         $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
     }
 
-    public function testFiltroDePermissaoBloqueiaUsuarioSemPermissaoNasQuatroRotas(): void
+    public function testEndpointsJsonBloqueiamUsuarioSemPermissao(): void
     {
         $operador = $this->criarUsuario('operadorSemPermissao');
         $alvo = $this->criarUsuario('conta.alvo');
-        $redirectUrl = config('Auth')->permissionDeniedRedirect();
 
-        $resp1 = $this->actingAs($operador)->get('admin/contas');
-        $resp1->assertRedirectTo($redirectUrl);
+        $consulta = $this->actingAs($operador)->get('admin/contas/' . $alvo->id);
+        $consulta->assertStatus(403);
+        self::assertSame('CONTA_SEM_PERMISSAO', json_decode($consulta->getJSON(), true)['codigo']);
 
-        $resp2 = $this->actingAs($operador)->get('admin/contas/tabela');
-        $resp2->assertRedirectTo($redirectUrl);
-
-        $resp3 = $this->actingAs($operador)->get('admin/contas/' . $alvo->id);
-        $resp3->assertRedirectTo($redirectUrl);
-
-        $resp4 = $this->actingAs($operador)->post('admin/contas/' . $alvo->id, [
+        $atualizacao = $this->actingAs($operador)->post('admin/contas/' . $alvo->id, [
             csrf_token() => csrf_hash(),
             'nome' => 'Tentativa Bloqueada',
             'senha_admin' => $this->senha,
         ]);
-        $resp4->assertRedirectTo($redirectUrl);
+        $atualizacao->assertStatus(403);
+        self::assertSame('CONTA_SEM_PERMISSAO', json_decode($atualizacao->getJSON(), true)['codigo']);
     }
 
     public function testMinimizacaoDeIpNaAuditoria(): void
@@ -549,6 +682,29 @@ final class ContaTest extends CIUnitTestCase
         self::assertNull($metodo->invoke($servico, 'invalido'));
         self::assertNull($metodo->invoke($servico, ''));
         self::assertNull($metodo->invoke($servico, '0.0.0.0'));
+    }
+
+    private function confirmarEmailDaMensagem(int $indice): TestResponse
+    {
+        $token = $this->tokenDaMensagem($indice);
+
+        return $this->post('confirmar-troca-email', [
+            csrf_token() => csrf_hash(),
+            'token' => $token,
+        ]);
+    }
+
+    private function tokenDaMensagem(int $indice): string
+    {
+        $corpo = html_entity_decode($this->emailFake->corpos[$indice] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        self::assertSame(
+            1,
+            preg_match('/confirmar-troca-email\?token=([a-f0-9]{64})/i', $corpo, $correspondencias),
+            $corpo,
+        );
+
+        return $correspondencias[1];
     }
 
     private function criarUsuario(string $nome, bool $podeEditar = false): User

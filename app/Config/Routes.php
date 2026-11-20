@@ -27,20 +27,24 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
         $routes->post('(:num)/permissoes', 'AcessoController::salvar/$1', ['as' => 'acessos.permissoes.salvar']);
     });
 
-    // Administração de contas: o filtro permission redireciona (302) ao negar acesso.
-    // Em requisição AJAX com dataType:'json', o navegador segue o redirect e recebe
-    // HTML do dashboard; o jQuery interpreta como parsererror e cai no .fail().
-    $routes->group(
-        'admin/contas',
-        ['filter' => 'permission:contas.editar'],
-        static function (RouteCollection $routes): void {
-            $routes->get('/', 'ContaController::index', ['as' => 'contas.index']);
-            $routes->get('tabela', 'ContaController::listar', ['as' => 'contas.tabela']);
-            $routes->get('(:num)', 'ContaController::consultar/$1', ['as' => 'contas.consultar']);
-            $routes->post('(:num)', 'ContaController::atualizar/$1', ['as' => 'contas.atualizar']);
-        },
-    );
+    // A área de acessos consome estes endpoints JSON; Controller e Service repetem a autorização.
+    $routes->get('admin/contas/(:num)', 'ContaController::consultar/$1', [
+        'as' => 'contas.consultar',
+        'filter' => 'permissao-json:contas.editar',
+    ]);
+    $routes->post('admin/contas/(:num)', 'ContaController::atualizar/$1', [
+        'as' => 'contas.atualizar',
+        'filter' => 'permissao-json:contas.editar',
+    ]);
 });
+
+// Confirmação pública por link enviada ao novo endereço; o GET só mostra o formulário.
+$routes->get('confirmar-troca-email', 'ConfirmacaoEmailContaController::formulario', [
+    'as' => 'contas.email.confirmar.form',
+]);
+$routes->post('confirmar-troca-email', 'ConfirmacaoEmailContaController::confirmar', [
+    'as' => 'contas.email.confirmar',
+]);
 
 service('auth')->routes($routes, ['except' => ['logout']]);
 $routes->post('logout', '\CodeIgniter\Shield\Controllers\LoginController::logoutAction', ['as' => 'logout']);

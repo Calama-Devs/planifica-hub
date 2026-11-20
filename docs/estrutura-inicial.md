@@ -62,9 +62,9 @@ seguem a convenção de sufixos descrita acima.
   existência de telas administrativas.
 - `app/Config/Routes.php` registra as rotas do Shield e protege `/` e `/sobre`
   com o filtro `session`. As rotas de `admin/acessos` ficam no mesmo grupo e
-  somam o filtro `permission:acessos.administrar`. A tela `/admin/contas` e
-  suas operações usam `permission:contas.editar`. O logout permanece
-  exclusivamente por POST.
+  somam o filtro `permission:acessos.administrar`. Os endpoints JSON `/admin/contas/{id}`
+  exigem `contas.editar`, com resposta JSON do filtro e conferência repetida no
+  Controller e no Service. O logout permanece exclusivamente por POST.
   `app/Config/Filters.php` e `Security.php` mantêm a proteção CSRF global
   baseada em sessão.
 
@@ -77,9 +77,10 @@ seguem a convenção de sufixos descrita acima.
 | GET | `/admin/acessos` | `AcessoController::index`, exige a permissão `acessos.administrar` e lista as contas |
 | GET | `/admin/acessos/{id}/permissoes` | `AcessoController::permissoes`, exige `acessos.administrar` e mostra as permissões da conta em caixas de seleção, com o que ela herda dos grupos e o acesso efetivo |
 | POST | `/admin/acessos/{id}/permissoes` | `AcessoController::salvar`, exige `acessos.administrar` e CSRF, e concede ou revoga só permissões diretas, conforme as caixas marcadas |
-| GET | `/admin/contas` | `ContaController::index`, exige `contas.editar` e lista as contas para manutenção do nome completo |
-| GET | `/admin/contas/{id}` | `ContaController::consultar`, exige `contas.editar` e carrega nome completo e e-mail da conta identificada pela rota |
-| POST | `/admin/contas/{id}` | `ContaController::atualizar`, exige `contas.editar` e CSRF; atualiza `nome_completo` e, em fluxo excepcional, a identidade de e-mail após confirmação de senha do operador e audita na mesma transação |
+| GET | `/admin/contas/{id}` | `ContaController::consultar`, exige `contas.editar` no Controller e carrega nome completo e e-mail pelo identificador da rota |
+| POST | `/admin/contas/{id}` | `ContaController::atualizar`, exige `contas.editar` e CSRF; atualiza o nome e, para e-mail, cria solicitação pendente de confirmação no novo endereço |
+| GET | `/confirmar-troca-email?token={token}` | `ConfirmacaoEmailContaController::formulario`, apresenta a confirmação sem consumir o token |
+| POST | `/confirmar-troca-email` | `ConfirmacaoEmailContaController::confirmar`, exige CSRF e confirma a posse do novo endereço antes de atualizar a identidade do Shield |
 | GET / POST | `/register` | Formulário e cadastro pelo Shield |
 | GET / POST | `/login` | Formulário e autenticação pelo Shield |
 | POST | `/logout` | Encerra a sessão pelo Shield, com CSRF; GET não é permitido |
@@ -88,19 +89,17 @@ seguem a convenção de sufixos descrita acima.
 | GET | `/auth/a/show` | Exibição de ação de autenticação do Shield |
 | POST | `/auth/a/handle`, `/auth/a/verify` | Processamento e verificação de ações pelo Shield |
 
-Na administração de contas, `nome_completo` é o nome de exibição editado por
-essa tela. O campo `username` continua sendo o identificador do Shield e não é
-alterado pela edição administrativa.
+Na edição administrativa, `nome_completo` é o nome de exibição alterado; o campo `username` permanece como identificador do Shield e não é modificado.
 
 Os fluxos por e-mail dependem da configuração local descrita no
 [README](../README.md).
 
 ### Edição administrativa de contas e política de auditoria
 
-A rota `POST /admin/contas/{id}` permite que operadores com a permissão `contas.editar` atualizem dados cadastrais de outras contas mediante confirmação de sua própria senha (`senha_admin`):
+Os endpoints JSON `GET` e `POST /admin/contas/{id}` são consumidos pela área administrativa de Acessos. A operação de atualização exige a senha do operador autenticado (`senha_admin`):
 - **Campos aceitos:** `nome` (2 a 255 caracteres), `senha_admin` (senha do operador autenticado, obrigatória) e, exclusivamente no fluxo excepcional de alteração de e-mail, `email` e `justificativa` (15 a 500 caracteres). Qualquer propriedade adicional no corpo da requisição (como `groups`, `permissions`, `active`, `password`) é rejeitada com HTTP 400 (`DADOS_CONTA_INVALIDOS`).
-- **Permissão e confirmação:** a operação exige a permissão `contas.editar`, validada no filtro de rota `permission:contas.editar` (sem a permissão, o filtro de rota redireciona; o serviço mantém verificação própria [403, `CONTA_SEM_PERMISSAO`] como defesa em profundidade). A confirmação de identidade do operador é intermediada pelo `ConfirmacaoOperacaoService`.
-- **Política de domínio institucional:** no fluxo excepcional de troca de e-mail, são aceitos estritamente os domínios institucionais configurados em `Config\Contas` (`ifro.edu.br` e `estudante.ifro.edu.br`, comparados exatamente e em minúsculas após o caractere `@`). Tentativas com domínios externos ou subdomínios não permitidos retornam HTTP 422 com o código `EMAIL_DOMINIO_NAO_PERMITIDO`. Outros códigos de erro incluem `EMAIL_INVALIDO`, `EMAIL_DUPLICADO`, `JUSTIFICATIVA_EMAIL_INVALIDA`, `CONTA_NOME_INVALIDO`, `CONTA_SEM_ALTERACAO` e `IDENTIDADE_EMAIL_AUSENTE` (HTTP 422 quando se tenta trocar o e-mail de conta sem identidade `email_password`; a operação não cria identidade e não altera o nome). Contas sem identidade podem ter somente o nome editado normalmente. Contas preexistentes com domínio externo mantêm seus e-mails e podem ter seu nome editado normalmente sem restrição retroativa.
+- **Permissão e confirmação:** o Controller e o Service conferem `contas.editar`; a confirmação de senha é intermediada pelo `ConfirmacaoOperacaoService` e vinculada à operação e à conta afetada.
+- **Política de e-mail institucional:** somente os domínios de `Config\Contas` são aceitos. A atualização cria solicitação de uso único com validade de 24 horas; o endereço atual continua sendo o login até a confirmação no novo endereço. No sucesso, a identidade Shield é atualizada pela `UserIdentityModel`, links pendentes `magic-link-reset` e `magic-link` são invalidados e o endereço anterior recebe uma notificação. Solicitações pendentes para a mesma conta são substituídas; tokens são armazenados somente como hash.
 - **Auditoria transacional e minimização de dados:** todas as edições são persistidas na tabela `auditoria_edicao_contas` atomicamente com os dados da conta; falhas no registro de auditoria causam rollback imediato da operação. Em observância ao princípio da minimização de dados (LGPD), o IP do operador é armazenado em formato minimizado (IPv4 com último octeto zerado e IPv6 truncado após os 3 primeiros grupos; endereços inválidos ou vazios são gravados como nulos). A finalidade é a rastreabilidade administrativa sem coleta excessiva de dados de rede. Registros de auditoria antigos anteriores a esta política permanecem inalterados como estão.
 
 ## Convenções para perfil e administração
@@ -112,13 +111,13 @@ necessários a uma demanda aprovada.
 | Contexto | Localização convencional, ainda não implementada |
 |---|---|
 | Perfil | `app/Controllers/PerfilController.php` e `app/Views/perfil/` |
-| Administração de contas | `app/Controllers/ContaController.php` e `app/Views/conta/` |
+| Administração de contas | `app/Controllers/ContaController.php`, `app/Services/EdicaoContaService.php` e `app/Filters/PermissaoJsonFilter.php` |
 | Administração geral | `app/Controllers/AdministracaoController.php` e `app/Views/administracao/` |
 | Regras não triviais desses contextos | `app/Services/`, somente conforme a necessidade real |
 | Persistência própria | `app/Models/`, sem duplicar as Models de autenticação do Shield |
 | Permissões | Configurações do Shield em `app/Config/AuthGroups.php` e verificação no servidor pelos Filters do pacote; Filters próprios em `app/Filters/` somente se necessários |
 
-Esses caminhos não aprovam funcionalidades nem exigem classes vazias.
+Esses caminhos são referências de organização e não exigem classes vazias. A administração de contas expõe endpoints JSON destinados à integração pela área Acessos, sem View própria nesta branch.
 Telas futuras devem reaproveitar `layouts/` e `partials/`, seguindo o
 [padrão de layout](padroes/layout-e-dashboard.md) e o
 [padrão de segurança](padroes/seguranca.md).

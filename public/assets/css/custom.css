@@ -248,10 +248,3 @@ html, body {
 #togglePassword {
     color: #cbd5e1 !important;
 }
-
-#modal-atualizar-conta .form-control:disabled {
-    background-color: #2a3038;
-    border-color: #495057;
-    color: #fff;
-    opacity: 1;
-}

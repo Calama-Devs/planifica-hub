@@ -8,6 +8,7 @@ use App\Services\PermissaoDiretaService;
 use App\Services\PermissaoService;
 use App\Services\EdicaoContaService;
 use App\Services\ConfirmacaoOperacaoService;
+use App\Services\ConfirmacaoEmailContaService;
 use CodeIgniter\Config\BaseService;
 use App\Services\CabecalhoService;
 
@@ -26,6 +27,15 @@ use App\Services\CabecalhoService;
  */
 class Services extends BaseService
 {
+    public static function confirmacaoEmailContaService(bool $getShared = true): ConfirmacaoEmailContaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('confirmacaoEmailContaService');
+        }
+
+        return new ConfirmacaoEmailContaService();
+    }
+
     public static function confirmacaoOperacaoService(bool $getShared = true): ConfirmacaoOperacaoService
     {
         if ($getShared) {

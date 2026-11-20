@@ -1,4 +1,4 @@
-﻿# Guia de execução e uso do PlanIFica Hub
+# Guia de execução e uso do PlanIFica Hub
 
 Este guia reúne os passos para preparar o ambiente local, iniciar a aplicação,
 acessar as telas autenticadas e executar as verificações do projeto. Use somente
@@ -114,7 +114,7 @@ exigir.
 | Tela | Caminho | Quem pode acessar | O que permite |
 |---|---|---|---|
 | Meu Perfil | `/perfil` | Qualquer pessoa autenticada | Atualizar o próprio nome completo |
-| Gerenciar usuários | `/admin/contas` | Conta com `contas.editar` | Consultar e editar o nome completo de outra conta; troca excepcional de e-mail |
+| Atualização administrativa de conta | `/admin/contas/{id}` | Conta com `contas.editar` | Atualizar nome e solicitar troca excepcional de e-mail com confirmação no novo endereço |
 | Acessos | `/admin/acessos` | Conta com `acessos.administrar` | Conceder/remover permissões diretas das contas |
 | Permissões | `/admin/permissoes` | Conta com `acessos.administrar` | Consultar o catálogo de permissões |
 
@@ -124,19 +124,8 @@ acessos pode conceder `contas.editar` individualmente pela tela Acessos. A
 permissão é verificada no servidor; esconder ou exibir um item no menu não é a
 barreira de segurança.
 
-Na tela Gerenciar usuários, **Editar** consulta os dados da conta selecionada.
-A permissão `contas.editar` permite atualizar o nome completo de outra conta.
-Toda alteração exige a senha do operador e gera auditoria em
-`auditoria_edicao_contas`, sem armazenar senha e com IP minimizado.
-
-A troca de e-mail é excepcional: o campo fica somente leitura por padrão e é
-liberado pelo checkbox **Alterar e-mail (exceção)**, com aviso e justificativa
-obrigatória de 15 a 500 caracteres. O novo endereço deve ter formato válido,
-usar domínio permitido em `Config\Contas` (`ifro.edu.br` ou
-`estudante.ifro.edu.br`), não estar em uso e ser diferente do atual. Senha,
-grupos, permissões e situação da conta não são alterados. O usuário comum
-continua sem poder alterar o e-mail em Meu Perfil. Para regras, erros e auditoria,
-consulte [Edição administrativa de contas](estrutura-inicial.md#edição-administrativa-de-contas-e-política-de-auditoria).
+A área Acessos deve consultar o endpoint de conta pelo identificador real antes de abrir a edição. A permissão `contas.editar` é verificada no servidor; toda atualização exige a senha do operador e gera auditoria transacional em `auditoria_edicao_contas`.
+A troca excepcional exige justificativa, domínio institucional permitido, endereço único e confirmação da senha do operador. O sistema envia um link de uso único ao endereço novo; o login atual permanece válido até a confirmação. O link expira em 24 horas. Após a confirmação, o login passa ao endereço novo, links pendentes de recuperação e login mágico são invalidados e o endereço anterior recebe um aviso.
 
 ## Executar verificações e testes
 
@@ -200,10 +189,7 @@ Depois de iniciar a aplicação local, confira:
 1. Login correto e incorreto, logout e bloqueio de páginas internas sem sessão.
 2. Em Meu Perfil, alteração do nome com acentos e espaços; envie também um
    campo `email` diretamente e confira que a identidade de e-mail não muda.
-3. Como operador com `contas.editar`, abra Gerenciar usuários, edite o nome e
-   teste uma troca excepcional com e-mail fictício permitido e justificativa.
-   Confirme também que um e-mail vazio aparece somente leitura em conta sem
-   identidade de e-mail.
+3. Na área Acessos, teste o fluxo de solicitação, confirmação pelo endereço novo, troca efetiva do login, aviso ao endereço anterior e expiração do link.
 4. Execute `.\vendor\bin\phpunit --no-coverage --filter ContaTest` e confira
    os registros da auditoria localmente com
    `SELECT * FROM auditoria_edicao_contas ORDER BY id DESC;`. Use somente o
@@ -215,10 +201,8 @@ Depois de iniciar a aplicação local, confira:
 6. Salve um nome válido e confirme que nomes repetidos são aceitos; depois
    tente nome inválido e senha incorreta. Confirme que erros mantêm o formulário
    utilizável.
-7. Tente acessar `/admin/contas` com uma conta sem `contas.editar`, inclusive
-   digitando a URL diretamente.
-8. Envie propriedades extras (`groups`, `permissions`, `password`, `active` ou
-   `email`) e confirme que a requisição é recusada e esses dados não mudam.
+7. Faça chamadas diretas aos endpoints `GET` e `POST /admin/contas/{id}` com e sem `contas.editar` e confira o status e o JSON de autorização.
+8. Envie propriedades extras (`groups`, `permissions`, `password` ou `active`) e confirme que a requisição é recusada e esses dados não mudam.
 9. Provoque falha de auditoria no ambiente de testes e confirme que o nome não
    é persistido sem o respectivo registro de auditoria.
 
@@ -229,7 +213,7 @@ Depois de iniciar a aplicação local, confira:
 - Controller administrativo: `app/Controllers/ContaController.php`.
 - Regras e persistência: `app/Services/EdicaoContaService.php`.
 - Confirmação recente de senha: `app/Services/ConfirmacaoOperacaoService.php`.
-- Tela e JavaScript: `app/Views/conta/index.php` e `public/assets/js/contas.js`.
+- Confirmação do novo endereço: `ConfirmacaoEmailContaController`, `ConfirmacaoEmailContaService` e Views em `app/Views/conta/`.
 - Campo separado de nome completo e auditoria: migrations em `app/Database/Migrations/`.
 - Testes da gestão de contas: `tests/feature/ContaTest.php`.
 

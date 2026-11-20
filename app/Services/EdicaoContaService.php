@@ -27,110 +27,20 @@ class EdicaoContaService
     private AuditoriaEdicaoContaModel $auditoria;
     private BaseConnection $banco;
     private ConfirmacaoOperacaoService $confirmacao;
+    private ConfirmacaoEmailContaService $confirmacaoEmail;
 
     public function __construct(
         ?UserModel $contas = null,
         ?AuditoriaEdicaoContaModel $auditoria = null,
         ?BaseConnection $banco = null,
         ?ConfirmacaoOperacaoService $confirmacao = null,
+        ?ConfirmacaoEmailContaService $confirmacaoEmail = null,
     ) {
         $this->contas = $contas ?? model(UsuarioAutenticacaoModel::class);
         $this->auditoria = $auditoria ?? model(AuditoriaEdicaoContaModel::class);
         $this->banco = $banco ?? db_connect();
         $this->confirmacao = $confirmacao ?? service('confirmacaoOperacaoService');
-    }
-
-    /** @param array<string, mixed> $parametros @return array<string, mixed> */
-    public function listarDataTable(array $parametros): array
-    {
-        $grupos = config('AuthGroups')->groups;
-        $grupo = $parametros['grupo'] ?? '';
-        $grupo = is_string($grupo) ? trim($grupo) : '';
-
-        if ($grupo !== '' && ! array_key_exists($grupo, $grupos)) {
-            return [
-                'sucesso' => false,
-                'tipo' => 'validacao',
-                'codigo' => 'GRUPO_INVALIDO',
-                'mensagem' => 'O grupo selecionado não é válido.',
-            ];
-        }
-
-        $draw = $this->inteiroParametrizado($parametros['draw'] ?? 0, 0, PHP_INT_MAX, 0);
-        $inicio = $this->inteiroParametrizado($parametros['start'] ?? 0, 0, PHP_INT_MAX, 0);
-        $limite = $this->inteiroParametrizado($parametros['length'] ?? 10, 1, 100, 10);
-        $busca = $parametros['search']['value'] ?? '';
-        $busca = is_string($busca) ? trim($busca) : '';
-
-        $configAuth = config('Auth');
-        $tabelaUsuarios = $configAuth->tables['users'];
-        $tabelaIdentidades = $configAuth->tables['identities'];
-        $tabelaGrupos = $configAuth->tables['groups_users'];
-        $tabelaUsuariosReal = $this->banco->escapeIdentifiers($this->banco->prefixTable($tabelaUsuarios));
-        $nomeExibido = 'COALESCE(' . $tabelaUsuariosReal . '.nome_completo, '
-            . $tabelaUsuariosReal . '.username)';
-        $query = $this->banco->table($tabelaUsuarios)
-            ->select(
-                $tabelaUsuarios . '.id, ' . $tabelaUsuarios . '.username, '
-                . $tabelaUsuarios . '.nome_completo, ' . $nomeExibido . ' AS nome_exibido, '
-                . $tabelaIdentidades . '.secret AS email',
-            )
-            ->join(
-                $tabelaIdentidades,
-                $tabelaIdentidades . '.user_id = ' . $tabelaUsuarios . '.id AND '
-                    . $tabelaIdentidades . '.type = ' . $this->banco->escape(Session::ID_TYPE_EMAIL_PASSWORD),
-                'left',
-            );
-        $queryTotal = clone $query;
-        $total = $queryTotal->countAllResults();
-
-        if ($busca !== '') {
-            $query->groupStart()
-                ->where(
-                    $nomeExibido . ' LIKE ' . $this->banco->escape('%' . $this->banco->escapeLikeString($busca) . '%'),
-                    null,
-                    false,
-                )
-                ->groupEnd();
-        }
-
-        if ($grupo !== '') {
-            $membros = $this->banco->table($tabelaGrupos)
-                ->select('user_id')
-                ->where('group', $grupo)
-                ->get()
-                ->getResultArray();
-            $ids = array_map(static fn (array $linha): int => (int) $linha['user_id'], $membros);
-            $query->whereIn($tabelaUsuarios . '.id', $ids === [] ? [0] : $ids);
-        }
-
-        $queryFiltrado = clone $query;
-        $filtrados = $queryFiltrado->countAllResults();
-        $linhas = $query->orderBy($nomeExibido, 'ASC', false)
-            ->orderBy($tabelaUsuarios . '.username', 'ASC')
-            ->limit($limite, $inicio)
-            ->get()
-            ->getResultArray();
-        $idsPagina = array_map(static fn (array $linha): int => (int) $linha['id'], $linhas);
-        $gruposPorUsuario = $this->gruposDosUsuarios($idsPagina, $tabelaGrupos, $grupos);
-        $dados = [];
-
-        foreach ($linhas as $linha) {
-            $id = (int) $linha['id'];
-            $dados[] = [
-                'id' => $id,
-                'username' => (string) $linha['nome_exibido'],
-                'email' => (string) ($linha['email'] ?? ''),
-                'grupo' => implode(', ', $gruposPorUsuario[$id] ?? []),
-            ];
-        }
-
-        return ['sucesso' => true, 'dados' => [
-            'draw' => $draw,
-            'recordsTotal' => $total,
-            'recordsFiltered' => $filtrados,
-            'data' => $dados,
-        ]];
+        $this->confirmacaoEmail = $confirmacaoEmail ?? service('confirmacaoEmailContaService');
     }
 
     public function consultar(int $contaId): ?array
@@ -213,7 +123,10 @@ class EdicaoContaService
                 );
             }
 
-            if ($this->emailEmUso($emailNovo, $contaId)) {
+            if (
+                $this->emailEmUso($emailNovo, $contaId)
+                || $this->confirmacaoEmail->emailPendenteEmUso($emailNovo, $contaId)
+            ) {
                 return $this->falha(
                     'validacao',
                     'EMAIL_DUPLICADO',
@@ -246,7 +159,6 @@ class EdicaoContaService
 
         $this->banco->transBegin();
         $donaDaTransacao = $this->banco->transDepth === 1;
-        $gravandoEmail = false;
 
         try {
             if ($alterarEmail && ! $this->identidadeEmailExiste($contaId)) {
@@ -267,44 +179,45 @@ class EdicaoContaService
                 throw new \RuntimeException('Falha ao atualizar nome.');
             }
 
-            if ($alterarEmail) {
-                $gravandoEmail = true;
-                $atualizado = $this->atualizarEmail($contaId, $emailNovo);
-                $gravandoEmail = false;
+            if ($nome !== $nomeAtual) {
+                $auditado = $this->auditoria->insert([
+                    'conta_id' => $contaId,
+                    'operador_id' => (int) $operador->id,
+                    'campos_alterados' => 'nome_completo',
+                    'nome_anterior' => $nomeAtual,
+                    'nome_novo' => $nome,
+                    'resultado' => 'sucesso',
+                    'ip' => $this->minimizarIp(service('request')->getIPAddress()),
+                    'created_at' => date('Y-m-d H:i:s'),
+                ]) !== false;
 
-                if (! $atualizado) {
-                    if ($this->emailDuplicadoNoBanco()) {
-                        throw new DatabaseException('Identidade de e-mail duplicada.');
-                    }
-
-                    throw new \RuntimeException('Falha ao atualizar identidade de e-mail.');
+                if (! $auditado) {
+                    throw new \RuntimeException('Falha ao registrar auditoria do nome.');
                 }
             }
 
-            $auditada = $this->auditoria->insert([
-                'conta_id' => $contaId,
-                'operador_id' => (int) $operador->id,
-                'campos_alterados' => implode(',', $campos),
-                'nome_anterior' => $nome !== $nomeAtual ? $nomeAtual : null,
-                'nome_novo' => $nome !== $nomeAtual ? $nome : null,
-                'email_anterior' => $alterarEmail ? $emailAtual : null,
-                'email_novo' => $alterarEmail ? $emailNovo : null,
-                'justificativa' => $justificativa,
-                'resultado' => 'sucesso',
-                'ip' => $this->minimizarIp(service('request')->getIPAddress()),
-                'created_at' => date('Y-m-d H:i:s'),
-            ]) !== false;
+            if ($alterarEmail) {
+                $this->confirmacaoEmail->solicitar(
+                    $contaId,
+                    (int) $operador->id,
+                    $nome,
+                    $emailAtual,
+                    $emailNovo,
+                    (string) $justificativa,
+                    $this->minimizarIp(service('request')->getIPAddress()),
+                );
+            }
 
-            if (! $auditada || ! $this->banco->transStatus()) {
+            if (! $this->banco->transStatus()) {
                 throw new \RuntimeException('Falha ao registrar auditoria.');
             }
 
             $this->banco->transCommit();
         } catch (Throwable $erro) {
-            $emailDuplicado = $gravandoEmail
-                && ($erro instanceof DatabaseException || $erro instanceof ShieldDatabaseException)
+            $emailDuplicado = $alterarEmail
                 && (
-                    $this->violacaoEmailDuplicado($erro)
+                    (($erro instanceof DatabaseException || $erro instanceof ShieldDatabaseException)
+                        && $this->violacaoEmailDuplicado($erro))
                     || $this->emailEstaEmUsoAposFalha($emailNovo, $contaId)
                 );
             $this->banco->transRollback();
@@ -332,8 +245,8 @@ class EdicaoContaService
         return [
             'sucesso' => true,
             'tipo' => 'sucesso',
-            'codigo' => 'CONTA_ATUALIZADA',
-            'mensagem' => 'Dados atualizados com sucesso.',
+            'codigo' => $alterarEmail ? 'CONFIRMACAO_EMAIL_ENVIADA' : 'CONTA_ATUALIZADA',
+            'mensagem' => $this->mensagemAtualizacao($nome !== $nomeAtual, $alterarEmail),
         ];
     }
 
@@ -351,25 +264,6 @@ class EdicaoContaService
             ->where('user_id !=', $contaId)
             ->where('LOWER(secret) =', mb_strtolower($email))
             ->countAllResults() > 0;
-    }
-
-    private function atualizarEmail(int $contaId, string $email): bool
-    {
-        $identidade = model(UserIdentityModel::class)
-            ->where('user_id', $contaId)
-            ->where('type', Session::ID_TYPE_EMAIL_PASSWORD)
-            ->first();
-
-        return $identidade !== null
-            && model(UserIdentityModel::class)->update($identidade->id, ['secret' => $email]);
-    }
-
-    private function emailDuplicadoNoBanco(): bool
-    {
-        $erro = $this->banco->error();
-        $codigo = (int) ($erro['code'] ?? 0);
-
-        return $codigo === 1062 || $codigo === 19;
     }
 
     private function violacaoEmailDuplicado(Throwable $erro): bool
@@ -411,36 +305,6 @@ class EdicaoContaService
             ->first() !== null;
     }
 
-    /** @param list<int> $ids @param array<string, mixed> $grupos @return array<int, list<string>> */
-    private function gruposDosUsuarios(array $ids, string $tabelaGrupos, array $grupos): array
-    {
-        if ($ids === []) {
-            return [];
-        }
-
-        $vinculos = $this->banco->table($tabelaGrupos)
-            ->select('user_id, `group`')
-            ->whereIn('user_id', $ids)
-            ->get()
-            ->getResultArray();
-        $resultado = [];
-
-        foreach ($vinculos as $vinculo) {
-            $id = (int) $vinculo['user_id'];
-            $chave = (string) $vinculo['group'];
-            $resultado[$id][] = (string) ($grupos[$chave]['title'] ?? $chave);
-        }
-
-        return $resultado;
-    }
-
-    private function inteiroParametrizado(mixed $valor, int $minimo, int $maximo, int $padrao): int
-    {
-        $inteiro = filter_var($valor, FILTER_VALIDATE_INT);
-
-        return $inteiro !== false && $inteiro >= $minimo && $inteiro <= $maximo ? $inteiro : $padrao;
-    }
-
     private function dominioPermitido(string $email): bool
     {
         $email = mb_strtolower(trim($email));
@@ -453,6 +317,21 @@ class EdicaoContaService
         $dominio = substr($email, $posicao + 1);
 
         return in_array($dominio, array_map('mb_strtolower', config('Contas')->dominiosPermitidos), true);
+    }
+
+    private function mensagemAtualizacao(bool $nomeAlterado, bool $emailPendente): string
+    {
+        if ($emailPendente && $nomeAlterado) {
+            return 'Nome atualizado. Enviamos um link para confirmar o novo e-mail; '
+                . 'o login atual permanece ativo até a confirmação.';
+        }
+
+        if ($emailPendente) {
+            return 'Enviamos um link para confirmar o novo e-mail; '
+                . 'o login atual permanece ativo até a confirmação.';
+        }
+
+        return 'Dados atualizados com sucesso.';
     }
 
     /**
