@@ -38,3 +38,8 @@ $routes->get('recuperar-senha/verificar', 'RedefinirSenhaController::verificar',
 $routes->get('reset-password', 'RedefinirSenhaController::redefinir');
 $routes->post('reset-password', 'RedefinirSenhaController::atualizar');
 $routes->post('reset-password/cancelar', 'RedefinirSenhaController::cancelar');
+
+// Finalização de cadastro por convite.
+$routes->get('finalizar-cadastro', 'FinalizarCadastroController::index', ['as' => 'finalizar_cadastro']);
+$routes->post('finalizar-cadastro', 'FinalizarCadastroController::concluir', ['as' => 'finalizar_cadastro.concluir', 'filter' => 'auth-rates']);
+$routes->get('convite/finalizar', 'FinalizarCadastroController::index', ['as' => 'convite.finalizar']);
