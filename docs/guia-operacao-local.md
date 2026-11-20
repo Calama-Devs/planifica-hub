@@ -188,8 +188,9 @@ teste em homologação ou produção.
 Depois de iniciar a aplicação local, confira:
 
 1. Login correto e incorreto, logout e bloqueio de páginas internas sem sessão.
-2. Em Meu Perfil, alteração do nome com acentos e espaços; envie também um
-   campo `email` diretamente e confira que a identidade de e-mail não muda.
+2. Em Meu Perfil, altere o nome com acentos e espaços; envie também um campo
+   `email` diretamente e confirme que a requisição é rejeitada, o nome não muda
+   e a identidade de e-mail permanece igual.
 3. Na área Acessos, teste o fluxo de solicitação, confirmação pelo endereço novo, troca efetiva do login, aviso ao endereço anterior e expiração do link.
 4. Execute `.\vendor\bin\phpunit --no-coverage --filter ContaTest` e confira
    os registros da auditoria localmente com

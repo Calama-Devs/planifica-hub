@@ -78,7 +78,8 @@ class AuthGroups extends ShieldAuthGroups
     public array $permissions = [
         'contas.consultar'    => 'Consultar a lista e os dados das contas de usuário',
         'contas.criar'        => 'Criar novas contas de usuário',
-        'contas.editar'       => 'Editar o nome de outras contas de usuário',
+        'contas.editar'       => 'Editar nome de outras contas e solicitar troca excepcional do e-mail com justificativa, '
+            . 'efetivada após confirmação no novo endereço',
         'acessos.administrar' => 'Conceder e remover grupos e permissões das contas de usuário',
     ];
 
