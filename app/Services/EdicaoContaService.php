@@ -162,8 +162,9 @@ class EdicaoContaService
             $justificativa = null;
         }
 
+        $confirmacaoRecente = $this->confirmacao->segundosRestantes($operador, self::OPERACAO, $contaId);
         if (
-            $this->confirmacao->segundosRestantes($operador, self::OPERACAO, $contaId) === null
+            ($emailInformado || $confirmacaoRecente === null)
             && ! $this->confirmacao->registrar($operador, $senha, self::OPERACAO, $contaId)
         ) {
             return $this->falha('permissao', 'CONFIRMACAO_INVALIDA', 'Confirme a operação com sua senha atual.');

@@ -51,7 +51,7 @@ class ConfirmacaoEmailContaService
             ->countAllResults() > 0;
     }
 
-    /** A chamada participa da transação aberta por EdicaoContaService. */
+    /** Participa da transação de EdicaoContaService; este método não controla a transação. */
     public function solicitar(
         int $contaId,
         int $operadorId,

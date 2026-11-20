@@ -47,7 +47,7 @@ class AuthGroups extends ShieldAuthGroups
         ],
         'admin' => [
             'title'       => 'Administrador de contas',
-            'description' => 'Pode consultar e criar contas, mas não administrar grupos e permissões.',
+            'description' => 'Pode consultar, criar e editar dados de contas, mas não administrar grupos e permissões.',
         ],
         'developer' => [
             'title'       => 'Desenvolvedor',
@@ -102,6 +102,7 @@ class AuthGroups extends ShieldAuthGroups
         'admin' => [
             'contas.consultar',
             'contas.criar',
+            'contas.editar',
         ],
         'developer' => [],
         'user'      => [],

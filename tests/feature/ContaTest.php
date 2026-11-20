@@ -47,6 +47,20 @@ final class ContaTest extends CIUnitTestCase
         }
     }
 
+    public function testGruposAdministrativosRecebemPermissaoDeEditarContas(): void
+    {
+        $superadmin = $this->criarUsuario('operador.superadmin');
+        $superadmin->addGroup('superadmin');
+        $admin = $this->criarUsuario('operador.admin');
+        $admin->addGroup('admin');
+        $usuario = $this->criarUsuario('usuario.comum');
+        $usuario->addGroup('user');
+
+        self::assertTrue($superadmin->can('contas.editar'));
+        self::assertTrue($admin->can('contas.editar'));
+        self::assertFalse($usuario->can('contas.editar'));
+    }
+
     public function testAdministradorAtualizaNomeCompletoSemAlterarIdentidadeOuGrupo(): void
     {
         $operador = $this->criarUsuario('operador', true);
@@ -181,6 +195,45 @@ final class ContaTest extends CIUnitTestCase
         self::assertFalse($servico->atualizar((int) $alvo->id, 'Nome Outro Operador', '', $outroOperador)['sucesso']);
         $this->seeNumRecords(2, 'auditoria_edicao_contas', ['conta_id' => $alvo->id]);
         $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $outraConta->id]);
+    }
+
+    public function testTrocaDeEmailExigeSenhaMesmoComConfirmacaoRecente(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+        $servico = service('edicaoContaService');
+        $primeiraEdicao = $servico->atualizar((int) $alvo->id, 'Nome Atualizado', $this->senha, $operador);
+
+        self::assertTrue($primeiraEdicao['sucesso']);
+        self::assertTrue($servico->consultar((int) $alvo->id, $operador)['confirmacao_recente']);
+
+        $semSenha = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Nome Atualizado',
+            'email' => 'troca@ifro.edu.br',
+            'justificativa' => 'Correção solicitada pelo titular.',
+        ]);
+        $semSenha->assertStatus(422);
+        self::assertSame('CONFIRMACAO_INVALIDA', json_decode($semSenha->getJSON(), true)['codigo']);
+        $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => 'Nome Atualizado']);
+        $this->seeInDatabase('auth_identities', [
+            'user_id' => $alvo->id,
+            'type' => 'email_password',
+            'secret' => 'conta2@example.com',
+        ]);
+        $this->dontSeeInDatabase('solicitacoes_troca_email', ['conta_id' => $alvo->id]);
+        $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id, 'campos_alterados' => 'email']);
+
+        $comSenha = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Nome Atualizado',
+            'senha_admin' => $this->senha,
+            'email' => 'troca@ifro.edu.br',
+            'justificativa' => 'Correção solicitada pelo titular.',
+        ]);
+        $comSenha->assertOK();
+        $this->seeInDatabase('solicitacoes_troca_email', [
+            'conta_id' => $alvo->id,
+            'email_novo' => 'troca@ifro.edu.br',
+        ]);
     }
 
     public function testConfirmacaoExpiradaExigeSenhaNovamente(): void
@@ -705,16 +758,25 @@ final class ContaTest extends CIUnitTestCase
         $tabelaAuditoria = db_connect()->prefixTable('auditoria_edicao_contas');
         db_connect()->query(
             'CREATE TRIGGER falha_auditoria_edicao BEFORE INSERT ON ' . $tabelaAuditoria . ' '
-            . 'BEGIN SELECT RAISE(ABORT, "falha de auditoria"); END',
+            . "WHEN NEW.campos_alterados = 'email' "
+            . "BEGIN SELECT RAISE(ABORT, 'falha de auditoria'); END",
         );
 
         $resposta = $this->enviarAtualizacao($operador, (int) $alvo->id, [
             'nome' => 'Nome Novo',
             'senha_admin' => $this->senha,
+            'email' => 'novo.email@ifro.edu.br',
+            'justificativa' => 'Correção solicitada pelo titular.',
         ]);
 
         $resposta->assertStatus(500);
         $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => null]);
+        $this->seeInDatabase('auth_identities', [
+            'user_id' => $alvo->id,
+            'type' => 'email_password',
+            'secret' => 'conta2@example.com',
+        ]);
+        $this->dontSeeInDatabase('solicitacoes_troca_email', ['conta_id' => $alvo->id]);
         $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
     }
 

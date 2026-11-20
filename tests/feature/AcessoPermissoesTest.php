@@ -126,11 +126,11 @@ final class AcessoPermissoesTest extends CIUnitTestCase
         $this->assertTrue($this->caixaMarcada($corpo, 'contas.consultar'));
         $this->assertTrue($this->caixaMarcada($corpo, 'acessos.administrar'));
         $this->assertFalse($this->caixaMarcada($corpo, 'contas.criar'));
-        $this->assertSame(2, substr_count($corpo, 'Herdada de Administrador de contas'));
-        // As três valem de fato: duas pelo grupo (uma delas também direta) e uma só direta.
-        $this->assertSame(3, substr_count($corpo, 'Acesso efetivo</span>'));
-        // O ícone de acesso efetivo aparece nas mesmas três e em nenhuma outra.
-        $this->assertSame(3, substr_count($corpo, 'title="Acesso efetivo"'));
+        $this->assertSame(3, substr_count($corpo, 'Herdada de Administrador de contas'));
+        // As quatro valem de fato: três pelo grupo (uma delas também direta) e uma só direta.
+        $this->assertSame(4, substr_count($corpo, 'Acesso efetivo</span>'));
+        // O ícone de acesso efetivo aparece nas mesmas quatro e em nenhuma outra.
+        $this->assertSame(4, substr_count($corpo, 'title="Acesso efetivo"'));
     }
 
     public function testPaginaTemMigalhaETituloComOIdentificadorDaConta(): void

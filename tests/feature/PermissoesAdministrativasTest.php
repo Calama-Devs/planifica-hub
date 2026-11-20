@@ -104,7 +104,7 @@ final class PermissoesAdministrativasTest extends CIUnitTestCase
 
         $this->assertTrue($usuario->can('contas.consultar'));
         $this->assertTrue($usuario->can('contas.criar'));
-        $this->assertFalse($usuario->can('contas.editar'));
+        $this->assertTrue($usuario->can('contas.editar'));
         $this->assertFalse($usuario->can('acessos.administrar'));
     }
 
