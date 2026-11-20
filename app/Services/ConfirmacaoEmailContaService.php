@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Exceptions\FalhaEnvioConfirmacaoEmailException;
 use App\Models\AuditoriaEdicaoContaModel;
 use App\Models\SolicitacaoTrocaEmailModel;
 use App\Models\UsuarioAutenticacaoModel;
@@ -106,7 +107,7 @@ class ConfirmacaoEmailContaService
         $urlConfirmacao = url_to('contas.email.confirmar.form') . '?token=' . rawurlencode($token);
 
         if (! $this->enviarConfirmacao($emailNovo, $nomeExibido, $urlConfirmacao)) {
-            throw new \RuntimeException('Falha ao enviar a confirmação do novo e-mail.');
+            throw new FalhaEnvioConfirmacaoEmailException('Falha ao enviar a confirmação do novo e-mail.');
         }
     }
 

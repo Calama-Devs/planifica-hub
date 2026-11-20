@@ -405,16 +405,62 @@ final class ContaTest extends CIUnitTestCase
             csrf_token() => csrf_hash(),
             'token' => $token,
         ]);
-        $repeticao->assertStatus(422);
+        $repeticao->assertStatus(410);
         self::assertStringContainsString(
             'inválido ou expirou',
             html_entity_decode(strip_tags($repeticao->getBody()), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
         );
     }
 
+    public function testPostPublicoDeConfirmacaoExigeTokenCsrf(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+        $solicitacao = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Conta Alvo',
+            'senha_admin' => $this->senha,
+            'email' => 'novo.email@ifro.edu.br',
+            'justificativa' => 'Correção solicitada pelo titular.',
+        ]);
+        $solicitacao->assertOK();
+        $token = $this->tokenDaMensagem(0);
+
+        $csrfRecusado = false;
+        try {
+            $this->post('confirmar-troca-email', ['token' => $token]);
+        } catch (\CodeIgniter\Security\Exceptions\SecurityException) {
+            $csrfRecusado = true;
+        }
+
+        self::assertTrue($csrfRecusado, 'O filtro CSRF deve interromper a requisição sem token válido.');
+        $this->seeInDatabase('auth_identities', [
+            'user_id' => $alvo->id,
+            'type' => 'email_password',
+            'secret' => 'conta2@example.com',
+        ]);
+        $this->seeInDatabase('solicitacoes_troca_email', [
+            'conta_id' => $alvo->id,
+            'token_hash' => hash('sha256', $token),
+        ]);
+
+        $tokenInvalido = $this->post('confirmar-troca-email', [
+            csrf_token() => csrf_hash(),
+            'token' => 'token-invalido',
+        ]);
+        $tokenInvalido->assertStatus(410);
+        self::assertStringContainsString(
+            'O link de confirmação é inválido ou expirou.',
+            html_entity_decode(strip_tags($tokenInvalido->getBody()), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+        );
+        $this->seeInDatabase('solicitacoes_troca_email', [
+            'conta_id' => $alvo->id,
+            'token_hash' => hash('sha256', $token),
+        ]);
+    }
+
     public function testFalhaNoEnvioDeConfirmacaoDesfazNomeESolicitacao(): void
     {
-        $this->emailFake->enviar = false;
+        $this->emailFake->lancarExcecao = true;
         $operador = $this->criarUsuario('operador', true);
         $alvo = $this->criarUsuario('conta.alvo');
 
@@ -425,7 +471,12 @@ final class ContaTest extends CIUnitTestCase
             'justificativa' => 'Correção solicitada pelo titular.',
         ]);
 
-        $resposta->assertStatus(500);
+        $resposta->assertStatus(503);
+        $dados = json_decode($resposta->getJSON(), true);
+        self::assertFalse($dados['sucesso']);
+        self::assertSame('regra_negocio', $dados['tipo']);
+        self::assertSame('CONFIRMACAO_EMAIL_NAO_ENVIADA', $dados['codigo']);
+        self::assertSame(503, $dados['status']);
         $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => null]);
         $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
         $this->dontSeeInDatabase('solicitacoes_troca_email', ['conta_id' => $alvo->id]);
@@ -456,7 +507,7 @@ final class ContaTest extends CIUnitTestCase
             'token' => $this->tokenDaMensagem(0),
         ]);
 
-        $confirmacao->assertStatus(409);
+        $confirmacao->assertStatus(422);
         $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
         $this->seeInDatabase('auditoria_edicao_contas', [
             'conta_id' => $alvo->id,
@@ -495,7 +546,7 @@ final class ContaTest extends CIUnitTestCase
             config('Contas')->dominiosPermitidos = $dominiosOriginais;
         }
 
-        $confirmacao->assertStatus(409);
+        $confirmacao->assertStatus(422);
         self::assertStringContainsString(
             'Este link não pode ser confirmado.',
             html_entity_decode(strip_tags($confirmacao->getBody()), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
@@ -525,7 +576,7 @@ final class ContaTest extends CIUnitTestCase
             csrf_token() => csrf_hash(),
             'token' => $this->tokenDaMensagem(0),
         ]);
-        $repeticao->assertStatus(422);
+        $repeticao->assertStatus(410);
     }
 
     public function testLinkExpiradoNaoAtualizaIdentidade(): void
@@ -549,7 +600,7 @@ final class ContaTest extends CIUnitTestCase
             'token' => $this->tokenDaMensagem(0),
         ]);
 
-        $confirmacao->assertStatus(422);
+        $confirmacao->assertStatus(410);
         $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
         $this->seeInDatabase('auditoria_edicao_contas', [
             'conta_id' => $alvo->id,

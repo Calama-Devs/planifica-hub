@@ -86,7 +86,7 @@ class ContaController extends BaseController
             array_key_exists('justificativa', $dados),
         );
 
-        $status = $resultado['sucesso'] ? 200 : 422;
+        $status = $resultado['status'] ?? ($resultado['sucesso'] ? 200 : 422);
 
         if ($resultado['codigo'] === 'CONTA_NAO_ENCONTRADA') {
             $status = 404;

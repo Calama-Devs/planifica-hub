@@ -11,6 +11,7 @@ final class EmailContaFake extends Email
     /** @var list<string> */
     public array $corpos = [];
     public bool $enviar = true;
+    public bool $lancarExcecao = false;
 
     public function setMessage($body)
     {
@@ -21,6 +22,10 @@ final class EmailContaFake extends Email
 
     public function send($autoClear = true)
     {
+        if ($this->lancarExcecao) {
+            throw new \RuntimeException('Falha simulada no envio de confirmação.');
+        }
+
         return $this->enviar;
     }
 }

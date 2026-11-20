@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Exceptions\FalhaEnvioConfirmacaoEmailException;
 use App\Models\AuditoriaEdicaoContaModel;
 use App\Models\UsuarioAutenticacaoModel;
 use App\Validation\ValidadorNomeCompleto;
@@ -256,6 +257,14 @@ class EdicaoContaService
                     'EMAIL_DUPLICADO',
                     'Este e-mail já está vinculado a outra conta.',
                 );
+            }
+
+            if ($erro instanceof FalhaEnvioConfirmacaoEmailException) {
+                return $this->falha(
+                    'regra_negocio',
+                    'CONFIRMACAO_EMAIL_NAO_ENVIADA',
+                    'Não foi possível enviar a confirmação do novo e-mail. Nenhuma alteração foi salva.',
+                ) + ['status' => 503];
             }
 
             log_message(
