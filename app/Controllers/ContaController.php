@@ -86,17 +86,20 @@ class ContaController extends BaseController
             array_key_exists('justificativa', $dados),
         );
 
-        $status = $resultado['status'] ?? ($resultado['sucesso'] ? 200 : 422);
+        return $this->jsonResponse($resultado, $this->statusHttp($resultado));
+    }
 
-        if ($resultado['codigo'] === 'CONTA_NAO_ENCONTRADA') {
-            $status = 404;
-        } elseif ($resultado['codigo'] === 'CONTA_SEM_PERMISSAO') {
-            $status = 403;
-        } elseif ($resultado['tipo'] === 'inesperado') {
-            $status = 500;
-        }
-
-        return $this->jsonResponse($resultado, $status);
+    /** @param array<string, mixed> $resultado */
+    private function statusHttp(array $resultado): int
+    {
+        return match (true) {
+            $resultado['sucesso'] => 200,
+            $resultado['codigo'] === 'CONTA_NAO_ENCONTRADA' => 404,
+            $resultado['codigo'] === 'CONFIRMACAO_EMAIL_NAO_ENVIADA' => 503,
+            $resultado['codigo'] === 'CONTA_SEM_PERMISSAO' => 403,
+            $resultado['tipo'] === 'inesperado' => 500,
+            default => 422,
+        };
     }
 
     private function jsonResponse(array $dados, int $status): ResponseInterface

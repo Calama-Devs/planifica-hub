@@ -545,11 +545,23 @@ final class ContaTest extends CIUnitTestCase
         self::assertFalse($dados['sucesso']);
         self::assertSame('regra_negocio', $dados['tipo']);
         self::assertSame('CONFIRMACAO_EMAIL_NAO_ENVIADA', $dados['codigo']);
-        self::assertSame(503, $dados['status']);
+        self::assertArrayNotHasKey('status', $dados);
         $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => null]);
         $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
         $this->dontSeeInDatabase('solicitacoes_troca_email', ['conta_id' => $alvo->id]);
         $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
+    }
+
+    public function testServicoNaoIncluiStatusHttpNoRetorno(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+
+        $resultado = service('edicaoContaService')->atualizar((int) $alvo->id, 'a', '', $operador);
+
+        self::assertFalse($resultado['sucesso']);
+        self::assertSame('CONTA_NOME_INVALIDO', $resultado['codigo']);
+        self::assertArrayNotHasKey('status', $resultado);
     }
 
     public function testEmailQueSeTornaDuplicadoAntesDaConfirmacaoERecusado(): void

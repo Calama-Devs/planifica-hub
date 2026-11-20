@@ -264,7 +264,7 @@ class EdicaoContaService
                     'regra_negocio',
                     'CONFIRMACAO_EMAIL_NAO_ENVIADA',
                     'Não foi possível enviar a confirmação do novo e-mail. Nenhuma alteração foi salva.',
-                ) + ['status' => 503];
+                );
             }
 
             log_message(
