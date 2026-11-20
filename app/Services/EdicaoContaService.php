@@ -43,7 +43,7 @@ class EdicaoContaService
         $this->confirmacaoEmail = $confirmacaoEmail ?? service('confirmacaoEmailContaService');
     }
 
-    public function consultar(int $contaId): ?array
+    public function consultar(int $contaId, ?User $operador = null): ?array
     {
         $conta = $this->contas->findById($contaId);
 
@@ -51,10 +51,16 @@ class EdicaoContaService
             return null;
         }
 
+        $segundosRestantes = $operador === null
+            ? null
+            : $this->confirmacao->segundosRestantes($operador, self::OPERACAO, $contaId);
+
         return [
             'id' => (int) $conta->id,
             'nome' => (string) ($conta->nome_completo ?? $conta->username),
             'email' => (string) $conta->email,
+            'confirmacao_recente' => $segundosRestantes !== null,
+            'confirmacao_expira_em' => $segundosRestantes,
         ];
     }
 
@@ -140,8 +146,8 @@ class EdicaoContaService
         }
 
         if (
-            ! $this->confirmacao->confirmar($operador, $senha, self::OPERACAO, $contaId)
-            || ! $this->confirmacao->consumir($operador, self::OPERACAO, $contaId)
+            $this->confirmacao->segundosRestantes($operador, self::OPERACAO, $contaId) === null
+            && ! $this->confirmacao->registrar($operador, $senha, self::OPERACAO, $contaId)
         ) {
             return $this->falha('permissao', 'CONFIRMACAO_INVALIDA', 'Confirme a operação com sua senha atual.');
         }

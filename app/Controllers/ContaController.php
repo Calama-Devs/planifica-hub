@@ -26,7 +26,10 @@ class ContaController extends BaseController
             return $operador;
         }
 
-        $conta = $this->edicaoContaService->consultar($this->idValido($contaId));
+        $conta = $this->edicaoContaService->consultar(
+            $this->idValido($contaId),
+            $operador,
+        );
 
         if ($conta === null) {
             return $this->jsonResponse([
@@ -56,7 +59,7 @@ class ContaController extends BaseController
         if (
             $extras !== []
             || ! is_string($dados['nome'] ?? null)
-            || ! is_string($dados['senha_admin'] ?? null)
+            || (array_key_exists('senha_admin', $dados) && ! is_string($dados['senha_admin']))
             || (isset($dados['email']) && ! is_string($dados['email']))
             || (isset($dados['justificativa']) && ! is_string($dados['justificativa']))
         ) {
@@ -71,7 +74,7 @@ class ContaController extends BaseController
         $resultado = $this->edicaoContaService->atualizar(
             $this->idValido($contaId),
             $dados['nome'],
-            $dados['senha_admin'],
+            $dados['senha_admin'] ?? '',
             $operador,
             $dados['email'] ?? null,
             $dados['justificativa'] ?? null,
