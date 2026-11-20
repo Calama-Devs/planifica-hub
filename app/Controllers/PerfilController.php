@@ -33,10 +33,19 @@ class PerfilController extends BaseController
         }
 
         $dados = $this->request->getPost();
-        $propriedadesPermitidas = ['nome', csrf_token()];
-        $extras = array_diff(array_keys($dados), $propriedadesPermitidas);
+        $propriedadesSensiveis = [
+            'email',
+            'password',
+            'groups',
+            'permissions',
+            'active',
+            'status',
+            'status_message',
+            'username',
+        ];
+        $extrasSensiveis = array_intersect(array_keys($dados), $propriedadesSensiveis);
 
-        if ($extras !== []) {
+        if ($extrasSensiveis !== []) {
             return redirect()->back()->with('errors', [
                 'nome' => 'O formulário contém campos não permitidos.',
             ]);

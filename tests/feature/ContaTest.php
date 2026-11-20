@@ -61,6 +61,35 @@ final class ContaTest extends CIUnitTestCase
         self::assertFalse($usuario->can('contas.editar'));
     }
 
+    public function testCamposPermitidosDoShieldContinuamFuncionando(): void
+    {
+        $usuario = $this->criarUsuario('usuario.shield');
+        $modelo = model(UsuarioAutenticacaoModel::class);
+        $modelo->activate($usuario);
+
+        $this->seeInDatabase('users', ['id' => $usuario->id, 'active' => 1]);
+
+        $usuarioAtualizado = $modelo->findById($usuario->id);
+        $usuarioAtualizado->ban('Bloqueio de teste');
+        $this->seeInDatabase('users', [
+            'id' => $usuario->id,
+            'status' => 'banned',
+            'status_message' => 'Bloqueio de teste',
+        ]);
+
+        $usuarioAtualizado = $modelo->findById($usuario->id);
+        $usuarioAtualizado->unBan();
+        $this->actingAs($modelo->findById($usuario->id))->get('perfil')->assertOK();
+
+        $this->seeInDatabase('users', [
+            'id' => $usuario->id,
+            'active' => 1,
+            'status' => null,
+            'status_message' => null,
+        ]);
+        $this->dontSeeInDatabase('users', ['id' => $usuario->id, 'last_active' => null]);
+    }
+
     public function testAdministradorAtualizaNomeCompletoSemAlterarIdentidadeOuGrupo(): void
     {
         $operador = $this->criarUsuario('operador', true);
@@ -260,18 +289,58 @@ final class ContaTest extends CIUnitTestCase
     {
         $operador = $this->criarUsuario('operador', true);
         $alvo = $this->criarUsuario('conta.alvo');
+        $alvo->addGroup('user');
+        $alvo->addPermission('contas.consultar');
+        $camposSensíveisIniciais = $this->db->table('users')
+            ->select('active, status, status_message')
+            ->where('id', $alvo->id)
+            ->get()
+            ->getRowArray();
 
         $resposta = $this->enviarAtualizacao($operador, (int) $alvo->id, [
             'nome' => 'Nome Novo',
             'senha_admin' => $this->senha,
             'groups' => ['admin'],
-            'active' => '0',
-            'extra_field' => 'valor',
+            'permissions' => ['contas.editar'],
+            'active' => '1',
+            'status' => 'banned',
+            'status_message' => 'Mensagem adulterada',
         ]);
 
         $resposta->assertStatus(400);
-        $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => null, 'active' => 0]);
+        self::assertIsArray($camposSensíveisIniciais);
+        self::assertSame($camposSensíveisIniciais, $this->db->table('users')
+            ->select('active, status, status_message')
+            ->where('id', $alvo->id)
+            ->get()
+            ->getRowArray());
+        $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => null]);
         $this->dontSeeInDatabase('auth_groups_users', ['user_id' => $alvo->id, 'group' => 'admin']);
+        $this->seeInDatabase('auth_groups_users', ['user_id' => $alvo->id, 'group' => 'user']);
+        $this->dontSeeInDatabase('auth_permissions_users', [
+            'user_id' => $alvo->id,
+            'permission' => 'contas.editar',
+        ]);
+        $this->seeInDatabase('auth_permissions_users', [
+            'user_id' => $alvo->id,
+            'permission' => 'contas.consultar',
+        ]);
+
+        $nomeAtualizado = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Nome Novo',
+            'senha_admin' => $this->senha,
+        ]);
+        $nomeAtualizado->assertOK();
+        self::assertSame($camposSensíveisIniciais, $this->db->table('users')
+            ->select('active, status, status_message')
+            ->where('id', $alvo->id)
+            ->get()
+            ->getRowArray());
+        $this->seeInDatabase('auth_groups_users', ['user_id' => $alvo->id, 'group' => 'user']);
+        $this->seeInDatabase('auth_permissions_users', [
+            'user_id' => $alvo->id,
+            'permission' => 'contas.consultar',
+        ]);
     }
 
     public function testRejeitaEmailVazioOuJustificativaSemEmailSemPersistirDados(): void

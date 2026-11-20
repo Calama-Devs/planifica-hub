@@ -163,15 +163,67 @@ final class PerfilTest extends CIUnitTestCase
         $usuario = $this->criarUsuario('usuario.teste');
         auth()->login($usuario);
 
+        $camposSensiveis = [
+            ['groups' => ['admin']],
+            ['active' => '1'],
+            ['status' => 'banned'],
+            ['status_message' => 'Bloqueado'],
+            ['permissions' => ['contas.editar']],
+            ['username' => 'outro.usuario'],
+            ['password' => 'senha-nao-permitida'],
+        ];
+
+        foreach ($camposSensiveis as $campoSensivel) {
+            $resposta = $this->enviarFormulario([
+                'nome' => 'Nome nao deve ser salvo',
+                ...$campoSensivel,
+            ]);
+
+            $resposta->assertRedirect();
+            $resposta->assertSessionHas('errors');
+            $this->seeInDatabase('users', [
+                'id' => $usuario->id,
+                'nome_completo' => null,
+                'username' => 'usuario.teste',
+                'active' => 0,
+                'status' => null,
+                'status_message' => null,
+            ]);
+        }
+
+        $this->dontSeeInDatabase('auth_groups_users', ['user_id' => $usuario->id, 'group' => 'admin']);
+        $this->dontSeeInDatabase('auth_permissions_users', [
+            'user_id' => $usuario->id,
+            'permission' => 'contas.editar',
+        ]);
+    }
+
+    public function testIgnoraCamposAuxiliaresInofensivosAoAtualizarNome(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
         $resposta = $this->enviarFormulario([
-            'nome' => 'Nome nao deve ser salvo',
-            'groups' => ['admin'],
+            'nome' => 'Nome Atualizado',
+            '_method' => 'POST',
+            'botao_salvar' => 'Salvar nome',
         ]);
 
         $resposta->assertRedirect();
-        $resposta->assertSessionHas('errors');
-        $this->seeInDatabase('users', ['id' => $usuario->id, 'nome_completo' => null]);
-        $this->dontSeeInDatabase('auth_groups_users', ['user_id' => $usuario->id, 'group' => 'admin']);
+        $resposta->assertSessionHas('success');
+        $this->seeInDatabase('users', [
+            'id' => $usuario->id,
+            'username' => 'usuario.teste',
+            'nome_completo' => 'Nome Atualizado',
+            'active' => 0,
+            'status' => null,
+            'status_message' => null,
+        ]);
+        $this->seeInDatabase('auth_identities', [
+            'user_id' => $usuario->id,
+            'type' => 'email_password',
+            'secret' => 'perfil1@example.com',
+        ]);
     }
 
     public function testRejeitaNomeForaDasRegrasConfiguradas(): void
