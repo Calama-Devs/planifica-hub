@@ -38,6 +38,7 @@ A coluna "Before Filters" de `php spark routes` mostra os filtros efetivos de ca
 | Rotas | Filtros | Quem acessa |
 |---|---|---|
 | `GET /` (nome `dashboard`) e `GET sobre` | `csrf` (global) e `session` (grupo em `Routes.php`) | Quem fez login |
+| `GET admin/permissoes` (nome `permissoes.index`) | `csrf` (global), `session` (grupo em `Routes.php`) e `permission:acessos.administrar` | Quem tem `acessos.administrar` (por padrão, o `superadmin`) |
 | `GET` e `POST` de `login`, `register` e `login/magic-link`; `GET login/verify-magic-link`; `auth/a/*` (rotas do Shield) | `csrf` (global) | Qualquer pessoa: são as portas de entrada |
 | `POST logout` | `csrf` (global) | Quem está logado, para encerrar a própria sessão |
 
