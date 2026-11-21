@@ -15,10 +15,13 @@ class PerfilController extends BaseController
             return redirect()->to(url_to('login'));
         }
 
+        $perfilService = service('perfilService');
+
         return view('perfil/index', [
             'nomeAtual'         => $usuario->username ?? '',
             'emailAtual'        => $usuario->email ?? '',
-            'comprimentoMaximo' => service('perfilService')->obterComprimentoMaximoNome(),
+            'grupos'            => $perfilService->obterGruposDoUsuario($usuario),
+            'comprimentoMaximo' => $perfilService->obterComprimentoMaximoNome(),
         ]);
     }
 

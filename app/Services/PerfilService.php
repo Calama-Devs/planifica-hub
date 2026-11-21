@@ -6,12 +6,28 @@ use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\Shield\Validation\ValidationRules;
 use CodeIgniter\Validation\ValidationInterface;
+use Config\AuthGroups;
 
 class PerfilService
 {
     /**
      * @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string, erros?: array<string, string>}
      */
+    /**
+     * @return string[]
+     */
+    public function obterGruposDoUsuario(User $usuario): array
+    {
+        $configGrupos = config(AuthGroups::class);
+        $grupos       = [];
+
+        foreach ($usuario->getGroups() ?? [] as $chave) {
+            $grupos[] = $configGrupos->groups[$chave]['title'] ?? $chave;
+        }
+
+        return $grupos;
+    }
+
     public function atualizarNome(User $usuario, string $nome): array
     {
         $nome = trim($nome);
