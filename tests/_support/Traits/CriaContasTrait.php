@@ -18,7 +18,10 @@ trait CriaContasTrait
     private function criarConta(string $username, ?string $grupo = null, array $permissoesDiretas = []): User
     {
         $contas = model(UserModel::class);
-        $contas->save(new User(['username' => $username]));
+        $contas->save(new User([
+            'username' => $username,
+            'active'   => 1,
+        ]));
 
         /** @var User $conta */
         $conta = $contas->findById($contas->getInsertID());

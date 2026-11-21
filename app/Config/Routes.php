@@ -19,6 +19,12 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
     $routes->group('admin/permissoes', ['filter' => 'permission:acessos.administrar'], static function (RouteCollection $routes): void {
         $routes->get('/', 'PermissaoController::index', ['as' => 'permissoes.index']);
     });
+
+    // Gerenciamento de usuários: o filtro do grupo (session) soma com o permission da rota.
+    $routes->group('admin/acessos', ['filter' => 'permission:acessos.administrar'], static function (RouteCollection $routes): void {
+        $routes->get('/', 'AcessoController::index', ['as' => 'acessos.index']);
+        $routes->get('listar', 'AcessoController::listar', ['as' => 'acessos.listar']);
+    });
 });
 
 service('auth')->routes($routes, ['except' => ['logout']]);
