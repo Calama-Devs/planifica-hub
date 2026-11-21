@@ -42,7 +42,7 @@
 
         enviando = true;
         alerta.text('').addClass('d-none');
-        formulario.find('button').prop('disabled', true);
+        formulario.find('button[type="submit"]').prop('disabled', true);
 
         $.ajax({
             url: formulario.attr('action'),
@@ -74,7 +74,7 @@
                 'Não foi possível concluir. Recarregue a página e tente novamente.');
         }).always(function () {
             enviando = false;
-            formulario.find('button').prop('disabled', false);
+            formulario.find('button[type="submit"]').prop('disabled', false);
         });
     });
 })(jQuery);
