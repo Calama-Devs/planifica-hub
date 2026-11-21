@@ -18,14 +18,14 @@
             botaoSecao.classList.remove('secao-expandida');
         });
         secaoSenha.addEventListener('hidden.bs.collapse', function () {
-            var formulario = document.getElementById('formulario-trocar-senha');
             var alerta = document.getElementById('alerta-trocar-senha');
+            if (alerta && !alerta.classList.contains('d-none')) {
+                return;
+            }
+
+            var formulario = document.getElementById('formulario-trocar-senha');
             if (formulario) {
                 formulario.reset();
-            }
-            if (alerta) {
-                alerta.textContent = '';
-                alerta.classList.add('d-none');
             }
         });
     }
