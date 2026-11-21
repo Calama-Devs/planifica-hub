@@ -22,6 +22,8 @@ class PerfilController extends BaseController
             'emailAtual'        => $usuario->email ?? '',
             'grupos'            => $perfilService->obterGruposDoUsuario($usuario),
             'comprimentoMaximo' => $perfilService->obterComprimentoMaximoNome(),
+            'podeEditarEmail'   => $perfilService->podeEditarEmail(),
+            'podeEditarGrupos'  => $perfilService->podeEditarGrupos(),
         ]);
     }
 

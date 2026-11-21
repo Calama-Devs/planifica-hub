@@ -4,6 +4,8 @@
  * @var string        $emailAtual         E-mail da conta autenticada.
  * @var string[]      $grupos             Títulos dos grupos associados à conta.
  * @var int|null      $comprimentoMaximo  Comprimento máximo permitido para o nome.
+ * @var bool          $podeEditarEmail    Indica se o usuário tem autorização para editar o e-mail.
+ * @var bool          $podeEditarGrupos   Indica se o usuário tem autorização para editar os grupos.
  */
 ?>
 <?= $this->extend('layouts/principal') ?>
@@ -57,16 +59,20 @@
                         <label for="campo-email" class="col-sm-3 col-form-label">E-mail</label>
                         <div class="col-sm-9">
                             <div class="input-group"
+                                 <?php if (! $podeEditarEmail): ?>
                                  tabindex="0"
                                  data-bs-toggle="tooltip"
                                  data-bs-placement="top"
                                  title="A alteração de e-mail requer autorização administrativa."
-                                 aria-label="Campo bloqueado — a alteração de e-mail requer autorização administrativa.">
+                                 aria-label="Campo bloqueado — a alteração de e-mail requer autorização administrativa."
+                                 <?php endif ?>
+                                 >
                                 <span class="input-group-text">
                                     <i class="mdi mdi-email-outline" aria-hidden="true"></i>
                                 </span>
-                                <input type="email" id="campo-email" class="form-control"
-                                       value="<?= esc($emailAtual) ?>" disabled>
+                                <input type="email" id="campo-email" name="email" class="form-control"
+                                       value="<?= esc($emailAtual) ?>"
+                                       <?= $podeEditarEmail ? '' : 'disabled' ?>>
                             </div>
                         </div>
                     </div>
@@ -75,17 +81,20 @@
                         <label for="campo-grupos" class="col-sm-3 col-form-label">Grupo(s)</label>
                         <div class="col-sm-9">
                             <div class="input-group"
+                                 <?php if (! $podeEditarGrupos): ?>
                                  tabindex="0"
                                  data-bs-toggle="tooltip"
                                  data-bs-placement="top"
                                  title="A alteração de grupos requer autorização administrativa."
-                                 aria-label="Campo bloqueado — a alteração de grupos requer autorização administrativa.">
+                                 aria-label="Campo bloqueado — a alteração de grupos requer autorização administrativa."
+                                 <?php endif ?>
+                                 >
                                 <span class="input-group-text">
                                     <i class="mdi mdi-account-multiple" aria-hidden="true"></i>
                                 </span>
                                 <input type="text" id="campo-grupos" class="form-control"
                                        value="<?= esc($grupos !== [] ? implode(', ', $grupos) : 'Sem grupo atribuído') ?>"
-                                       disabled>
+                                       <?= $podeEditarGrupos ? '' : 'disabled' ?>>
                             </div>
                         </div>
                     </div>

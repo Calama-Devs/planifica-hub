@@ -10,9 +10,16 @@ use Config\AuthGroups;
 
 class PerfilService
 {
-    /**
-     * @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string, erros?: array<string, string>}
-     */
+    public function podeEditarEmail(): bool
+    {
+        return false;
+    }
+
+    public function podeEditarGrupos(): bool
+    {
+        return false;
+    }
+
     /**
      * @return string[]
      */
