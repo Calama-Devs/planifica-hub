@@ -7,7 +7,7 @@
         new bootstrap.Tooltip(elemento);
     });
 
-    // Rotaciona ícone de seta ao expandir/recolher seção de senha
+    // Rotaciona ícone e limpa formulário ao expandir/recolher seção de senha
     var secaoSenha = document.getElementById('secao-trocar-senha');
     var botaoSecao = document.getElementById('botao-secao-senha');
     if (secaoSenha && botaoSecao) {
@@ -16,6 +16,17 @@
         });
         secaoSenha.addEventListener('hide.bs.collapse', function () {
             botaoSecao.classList.remove('secao-expandida');
+        });
+        secaoSenha.addEventListener('hidden.bs.collapse', function () {
+            var formulario = document.getElementById('formulario-trocar-senha');
+            var alerta = document.getElementById('alerta-trocar-senha');
+            if (formulario) {
+                formulario.reset();
+            }
+            if (alerta) {
+                alerta.textContent = '';
+                alerta.classList.add('d-none');
+            }
         });
     }
 
