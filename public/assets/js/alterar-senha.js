@@ -20,6 +20,10 @@
     }
 
     function exibirErro(mensagem) {
+        var secao = document.getElementById('secao-trocar-senha');
+        if (secao) {
+            bootstrap.Collapse.getOrCreateInstance(secao).show();
+        }
         alerta.text(mensagem).removeClass('d-none').trigger('focus');
     }
 
