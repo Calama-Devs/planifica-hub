@@ -43,21 +43,6 @@
                                 </div>
                             </a>
 
-                            <a
-                                class="dropdown-item preview-item"
-                                href="<?= esc($conta['urlPerfil'], 'attr') ?>"
-                            >
-                                <div class="preview-thumbnail">
-                                    <div class="preview-icon bg-dark rounded-circle">
-                                        <i class="mdi mdi-lock text-primary" aria-hidden="true"></i>
-                                    </div>
-                                </div>
-
-                                <div class="preview-item-content">
-                                    <p class="preview-subject mb-1">Alterar senha</p>
-                                </div>
-                            </a>
-
                         <?php endif; ?>
                         <div class="dropdown-divider"></div>
 
