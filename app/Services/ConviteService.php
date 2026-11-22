@@ -114,11 +114,14 @@ class ConviteService
         $emailService->setFrom(setting('Email.fromEmail'), setting('Email.fromName') ?? '');
         $emailService->setTo($email);
         $emailService->setSubject('Convite para cadastro no PlanIFica Hub');
+        $linkFinalizacao = site_url('finalizar-cadastro?token=' . rawurlencode($token));
         $emailService->setMessage(view('emails/convite_cadastro', [
+            'linkFinalizacao' => $linkFinalizacao,
             'validadeMinutos' => $validadeMinutos,
         ]));
         $emailService->setAltMessage(
             "Você recebeu um convite para cadastro no PlanIFica Hub.\n\n"
+            . "Finalize seu cadastro: {$linkFinalizacao}\n\n"
             . "Este convite é válido por {$validadeMinutos} minutos."
         );
 
@@ -152,6 +155,14 @@ class ConviteService
                 log_message('error', 'Falha ao registrar auditoria da emissao do convite: {erro}', [
                     'erro' => $erro->getMessage(),
                 ]);
+
+                if ($convites->marcarFalhaEnvio((int) $conviteId, $momentoResultado)) {
+                    return $this->resultado(
+                        'inesperado',
+                        'CONVITE_STATUS_FALHOU',
+                        'Não foi possível concluir a emissão do convite.'
+                    );
+                }
             }
         } elseif ($convites->marcarFalhaEnvio((int) $conviteId, $momentoResultado)) {
             return $this->resultado('inesperado', 'CONVITE_ENVIO_FALHOU', 'Não foi possível enviar o convite.');

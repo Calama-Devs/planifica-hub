@@ -8,7 +8,7 @@
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
-            <form id="form-adicionar-usuario" novalidate>
+            <form id="form-adicionar-usuario" action="<?= esc(url_to('convites.emitir'), 'attr') ?>" method="post" novalidate>
                 <?= csrf_field() ?>
                 <div class="modal-body">
                     <p class="text-muted small mb-3">

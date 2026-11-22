@@ -36,6 +36,11 @@ class ConviteController extends BaseController
             default => 422,
         };
 
+        $resultado['csrf'] = [
+            'nome' => csrf_token(),
+            'hash' => csrf_hash(),
+        ];
+
         return $this->response->setStatusCode($statusHttp)->setJSON($resultado);
     }
 }
