@@ -33,6 +33,7 @@ class EventoAuditoriaModel extends Model
     protected $validationRules = [
         'modulo'        => 'required|string|max_length[50]',
         'usuario_id'    => 'permit_empty|is_natural_no_zero',
+        'acao'          => 'required|string|max_length[50]',
         'entidade_tipo' => 'required|string|max_length[50]',
         'entidade_id'   => 'permit_empty|string|max_length[100]',
         'descricao'     => 'required|string',
