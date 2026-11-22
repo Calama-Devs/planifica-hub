@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\Security\Exceptions\SecurityException;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserModel;
@@ -60,6 +61,29 @@ final class ConviteControllerTest extends CIUnitTestCase
         $this->actingAs($operador)->post('admin/convites', [
             'email' => 'sem-csrf@ifro.edu.br',
         ]);
+    }
+
+    public function testRotaRecusaGruposForaDoFormatoDeLista(): void
+    {
+        $operador = $this->criarUsuario('admin');
+
+        $resposta = $this->actingAs($operador)
+            ->withSession($_SESSION)
+            ->post('admin/convites', [
+                'email'      => 'grupos@ifro.edu.br',
+                'grupos'     => 'admin',
+                csrf_token() => csrf_hash(),
+            ]);
+
+        $resposta->assertStatus(422);
+        $resposta->assertJSONFragment(['codigo' => 'CONVITE_DADOS_INVALIDOS']);
+    }
+
+    public function testRotasDeFinalizacaoNaoEstaoDisponiveis(): void
+    {
+        $this->expectException(PageNotFoundException::class);
+
+        $this->get('finalizar-cadastro');
     }
 
     private function criarUsuario(string $grupo): User

@@ -15,10 +15,7 @@
                     </tr>
                     <tr>
                         <td style="color: #e8e9ee; font-family: Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.7; padding: 30px 36px 28px;">
-                            <p style="color: #c2c6d2; margin: 0 0 27px;">Você recebeu um convite para finalizar seu cadastro no PlanIFica Hub.</p>
-                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                                <tr><td align="center" bgcolor="#0090e7" style="border-radius: 6px;"><a href="<?= esc($linkFinalizacao, 'attr') ?>" style="background-color: #0090e7; border: 1px solid #0090e7; border-radius: 6px; color: #ffffff; display: block; font-family: Arial, Helvetica, sans-serif; font-size: 15px; font-weight: 700; padding: 14px 20px; text-align: center; text-decoration: none;">Finalizar cadastro</a></td></tr>
-                            </table>
+                            <p style="color: #c2c6d2; margin: 0 0 27px;">Você recebeu um convite para cadastro no PlanIFica Hub.</p>
                             <p style="color: #aeb4c4; font-size: 13px; margin: 24px 0 0;">Este convite é válido por <?= esc((string) $validadeMinutos) ?> minutos. Se você não solicitou este convite, desconsidere esta mensagem.</p>
                         </td>
                     </tr>

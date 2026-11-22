@@ -21,18 +21,18 @@ class ConviteModel extends Model
         'expira_em',
         'enviado_em',
         'falhou_em',
-        'utilizado_em',
+        'grupos',
     ];
 
     protected $validationRules = [
         'email'          => 'required|valid_email|max_length[254]',
         'email_pendente' => 'permit_empty|valid_email|max_length[254]',
         'token_hash'     => 'required|regex_match[/^[a-f0-9]{64}$/]',
-        'status'         => 'required|in_list[preparado,enviado,falha_envio,expirado,utilizado]',
+        'status'         => 'required|in_list[preparado,enviado,falha_envio,expirado]',
         'expira_em'      => 'required|valid_date[Y-m-d H:i:s]',
         'enviado_em'     => 'permit_empty|valid_date[Y-m-d H:i:s]',
         'falhou_em'      => 'permit_empty|valid_date[Y-m-d H:i:s]',
-        'utilizado_em'   => 'permit_empty|valid_date[Y-m-d H:i:s]',
+        'grupos'         => 'permit_empty',
     ];
 
     protected $validationMessages = [
@@ -88,27 +88,5 @@ class ConviteModel extends Model
             'falhou_em'      => $agora,
             'email_pendente' => null,
         ]);
-    }
-
-    /** @return array<string, mixed>|null */
-    public function buscarPorTokenHash(string $tokenHash): ?array
-    {
-        return $this->where('token_hash', $tokenHash)->first();
-    }
-
-    public function consumirValido(int $conviteId, string $agora): bool
-    {
-        $this->builder()
-            ->where('id', $conviteId)
-            ->whereIn('status', ['preparado', 'enviado'])
-            ->where('expira_em >', $agora)
-            ->update([
-                'status'         => 'utilizado',
-                'utilizado_em'   => $agora,
-                'email_pendente' => null,
-                'updated_at'     => $agora,
-            ]);
-
-        return $this->db->affectedRows() === 1;
     }
 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\ConviteModel;
-use CodeIgniter\Shield\Entities\User;
+use Config\AuthGroups;
 use Throwable;
 
 class ConviteService
@@ -18,11 +18,16 @@ class ConviteService
     }
 
     /** @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string} */
-    public function emitirConvite(string $emailInformado, int $emissorId): array
+    public function emitirConvite(string $emailInformado, int $emissorId, array $gruposInformados = []): array
     {
         $usuario = auth()->getProvider()->findById($emissorId);
         if ($usuario === null || ! $usuario->can('contas.criar')) {
             return $this->resultado('permissao', 'CONTAS_SEM_PERMISSAO', 'Sem permissão para emitir convites.');
+        }
+
+        $grupos = $this->resolverGrupos($gruposInformados, $usuario->can('acessos.administrar'));
+        if (isset($grupos['sucesso'])) {
+            return $grupos;
         }
 
         $email = strtolower(trim($emailInformado));
@@ -46,147 +51,11 @@ class ConviteService
             );
         }
 
-        return $this->registrarEEnviar($email, config('Convite')->validadeMinutos);
+        return $this->registrarEEnviar($email, config('Convite')->validadeMinutos, $grupos);
     }
 
-    /** @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string, dados: array{email: string}|null} */
-    public function validarConvite(?string $token): array
-    {
-        $token = is_string($token) ? trim($token) : '';
-        if (! preg_match('/^[A-Za-z0-9_-]{43}$/', $token)) {
-            return $this->resultadoInvalido('CONVITE_INVALIDO', 'Este convite não é válido.');
-        }
-
-        $convite = model(ConviteModel::class)->buscarPorTokenHash(hash('sha256', $token));
-        if ($convite === null) {
-            return $this->resultadoInvalido('CONVITE_INVALIDO', 'Este convite não é válido.');
-        }
-
-        if ($convite['status'] === 'utilizado') {
-            return $this->resultadoInvalido('CONVITE_UTILIZADO', 'Este convite já foi utilizado.');
-        }
-
-        if ($convite['expira_em'] <= date('Y-m-d H:i:s')) {
-            return $this->resultadoInvalido('CONVITE_EXPIRADO', 'Este convite expirou.');
-        }
-
-        if (! in_array($convite['status'], ['preparado', 'enviado'], true)) {
-            return $this->resultadoInvalido('CONVITE_INVALIDO', 'Este convite não é válido.');
-        }
-
-        if (auth()->getProvider()->findByCredentials(['email' => $convite['email']]) !== null) {
-            return $this->resultadoInvalido('CONVITE_CONTA_EXISTENTE', 'Já existe uma conta para este convite.');
-        }
-
-        return [
-            'sucesso'  => true,
-            'tipo'     => 'sucesso',
-            'codigo'   => 'CONVITE_VALIDO',
-            'mensagem' => 'Convite válido.',
-            'dados'    => ['email' => $convite['email']],
-        ];
-    }
-
-    /** @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string} */
-    public function concluirCadastro(string $token, string $senha, string $nomeCompleto): array
-    {
-        $validacao = $this->validarConvite($token);
-        if (! $validacao['sucesso']) {
-            unset($validacao['dados']);
-
-            return $validacao;
-        }
-
-        $usuarioParaValidacao = new User([
-            'username' => null,
-            'email'    => $validacao['dados']['email'],
-        ]);
-        if (! service('passwords')->check($senha, $usuarioParaValidacao)->isOK()) {
-            return $this->resultado(
-                'validacao',
-                'SENHA_INVALIDA',
-                'Informe uma senha que atenda aos requisitos de segurança.'
-            );
-        }
-
-        $convites = model(ConviteModel::class);
-        $convite  = $convites->buscarPorTokenHash(hash('sha256', trim($token)));
-        $agora    = date('Y-m-d H:i:s');
-        $db       = db_connect();
-        $nomeCompleto = preg_replace('/\s+/', ' ', trim($nomeCompleto)) ?? '';
-
-        $db->transException(true)->transBegin();
-
-        try {
-            if ($convite === null || ! $convites->consumirValido((int) $convite['id'], $agora)) {
-                $db->transRollback();
-
-                return $this->resultado(
-                    'regra_negocio',
-                    'CONVITE_UTILIZADO',
-                    'Este convite não está mais disponível.'
-                );
-            }
-
-            $usuarios = auth()->getProvider();
-            if ($usuarios->findByCredentials(['email' => $convite['email']]) !== null) {
-                $db->transRollback();
-
-                return $this->resultado(
-                    'regra_negocio',
-                    'CONVITE_CONTA_EXISTENTE',
-                    'Já existe uma conta para este convite.'
-                );
-            }
-
-            $usuario = $usuarios->createNewUser([
-                'username'      => null,
-                'nome_completo' => $nomeCompleto,
-                'email'         => $convite['email'],
-                'password'      => $senha,
-            ]);
-            $usuario->username = null;
-
-            if (! $usuarios->save($usuario)) {
-                throw new \RuntimeException('Não foi possível concluir o cadastro.');
-            }
-
-            $usuarioCriado = $usuarios->findById($usuarios->getInsertID());
-            if ($usuarioCriado === null) {
-                throw new \RuntimeException('Não foi possível concluir o cadastro.');
-            }
-
-            $usuarios->activate($usuarioCriado);
-
-            $this->auditoria->registrar([
-                'modulo'        => 'convites',
-                'acao'          => 'concluir_cadastro',
-                'entidade_tipo' => 'usuario',
-                'entidade_id'   => (string) $usuarioCriado->id,
-                'descricao'     => 'Cadastro concluído a partir de um convite.',
-                'resultado'     => 'concluida',
-            ]);
-
-            if (! $db->transCommit()) {
-                throw new \RuntimeException('Não foi possível concluir o cadastro.');
-            }
-        } catch (Throwable) {
-            $db->transRollback();
-            log_message('error', 'Não foi possível concluir o cadastro por convite.');
-
-            return $this->resultado('inesperado', 'CADASTRO_FALHOU', 'Não foi possível concluir o cadastro.');
-        }
-
-        return $this->resultado(
-            'sucesso',
-            'CADASTRO_CONCLUIDO',
-            'Cadastro concluído. Agora você já pode entrar.',
-            true
-        );
-    }
-
-    /** @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string} */
-    private function registrarEEnviar(string $email, int $validadeMinutos): array
+    /** @param list<string> $grupos */
+    private function registrarEEnviar(string $email, int $validadeMinutos, array $grupos): array
     {
         $convites = model(ConviteModel::class);
         $agora    = date('Y-m-d H:i:s');
@@ -217,6 +86,7 @@ class ConviteService
                 'token_hash'      => hash('sha256', $token),
                 'status'         => 'preparado',
                 'expira_em'      => $expiraEm,
+                'grupos'         => json_encode($grupos, JSON_THROW_ON_ERROR),
             ], true);
 
             if ($conviteId === false || ! $db->transCommit()) {
@@ -244,14 +114,11 @@ class ConviteService
         $emailService->setFrom(setting('Email.fromEmail'), setting('Email.fromName') ?? '');
         $emailService->setTo($email);
         $emailService->setSubject('Convite para cadastro no PlanIFica Hub');
-        $linkFinalizacao = site_url('finalizar-cadastro?token=' . rawurlencode($token));
         $emailService->setMessage(view('emails/convite_cadastro', [
-            'linkFinalizacao' => $linkFinalizacao,
             'validadeMinutos' => $validadeMinutos,
         ]));
         $emailService->setAltMessage(
-            "Você recebeu um convite para finalizar seu cadastro no PlanIFica Hub.\n\n"
-            . "Finalize seu cadastro: {$linkFinalizacao}\n\n"
+            "Você recebeu um convite para cadastro no PlanIFica Hub.\n\n"
             . "Este convite é válido por {$validadeMinutos} minutos."
         );
 
@@ -310,15 +177,37 @@ class ConviteService
         ];
     }
 
-    /** @return array{sucesso: false, tipo: string, codigo: string, mensagem: string, dados: null} */
-    private function resultadoInvalido(string $codigo, string $mensagem): array
+    /** @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string}|list<string> */
+    private function resolverGrupos(array $gruposInformados, bool $podeAdministrarAcessos): array
     {
-        return [
-            'sucesso'  => false,
-            'tipo'     => 'regra_negocio',
-            'codigo'   => $codigo,
-            'mensagem' => $mensagem,
-            'dados'    => null,
-        ];
+        $grupos = [];
+
+        foreach ($gruposInformados as $grupo) {
+            if (! is_string($grupo) || trim($grupo) === '') {
+                return $this->resultado('validacao', 'CONVITE_GRUPO_INVALIDO', 'Informe grupos válidos.');
+            }
+
+            $grupos[] = trim($grupo);
+        }
+
+        $grupos = array_values(array_unique($grupos));
+        $grupos = $grupos === [] ? ['user'] : $grupos;
+
+        $gruposDisponiveis = config(AuthGroups::class)->groups;
+        foreach ($grupos as $grupo) {
+            if (! array_key_exists($grupo, $gruposDisponiveis)) {
+                return $this->resultado('validacao', 'CONVITE_GRUPO_INVALIDO', 'Informe grupos válidos.');
+            }
+        }
+
+        if (! $podeAdministrarAcessos && $grupos !== ['user']) {
+            return $this->resultado(
+                'permissao',
+                'CONVITE_GRUPOS_SEM_PERMISSAO',
+                'Sem permissão para definir grupos no convite.'
+            );
+        }
+
+        return $grupos;
     }
 }

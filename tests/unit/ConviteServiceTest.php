@@ -9,6 +9,7 @@ use App\Models\ConviteModel;
 use App\Models\EventoAuditoriaModel;
 use App\Services\AuditoriaService;
 use App\Services\ConviteService;
+use Config\Auth;
 use CodeIgniter\Config\BaseService;
 use CodeIgniter\Database\Exceptions\DatabaseException;
 use CodeIgniter\Email\Email;
@@ -90,7 +91,7 @@ final class ConviteServiceTest extends CIUnitTestCase
         $this->assertSame('CONTAS_SEM_PERMISSAO', $resultado['codigo']);
     }
 
-    public function testRegistraHashDoTokenComValidadeDeTrintaMinutos(): void
+    public function testRegistraGruposPadraoEHashDoTokenComValidadeDeTrintaMinutos(): void
     {
         $mensagem = '';
         $this->configurarEmail(true, $mensagem);
@@ -98,16 +99,59 @@ final class ConviteServiceTest extends CIUnitTestCase
         $resultado = (new ConviteService())->emitirConvite('token@ifro.edu.br', $this->operadorId);
         $convite   = $this->conviteModel->where('email', 'token@ifro.edu.br')->first();
 
-        preg_match('/token=([^"&]+)/', html_entity_decode($mensagem, ENT_QUOTES, 'UTF-8'), $partes);
-        $token = rawurldecode($partes[1] ?? '');
-
         $this->assertTrue($resultado['sucesso']);
         $this->assertSame('CONVITE_ENVIO_ACEITO', $resultado['codigo']);
-        $this->assertNotSame('', $token);
-        $this->assertSame(hash('sha256', $token), $convite['token_hash']);
-        $this->assertNotSame($token, $convite['token_hash']);
+        $this->assertSame(64, strlen($convite['token_hash']));
+        $this->assertSame(['user'], json_decode($convite['grupos'], true, 512, JSON_THROW_ON_ERROR));
         $this->assertSame('enviado', $convite['status']);
         $this->assertSame(1800, strtotime($convite['expira_em']) - strtotime($convite['created_at']));
+    }
+
+    public function testPermiteSelecionarGruposValidosParaAdministradorDeAcessos(): void
+    {
+        $mensagem = '';
+        $this->configurarEmail(true, $mensagem);
+        $superadminId = $this->criarUsuario('superadmin');
+
+        $resultado = (new ConviteService())->emitirConvite(
+            'grupos-validos@ifro.edu.br',
+            $superadminId,
+            ['admin', 'beta']
+        );
+        $convite = $this->conviteModel->where('email', 'grupos-validos@ifro.edu.br')->first();
+
+        $this->assertTrue($resultado['sucesso']);
+        $this->assertSame(['admin', 'beta'], json_decode($convite['grupos'], true, 512, JSON_THROW_ON_ERROR));
+    }
+
+    public function testRecusaGrupoInexistente(): void
+    {
+        $resultado = (new ConviteService())->emitirConvite(
+            'grupo-invalido@ifro.edu.br',
+            $this->criarUsuario('superadmin'),
+            ['inexistente']
+        );
+
+        $this->assertSame('CONVITE_GRUPO_INVALIDO', $resultado['codigo']);
+        $this->assertSame(0, $this->conviteModel->countAllResults());
+    }
+
+    public function testImpedeAdministradorDeContasDeElevarPrivilegiosPorGrupo(): void
+    {
+        $resultado = (new ConviteService())->emitirConvite(
+            'elevacao@ifro.edu.br',
+            $this->operadorId,
+            ['admin', 'superadmin']
+        );
+
+        $this->assertSame('CONVITE_GRUPOS_SEM_PERMISSAO', $resultado['codigo']);
+        $this->assertSame(0, $this->conviteModel->countAllResults());
+    }
+
+    public function testMantemProviderPadraoDoShieldParaAutenticacao(): void
+    {
+        $this->assertSame(UserModel::class, config(Auth::class)->userProvider);
+        $this->assertInstanceOf(UserModel::class, auth()->getProvider());
     }
 
     public function testAuditaEmissaoComOperadorSemDadosSensiveis(): void
@@ -121,16 +165,13 @@ final class ConviteServiceTest extends CIUnitTestCase
         $convite   = $this->conviteModel->where('email', 'auditado@ifro.edu.br')->first();
         $evento    = model(EventoAuditoriaModel::class)->where('acao', 'emitir_convite')->first();
 
-        preg_match('/token=([^"&]+)/', html_entity_decode($mensagem, ENT_QUOTES, 'UTF-8'), $partes);
-        $token = rawurldecode($partes[1] ?? '');
-
         $this->assertTrue($resultado['sucesso']);
         $this->assertNotNull($evento);
         $this->assertSame($this->operadorId, (int) $evento['usuario_id']);
         $this->assertSame((string) $convite['id'], $evento['entidade_id']);
         $this->assertSame('concluida', $evento['resultado']);
         $this->assertStringNotContainsString('auditado@ifro.edu.br', $evento['descricao']);
-        $this->assertStringNotContainsString($token, $evento['descricao']);
+        $this->assertStringNotContainsString('auditado@ifro.edu.br', $mensagem);
 
         auth()->logout();
     }
