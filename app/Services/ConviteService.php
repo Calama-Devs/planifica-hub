@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\ConviteModel;
 use Config\AuthGroups;
+use Config\Email as EmailConfig;
 use Throwable;
 
 class ConviteService
@@ -57,6 +58,20 @@ class ConviteService
     /** @param list<string> $grupos */
     private function registrarEEnviar(string $email, int $validadeMinutos, array $grupos): array
     {
+        $configuracaoEmail = config(EmailConfig::class);
+        $remetenteEmail    = trim($configuracaoEmail->fromEmail);
+        $remetenteNome     = trim($configuracaoEmail->fromName);
+
+        if (filter_var($remetenteEmail, FILTER_VALIDATE_EMAIL) === false) {
+            log_message('error', 'Configuração do remetente de e-mail ausente ou inválida.');
+
+            return $this->resultado(
+                'inesperado',
+                'CONVITE_REMETENTE_INVALIDO',
+                'Não foi possível enviar o convite. Verifique a configuração de e-mail.'
+            );
+        }
+
         $convites = model(ConviteModel::class);
         $agora    = date('Y-m-d H:i:s');
         $expiraEm = date('Y-m-d H:i:s', strtotime("+{$validadeMinutos} minutes"));
@@ -108,24 +123,33 @@ class ConviteService
             return $this->resultado('inesperado', 'CONVITE_PREPARO_FALHOU', 'Não foi possível emitir o convite.');
         }
 
-        $emailService = service('email');
-        $emailService->clear();
-        $emailService->setMailType('html');
-        $emailService->setFrom(setting('Email.fromEmail'), setting('Email.fromName') ?? '');
-        $emailService->setTo($email);
-        $emailService->setSubject('Convite para cadastro no PlanIFica Hub');
         $linkFinalizacao = site_url('finalizar-cadastro?token=' . rawurlencode($token));
-        $emailService->setMessage(view('emails/convite_cadastro', [
-            'linkFinalizacao' => $linkFinalizacao,
-            'validadeMinutos' => $validadeMinutos,
-        ]));
-        $emailService->setAltMessage(
-            "Você recebeu um convite para cadastro no PlanIFica Hub.\n\n"
-            . "Finalize seu cadastro: {$linkFinalizacao}\n\n"
-            . "Este convite é válido por {$validadeMinutos} minutos."
-        );
+        $emailService     = service('email');
 
-        $envioAceito      = $emailService->send();
+        try {
+            $emailService->clear();
+            $emailService->setMailType('html');
+            $emailService->setFrom($remetenteEmail, $remetenteNome);
+            $emailService->setTo($email);
+            $emailService->setSubject('Convite para cadastro no PlanIFica Hub');
+            $emailService->setMessage(view('emails/convite_cadastro', [
+                'linkFinalizacao' => $linkFinalizacao,
+                'validadeMinutos' => $validadeMinutos,
+            ]));
+            $emailService->setAltMessage(
+                "Você recebeu um convite para cadastro no PlanIFica Hub.\n\n"
+                . "Finalize seu cadastro: {$linkFinalizacao}\n\n"
+                . "Este convite é válido por {$validadeMinutos} minutos."
+            );
+
+            $envioAceito = $emailService->send();
+        } catch (Throwable $erro) {
+            log_message('error', 'Falha operacional no envio do convite: {tipo}', [
+                'tipo' => $erro::class,
+            ]);
+            $envioAceito = false;
+        }
+
         $momentoResultado = date('Y-m-d H:i:s');
 
         if ($envioAceito) {

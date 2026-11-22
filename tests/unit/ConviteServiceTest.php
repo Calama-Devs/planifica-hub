@@ -10,6 +10,7 @@ use App\Models\EventoAuditoriaModel;
 use App\Services\AuditoriaService;
 use App\Services\ConviteService;
 use Config\Auth;
+use Config\Email as EmailConfig;
 use CodeIgniter\Config\BaseService;
 use CodeIgniter\Database\Exceptions\DatabaseException;
 use CodeIgniter\Email\Email;
@@ -39,6 +40,10 @@ final class ConviteServiceTest extends CIUnitTestCase
 
         $this->conviteModel = model(ConviteModel::class);
         $this->operadorId   = $this->criarUsuario('admin');
+
+        $configuracaoEmail            = config(EmailConfig::class);
+        $configuracaoEmail->fromEmail = 'nao-responda@ifro.edu.br';
+        $configuracaoEmail->fromName  = 'PlanIFica Hub';
     }
 
     protected function tearDown(): void
@@ -89,6 +94,39 @@ final class ConviteServiceTest extends CIUnitTestCase
         );
 
         $this->assertSame('CONTAS_SEM_PERMISSAO', $resultado['codigo']);
+    }
+
+    public function testRecusaEmissaoQuandoRemetenteNaoEstaConfigurado(): void
+    {
+        config(EmailConfig::class)->fromEmail = '';
+
+        $resultado = (new ConviteService())->emitirConvite(
+            'sem-remetente@ifro.edu.br',
+            $this->operadorId
+        );
+
+        $this->assertSame('CONVITE_REMETENTE_INVALIDO', $resultado['codigo']);
+        $this->assertSame('inesperado', $resultado['tipo']);
+        $this->assertSame(0, $this->conviteModel->countAllResults());
+    }
+
+    public function testUsaRemetenteDaConfiguracaoEmailCarregada(): void
+    {
+        $mensagem          = '';
+        $remetenteRecebido = [];
+        $this->configurarEmail(
+            true,
+            $mensagem,
+            null,
+            static function (string $email, string $nome) use (&$remetenteRecebido): void {
+                $remetenteRecebido = [$email, $nome];
+            }
+        );
+
+        $resultado = (new ConviteService())->emitirConvite('remetente@ifro.edu.br', $this->operadorId);
+
+        $this->assertTrue($resultado['sucesso']);
+        $this->assertSame(['nao-responda@ifro.edu.br', 'PlanIFica Hub'], $remetenteRecebido);
     }
 
     public function testRegistraGruposPadraoEHashDoTokenComValidadeDeTrintaMinutos(): void
@@ -307,12 +345,22 @@ final class ConviteServiceTest extends CIUnitTestCase
         $this->conviteModel->insert($dados);
     }
 
-    private function configurarEmail(bool $aceito, string &$mensagem, ?Closure $aoEnviar = null): void
-    {
+    private function configurarEmail(
+        bool $aceito,
+        string &$mensagem,
+        ?Closure $aoEnviar = null,
+        ?Closure $aoConfigurarRemetente = null
+    ): void {
         $email = $this->createMock(Email::class);
         $email->method('clear')->willReturnSelf();
         $email->method('setMailType')->willReturnSelf();
-        $email->method('setFrom')->willReturnSelf();
+        $email->method('setFrom')->willReturnCallback(
+            static function (string $remetente, string $nome) use ($email, $aoConfigurarRemetente): Email {
+                $aoConfigurarRemetente?->__invoke($remetente, $nome);
+
+                return $email;
+            }
+        );
         $email->method('setTo')->willReturnSelf();
         $email->method('setSubject')->willReturnSelf();
         $email->method('setMessage')->willReturnCallback(
