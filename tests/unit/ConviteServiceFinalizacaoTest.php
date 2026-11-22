@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Models\ConviteModel;
+use App\Models\EventoAuditoriaModel;
+use App\Services\AuditoriaService;
 use App\Services\ConviteService;
 use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
+use RuntimeException;
 
 final class ConviteServiceFinalizacaoTest extends CIUnitTestCase
 {
@@ -28,6 +31,14 @@ final class ConviteServiceFinalizacaoTest extends CIUnitTestCase
         parent::setUp();
 
         $this->convites = model(ConviteModel::class);
+    }
+
+    protected function tearDown(): void
+    {
+        auth()->logout();
+        $this->db->table('eventos_auditoria')->emptyTable();
+
+        parent::tearDown();
     }
 
     public function testValidaConvitePendenteComTokenCorreto(): void
@@ -56,6 +67,7 @@ final class ConviteServiceFinalizacaoTest extends CIUnitTestCase
         $resultado = (new ConviteService())->concluirCadastro($token, 'SenhaForte@2026', 'Maria da Silva');
         $convite  = $this->convites->where('email', 'novo@ifro.edu.br')->first();
         $usuario  = model(UserModel::class)->findByCredentials(['email' => 'novo@ifro.edu.br']);
+        $evento   = model(EventoAuditoriaModel::class)->where('acao', 'concluir_cadastro')->first();
 
         $this->assertTrue($resultado['sucesso']);
         $this->assertSame('CADASTRO_CONCLUIDO', $resultado['codigo']);
@@ -64,6 +76,32 @@ final class ConviteServiceFinalizacaoTest extends CIUnitTestCase
         $this->assertNotNull($convite['utilizado_em']);
         $this->assertNotNull($usuario);
         $this->assertSame('Maria da Silva', $usuario->nome_completo);
+        $this->assertNotNull($evento);
+        $this->assertNull($evento['usuario_id']);
+        $this->assertSame((string) $usuario->id, $evento['entidade_id']);
+        $this->assertStringNotContainsString($token, $evento['descricao']);
+        $this->assertStringNotContainsString('SenhaForte@2026', $evento['descricao']);
+    }
+
+    public function testFalhaNaAuditoriaDaConclusaoReverteCadastroEConvite(): void
+    {
+        $token = $this->criarConvite('rollback@ifro.edu.br');
+        $auditoria = $this->createMock(AuditoriaService::class);
+        $auditoria->expects($this->once())
+            ->method('registrar')
+            ->willThrowException(new RuntimeException('Falha simulada na auditoria.'));
+
+        $resultado = (new ConviteService($auditoria))->concluirCadastro(
+            $token,
+            'SenhaForte@2026',
+            'Maria da Silva'
+        );
+        $convite = $this->convites->where('email', 'rollback@ifro.edu.br')->first();
+
+        $this->assertSame('CADASTRO_FALHOU', $resultado['codigo']);
+        $this->assertSame('enviado', $convite['status']);
+        $this->assertNull(model(UserModel::class)->findByCredentials(['email' => 'rollback@ifro.edu.br']));
+        $this->assertSame(0, model(EventoAuditoriaModel::class)->countAllResults());
     }
 
     public function testNaoPermiteUsarConviteDuasVezes(): void

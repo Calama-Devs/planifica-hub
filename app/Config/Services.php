@@ -7,6 +7,7 @@ use App\Services\PerfilService;
 use App\Services\PermissaoDiretaService;
 use App\Services\PermissaoService;
 use App\Services\ConviteService;
+use App\Services\AuditoriaService;
 use CodeIgniter\Config\BaseService;
 use App\Services\CabecalhoService;
 
@@ -25,6 +26,15 @@ use App\Services\CabecalhoService;
  */
 class Services extends BaseService
 {
+    public static function auditoriaService(bool $getShared = true): AuditoriaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('auditoriaService');
+        }
+
+        return new AuditoriaService();
+    }
+
     public static function redefinirSenhaService(bool $getShared = true): RedefinirSenhaService
     {
         if ($getShared) {

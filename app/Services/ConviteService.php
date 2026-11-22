@@ -10,6 +10,13 @@ use Throwable;
 
 class ConviteService
 {
+    private AuditoriaService $auditoria;
+
+    public function __construct(?AuditoriaService $auditoria = null)
+    {
+        $this->auditoria = $auditoria ?? service('auditoriaService');
+    }
+
     /** @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string} */
     public function emitirConvite(string $emailInformado, int $emissorId): array
     {
@@ -151,6 +158,15 @@ class ConviteService
 
             $usuarios->activate($usuarioCriado);
 
+            $this->auditoria->registrar([
+                'modulo'        => 'convites',
+                'acao'          => 'concluir_cadastro',
+                'entidade_tipo' => 'usuario',
+                'entidade_id'   => (string) $usuarioCriado->id,
+                'descricao'     => 'Cadastro concluído a partir de um convite.',
+                'resultado'     => 'concluida',
+            ]);
+
             if (! $db->transCommit()) {
                 throw new \RuntimeException('Não foi possível concluir o cadastro.');
             }
@@ -239,11 +255,38 @@ class ConviteService
             . "Este convite é válido por {$validadeMinutos} minutos."
         );
 
-        if ($emailService->send()) {
-            if ($convites->marcarEnvioAceito((int) $conviteId, $agora)) {
+        $envioAceito      = $emailService->send();
+        $momentoResultado = date('Y-m-d H:i:s');
+
+        if ($envioAceito) {
+            $db->transException(true)->transBegin();
+
+            try {
+                if (! $convites->marcarEnvioAceito((int) $conviteId, $momentoResultado)) {
+                    throw new \RuntimeException('Falha ao atualizar o estado do convite.');
+                }
+
+                $this->auditoria->registrar([
+                    'modulo'        => 'convites',
+                    'acao'          => 'emitir_convite',
+                    'entidade_tipo' => 'convite',
+                    'entidade_id'   => (string) $conviteId,
+                    'descricao'     => 'Convite emitido com sucesso.',
+                    'resultado'     => 'concluida',
+                ]);
+
+                if (! $db->transCommit()) {
+                    throw new \RuntimeException('Falha ao confirmar o estado do convite.');
+                }
+
                 return $this->resultado('sucesso', 'CONVITE_ENVIO_ACEITO', 'Convite enviado com sucesso.', true);
+            } catch (Throwable $erro) {
+                $db->transRollback();
+                log_message('error', 'Falha ao registrar auditoria da emissao do convite: {erro}', [
+                    'erro' => $erro->getMessage(),
+                ]);
             }
-        } elseif ($convites->marcarFalhaEnvio((int) $conviteId, $agora)) {
+        } elseif ($convites->marcarFalhaEnvio((int) $conviteId, $momentoResultado)) {
             return $this->resultado('inesperado', 'CONVITE_ENVIO_FALHOU', 'Não foi possível enviar o convite.');
         }
 

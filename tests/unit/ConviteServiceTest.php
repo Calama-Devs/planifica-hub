@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use Closure;
 use App\Models\ConviteModel;
+use App\Models\EventoAuditoriaModel;
+use App\Services\AuditoriaService;
 use App\Services\ConviteService;
 use CodeIgniter\Config\BaseService;
 use CodeIgniter\Database\Exceptions\DatabaseException;
@@ -13,6 +16,7 @@ use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
+use RuntimeException;
 
 final class ConviteServiceTest extends CIUnitTestCase
 {
@@ -34,6 +38,14 @@ final class ConviteServiceTest extends CIUnitTestCase
 
         $this->conviteModel = model(ConviteModel::class);
         $this->operadorId   = $this->criarUsuario('admin');
+    }
+
+    protected function tearDown(): void
+    {
+        auth()->logout();
+        $this->db->table('eventos_auditoria')->emptyTable();
+
+        parent::tearDown();
     }
 
     public function testRecusaDominioInvalido(): void
@@ -98,6 +110,48 @@ final class ConviteServiceTest extends CIUnitTestCase
         $this->assertSame(1800, strtotime($convite['expira_em']) - strtotime($convite['created_at']));
     }
 
+    public function testAuditaEmissaoComOperadorSemDadosSensiveis(): void
+    {
+        $operador = auth()->getProvider()->findById($this->operadorId);
+        auth()->login($operador);
+        $mensagem = '';
+        $this->configurarEmail(true, $mensagem);
+
+        $resultado = (new ConviteService())->emitirConvite('auditado@ifro.edu.br', $this->operadorId);
+        $convite   = $this->conviteModel->where('email', 'auditado@ifro.edu.br')->first();
+        $evento    = model(EventoAuditoriaModel::class)->where('acao', 'emitir_convite')->first();
+
+        preg_match('/token=([^"&]+)/', html_entity_decode($mensagem, ENT_QUOTES, 'UTF-8'), $partes);
+        $token = rawurldecode($partes[1] ?? '');
+
+        $this->assertTrue($resultado['sucesso']);
+        $this->assertNotNull($evento);
+        $this->assertSame($this->operadorId, (int) $evento['usuario_id']);
+        $this->assertSame((string) $convite['id'], $evento['entidade_id']);
+        $this->assertSame('concluida', $evento['resultado']);
+        $this->assertStringNotContainsString('auditado@ifro.edu.br', $evento['descricao']);
+        $this->assertStringNotContainsString($token, $evento['descricao']);
+
+        auth()->logout();
+    }
+
+    public function testFalhaNaAuditoriaDaEmissaoReverteEstadoDoConvite(): void
+    {
+        $mensagem = '';
+        $this->configurarEmail(true, $mensagem);
+        $auditoria = $this->createMock(AuditoriaService::class);
+        $auditoria->expects($this->once())
+            ->method('registrar')
+            ->willThrowException(new RuntimeException('Falha simulada na auditoria.'));
+
+        $resultado = (new ConviteService($auditoria))->emitirConvite('rollback@ifro.edu.br', $this->operadorId);
+        $convite   = $this->conviteModel->where('email', 'rollback@ifro.edu.br')->first();
+
+        $this->assertSame('CONVITE_STATUS_FALHOU', $resultado['codigo']);
+        $this->assertSame('preparado', $convite['status']);
+        $this->assertSame(0, model(EventoAuditoriaModel::class)->countAllResults());
+    }
+
     public function testRecusaConvitePendenteValidoParaMesmoEmail(): void
     {
         $mensagem = '';
@@ -148,6 +202,26 @@ final class ConviteServiceTest extends CIUnitTestCase
         $this->assertNotNull($convite['falhou_em']);
     }
 
+    public function testRegistraMomentoDoResultadoDoEnvio(): void
+    {
+        $mensagem         = '';
+        $momentoResultado = '';
+        $this->configurarEmail(true, $mensagem, static function () use (&$momentoResultado): void {
+            usleep(1_200_000);
+            $momentoResultado = date('Y-m-d H:i:s');
+        });
+
+        $resultado = (new ConviteService())->emitirConvite('momento@ifro.edu.br', $this->operadorId);
+        $convite   = $this->conviteModel->where('email', 'momento@ifro.edu.br')->first();
+
+        $this->assertTrue($resultado['sucesso']);
+        $this->assertNotSame('', $momentoResultado);
+        $this->assertGreaterThanOrEqual(
+            strtotime($momentoResultado),
+            strtotime($convite['enviado_em'])
+        );
+    }
+
     public function testUnicidadeNoBancoImpedeConvitesPendentesSimultaneos(): void
     {
         $dados = [
@@ -165,7 +239,7 @@ final class ConviteServiceTest extends CIUnitTestCase
         $this->conviteModel->insert($dados);
     }
 
-    private function configurarEmail(bool $aceito, string &$mensagem): void
+    private function configurarEmail(bool $aceito, string &$mensagem, ?Closure $aoEnviar = null): void
     {
         $email = $this->createMock(Email::class);
         $email->method('clear')->willReturnSelf();
@@ -181,7 +255,11 @@ final class ConviteServiceTest extends CIUnitTestCase
             }
         );
         $email->method('setAltMessage')->willReturnSelf();
-        $email->method('send')->willReturn($aceito);
+        $email->method('send')->willReturnCallback(static function () use ($aceito, $aoEnviar): bool {
+            $aoEnviar?->__invoke();
+
+            return $aceito;
+        });
 
         BaseService::injectMock('email', $email);
     }
