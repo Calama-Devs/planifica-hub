@@ -6,6 +6,7 @@ use App\Services\RedefinirSenhaService;
 use App\Services\PerfilService;
 use App\Services\PermissaoDiretaService;
 use App\Services\PermissaoService;
+use App\Services\ConviteService;
 use CodeIgniter\Config\BaseService;
 use App\Services\CabecalhoService;
 
@@ -40,6 +41,15 @@ class Services extends BaseService
         }
 
         return new PerfilService();
+    }
+
+    public static function conviteService(bool $getShared = true): ConviteService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('conviteService');
+        }
+
+        return new ConviteService();
     }
 
     public static function permissaoService(bool $getShared = true): PermissaoService

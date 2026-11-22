@@ -27,9 +27,13 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
         $routes->get('(:num)/permissoes', 'AcessoController::permissoes/$1', ['as' => 'acessos.permissoes']);
         $routes->post('(:num)/permissoes', 'AcessoController::salvar/$1', ['as' => 'acessos.permissoes.salvar']);
     });
+
+    $routes->post('admin/convites', 'ConviteController::emitir', ['as' => 'convites.emitir', 'filter' => 'permission:contas.criar',]);
 });
 
 service('auth')->routes($routes, ['except' => ['logout']]);
+$routes->get('finalizar-cadastro', 'ConviteController::finalizarCadastro', ['as' => 'finalizar_cadastro']);
+$routes->post('finalizar-cadastro', 'ConviteController::concluirCadastro', ['as' => 'finalizar_cadastro.concluir']);
 $routes->post('logout', '\CodeIgniter\Shield\Controllers\LoginController::logoutAction', ['as' => 'logout']);
 
 // Recuperação de senha por link temporário.
