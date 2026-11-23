@@ -70,7 +70,7 @@ final class PermissoesAdminTest extends CIUnitTestCase
 
         // Garante ausência total de opções manuais de CRUD na interface (Critério 2)
         $resposta->assertDontSee('Nova Permissão');
-        $resposta->assertDontSee('Editar permissÃ£o');
+        $resposta->assertDontSee('Editar permissão');
         $resposta->assertDontSee('Excluir');
         $resposta->assertDontSee('admin/permissoes/nova');
         $resposta->assertDontSee('admin/permissoes/editar');
