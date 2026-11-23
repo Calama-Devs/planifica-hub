@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services;
 
 use CodeIgniter\Shield\Entities\User;
-use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\I18n\Time;
 
 /** Confirma uma senha recente para uma operação e conta específicas. */
