@@ -1,3 +1,6 @@
+<?php
+$itensMenu = $itensMenu ?? [];
+?>
 <nav class="sidebar sidebar-offcanvas" id="sidebar" aria-label="Menu principal de navegação">
     <div class="sidebar-brand-wrapper d-none d-lg-flex align-items-center justify-content-center fixed-top">
         <a href="<?= base_url('/') ?>">
@@ -54,5 +57,34 @@
             </li>
         <?php endif ?>
 
+        <?php if (auth()->loggedIn() && auth()->user()->can('contas.editar')) : ?>
+            <?php if (! auth()->user()->can('acessos.administrar')) : ?>
+                <li class="nav-item nav-category"><span class="nav-link">Administração</span></li>
+            <?php endif ?>
+            <li class="nav-item menu-items <?= url_is('admin/contas*') ? 'active' : '' ?>">
+                <a class="nav-link" href="<?= site_url('admin/contas') ?>">
+                    <span class="menu-icon">
+                        <i class="mdi mdi-account-edit text-success" aria-hidden="true"></i>
+                    </span>
+                    <span class="menu-title">Gerenciar usuários</span>
+                </a>
+            </li>
+        <?php endif ?>
+        <?php foreach ($itensMenu as $item) : ?>
+            <?php if ($item['categoria'] !== null) : ?>
+                <li class="nav-item nav-category">
+                    <span class="nav-link"><?= esc($item['categoria']) ?></span>
+                </li>
+            <?php endif ?>
+            
+            <li class="nav-item menu-items <?= $item['ativo'] ? 'active' : '' ?>">
+                <a class="nav-link" href="<?= esc($item['url'], 'attr')?>">
+                    <span class="menu-icon">
+                        <i class="<?= esc($item['icone'], 'attr') ?>" aria-hidden="true"></i>
+                    </span>
+                    <span class="menu-title"><?= esc($item['titulo']) ?></span>
+                </a>
+            </li>
+        <?php endforeach?>
     </ul>
 </nav>
