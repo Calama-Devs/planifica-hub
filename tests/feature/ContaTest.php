@@ -969,6 +969,14 @@ final class ContaTest extends CIUnitTestCase
             ])->assertOK();
         }
 
+        $homonimo = $this->criarUsuario('conta.homonima');
+        $this->enviarAtualizacao($operador, (int) $homonimo->id, [
+            'nome' => 'João D’Ávila',
+            'senha_admin' => $this->senha,
+        ])->assertOK();
+        $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => 'João D’Ávila']);
+        $this->seeInDatabase('users', ['id' => $homonimo->id, 'nome_completo' => 'João D’Ávila']);
+
         $invalido = $this->enviarAtualizacao($operador, (int) $alvo->id, [
             'nome' => 'Nome 2',
             'senha_admin' => $this->senha,
