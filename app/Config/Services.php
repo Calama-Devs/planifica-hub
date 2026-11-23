@@ -13,6 +13,7 @@ use App\Services\ConfirmacaoOperacaoService;
 use App\Services\ConfirmacaoEmailContaService;
 use CodeIgniter\Config\BaseService;
 use App\Services\CabecalhoService;
+use App\Services\FinalizarCadastroService;
 
 /**
  * Services Configuration file.
@@ -108,5 +109,14 @@ class Services extends BaseService
         }
 
         return new CabecalhoService();
+    }
+
+    public static function finalizarCadastroService(bool $getShared = true): FinalizarCadastroService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('finalizarCadastroService');
+        }
+
+        return new FinalizarCadastroService();
     }
 }
