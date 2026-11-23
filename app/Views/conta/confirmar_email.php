@@ -1,10 +1,15 @@
+<?php
+$arquivoEstilo = 'assets/css/modern-vertical/style.css';
+$caminhoEstilo = FCPATH . $arquivoEstilo;
+$versaoEstilo = is_file($caminhoEstilo) ? (filemtime($caminhoEstilo) ?: 1) : 1;
+?>
 <!doctype html>
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Confirmar e-mail</title>
-    <link rel="stylesheet" href="<?= esc(base_url('assets/css/modern-vertical/style.css'), 'attr') ?>?v=<?= filemtime(FCPATH . 'assets/css/modern-vertical/style.css') ?>">
+    <link rel="stylesheet" href="<?= esc(base_url($arquivoEstilo . '?v=' . $versaoEstilo), 'attr') ?>">
 </head>
 <body>
 <main class="container py-5">
