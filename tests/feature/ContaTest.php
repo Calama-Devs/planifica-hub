@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Database\Migrations\RemoveJustificativaDasSolicitacoesTrocaEmail;
 use App\Models\UsuarioAutenticacaoModel;
 use App\Models\AuditoriaEdicaoContaModel;
 use App\Models\SolicitacaoTrocaEmailModel;
@@ -18,6 +19,7 @@ use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
 use CodeIgniter\Test\TestResponse;
+use Config\Database;
 use PHPUnit\Framework\Attributes\RequiresPhp;
 use Tests\Support\Fakes\EmailContaFake;
 
@@ -545,6 +547,42 @@ final class ContaTest extends CIUnitTestCase
             'inválido ou expirou',
             html_entity_decode(strip_tags($repeticao->getBody()), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
         );
+    }
+
+    public function testMigrationMantemJustificativaNaAuditoriaERecompoeNoRollback(): void
+    {
+        require_once APPPATH . 'Database/Migrations/2026-11-22-211900_RemoveJustificativaDasSolicitacoesTrocaEmail.php';
+
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+        $justificativa = 'Correção solicitada pelo titular.';
+        $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Nome revisado',
+            'senha_admin' => $this->senha,
+            'email' => 'novo.email@ifro.edu.br',
+            'justificativa' => $justificativa,
+        ])->assertOK();
+        $token = $this->tokenDaMensagem(0);
+
+        $solicitacoes = 'solicitacoes_troca_email';
+        self::assertFalse($this->db->fieldExists('justificativa', $solicitacoes));
+        $migration = new RemoveJustificativaDasSolicitacoesTrocaEmail(Database::forge($this->db));
+        $migration->down();
+
+        try {
+            $this->seeInDatabase($solicitacoes, ['conta_id' => $alvo->id, 'justificativa' => $justificativa]);
+        } finally {
+            $migration->up();
+        }
+
+        self::assertFalse($this->db->fieldExists('justificativa', $solicitacoes));
+        $this->seeInDatabase($solicitacoes, ['conta_id' => $alvo->id]);
+        $this->post('confirmar-troca-email', ['token' => $token, csrf_token() => csrf_hash()])->assertOK();
+        $this->seeInDatabase('auditoria_edicao_contas', [
+            'conta_id' => $alvo->id,
+            'justificativa' => $justificativa,
+            'resultado' => 'sucesso',
+        ]);
     }
 
     public function testPostPublicoDeConfirmacaoExigeTokenCsrf(): void

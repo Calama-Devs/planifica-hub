@@ -91,7 +91,6 @@ class ConfirmacaoEmailContaService
             'auditoria_id' => $auditoriaId,
             'email_anterior' => $emailAnterior,
             'email_novo' => $emailNovo,
-            'justificativa' => $justificativa,
             'token_hash' => hash('sha256', $token),
             'expira_em' => $agora->addSeconds(config('Contas')->prazoConfirmacaoEmailSegundos)->toDateTimeString(),
             'created_at' => $agora->toDateTimeString(),

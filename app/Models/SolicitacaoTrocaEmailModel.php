@@ -21,7 +21,6 @@ class SolicitacaoTrocaEmailModel extends Model
         'auditoria_id',
         'email_anterior',
         'email_novo',
-        'justificativa',
         'token_hash',
         'expira_em',
         'created_at',
