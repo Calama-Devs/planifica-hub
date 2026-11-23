@@ -75,7 +75,7 @@ class EdicaoContaService
     public function atualizar(
         int $contaId,
         string $nome,
-        string $senha,
+        #[\SensitiveParameter] string $senha,
         User $operador,
         ?string $email = null,
         ?string $justificativa = null,

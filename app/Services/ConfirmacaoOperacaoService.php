@@ -14,8 +14,12 @@ class ConfirmacaoOperacaoService
     private const DURACAO_SEGUNDOS = 300;
     private const CHAVE_JANELAS = 'confirmacoes_recentes';
 
-    public function registrar(User $operador, string $senha, string $operacao, int $contaId): bool
-    {
+    public function registrar(
+        User $operador,
+        #[\SensitiveParameter] string $senha,
+        string $operacao,
+        int $contaId,
+    ): bool {
         if ($senha === '' || $operacao === '' || $contaId < 1) {
             return false;
         }

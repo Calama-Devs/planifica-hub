@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\UsuarioAutenticacaoModel;
+use App\Models\AuditoriaEdicaoContaModel;
+use App\Services\ConfirmacaoEmailContaService;
 use App\Services\EdicaoContaService;
 use CodeIgniter\Config\Services;
 use CodeIgniter\I18n\Time;
@@ -936,6 +938,74 @@ final class ContaTest extends CIUnitTestCase
         ]);
         $invalido->assertStatus(422);
         self::assertSame('CONTA_NOME_INVALIDO', json_decode($invalido->getJSON(), true)['codigo']);
+    }
+
+    public function testFalhasDeGravacaoPreservamSigiloDeSenhaEToken(): void
+    {
+        if (PHP_VERSION_ID < 80200) {
+            self::markTestSkipped('SensitiveParameter requer PHP 8.2.');
+        }
+
+        $ignorarArgumentos = (string) ini_get('zend.exception_ignore_args');
+        ini_set('zend.exception_ignore_args', '0');
+        try {
+            $operador = $this->criarUsuario('operador', true);
+            $alvo = $this->criarUsuario('conta.alvo');
+            $auditoria = new class extends AuditoriaEdicaoContaModel {
+                public string $trace = '';
+
+                protected function doInsert(array $row)
+                {
+                    $this->falhar();
+                }
+
+                protected function doUpdate($id = null, $row = null): bool
+                {
+                    $this->falhar();
+                }
+
+                private function falhar(): never
+                {
+                    $erro = new \RuntimeException('Falha de gravação simulada.');
+                    $quadros = array_filter(
+                        $erro->getTrace(),
+                        static fn (array $quadro): bool => in_array(
+                            $quadro['class'] ?? '',
+                            [EdicaoContaService::class, ConfirmacaoEmailContaService::class],
+                            true,
+                        ),
+                    );
+                    $this->trace = print_r($quadros, true) . $erro->getTraceAsString();
+                    throw $erro;
+                }
+            };
+
+            $edicao = new EdicaoContaService(auditoria: $auditoria);
+            self::assertFalse($edicao->atualizar((int) $alvo->id, 'Nome revisado', $this->senha, $operador)['sucesso']);
+            self::assertStringContainsString('atualizar', $auditoria->trace);
+            self::assertFalse(str_contains($auditoria->trace, $this->senha), 'Senha encontrada na trace.');
+
+            $this->enviarAtualizacao($operador, (int) $alvo->id, [
+                'nome' => 'Nome revisado',
+                'senha_admin' => $this->senha,
+                'email' => 'novo.email@ifro.edu.br',
+                'justificativa' => 'Correção solicitada pelo titular.',
+            ])->assertOK();
+
+            $token = $this->tokenDaMensagem(0);
+            $confirmacao = new ConfirmacaoEmailContaService(auditoria: $auditoria);
+            self::assertFalse($confirmacao->confirmar($token)['sucesso']);
+            self::assertStringContainsString('confirmar', $auditoria->trace);
+            self::assertFalse(str_contains($auditoria->trace, $token), 'Token encontrado na trace.');
+
+            foreach (glob(WRITEPATH . 'logs/*.log') ?: [] as $arquivo) {
+                $log = (string) file_get_contents($arquivo);
+                self::assertFalse(str_contains($log, $this->senha), 'Senha encontrada no log.');
+                self::assertFalse(str_contains($log, $token), 'Token encontrado no log.');
+            }
+        } finally {
+            ini_set('zend.exception_ignore_args', $ignorarArgumentos);
+        }
     }
 
     public function testFalhaDeAuditoriaDesfazAtualizacao(): void

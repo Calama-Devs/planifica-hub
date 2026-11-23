@@ -112,7 +112,7 @@ class ConfirmacaoEmailContaService
     }
 
     /** @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string} */
-    public function confirmar(string $token): array
+    public function confirmar(#[\SensitiveParameter] string $token): array
     {
         if ($token === '' || mb_strlen($token) > 128) {
             return $this->falha('validacao', 'TOKEN_EMAIL_INVALIDO', 'O link de confirmação é inválido ou expirou.');
@@ -361,8 +361,11 @@ class ConfirmacaoEmailContaService
         $this->banco->transCommit();
     }
 
-    private function enviarConfirmacao(string $emailDestino, string $nome, string $url): bool
-    {
+    private function enviarConfirmacao(
+        string $emailDestino,
+        string $nome,
+        #[\SensitiveParameter] string $url,
+    ): bool {
         try {
             $this->email->setMailType('html')
                 ->setFrom(setting('Email.fromEmail'), setting('Email.fromName') ?? '')
