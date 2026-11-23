@@ -18,6 +18,7 @@ use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
 use CodeIgniter\Test\TestResponse;
+use PHPUnit\Framework\Attributes\RequiresPhp;
 use Tests\Support\Fakes\EmailContaFake;
 
 final class ContaTest extends CIUnitTestCase
@@ -150,6 +151,7 @@ final class ContaTest extends CIUnitTestCase
             'justificativa' => 'Correção solicitada pelo titular.',
         ]);
         $atualizacao->assertStatus(403);
+        self::assertSame([], $this->emailFake->corpos);
         $this->dontSeeInDatabase('solicitacoes_troca_email', ['conta_id' => $alvo->id]);
         $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
     }
@@ -975,13 +977,12 @@ final class ContaTest extends CIUnitTestCase
         self::assertSame('CONTA_NOME_INVALIDO', json_decode($invalido->getJSON(), true)['codigo']);
     }
 
+    #[RequiresPhp('>= 8.2')]
     public function testFalhasDeGravacaoPreservamSigiloDeSenhaEToken(): void
     {
-        if (PHP_VERSION_ID < 80200) {
-            self::markTestSkipped('SensitiveParameter requer PHP 8.2.');
-        }
-
         $ignorarArgumentos = (string) ini_get('zend.exception_ignore_args');
+        $senhaOriginal = $this->senha;
+        $this->senha = 'Senha-de-teste-' . bin2hex(random_bytes(16));
         ini_set('zend.exception_ignore_args', '0');
         try {
             $operador = $this->criarUsuario('operador', true);
@@ -1039,6 +1040,7 @@ final class ContaTest extends CIUnitTestCase
                 self::assertFalse(str_contains($log, $token), 'Token encontrado no log.');
             }
         } finally {
+            $this->senha = $senhaOriginal;
             ini_set('zend.exception_ignore_args', $ignorarArgumentos);
         }
     }
