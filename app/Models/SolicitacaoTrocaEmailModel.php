@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use CodeIgniter\I18n\Time;
 use CodeIgniter\Model;
 
 class SolicitacaoTrocaEmailModel extends Model
@@ -26,4 +27,26 @@ class SolicitacaoTrocaEmailModel extends Model
         'created_at',
     ];
     protected $useTimestamps = false;
+
+    public function reivindicarToken(int $id, string $hashAtual, string $novoHash): bool
+    {
+        $atualizou = $this->builder()
+            ->where('id', $id)
+            ->where('token_hash', $hashAtual)
+            ->where('expira_em >', Time::now()->toDateTimeString())
+            ->update(['token_hash' => $novoHash]);
+
+        return $atualizou && $this->db->affectedRows() === 1;
+    }
+
+    public function removerTokenExpirado(int $id, string $hash): bool
+    {
+        $removeu = $this->builder()
+            ->where('id', $id)
+            ->where('token_hash', $hash)
+            ->where('expira_em <=', Time::now()->toDateTimeString())
+            ->delete();
+
+        return $removeu && $this->db->affectedRows() === 1;
+    }
 }

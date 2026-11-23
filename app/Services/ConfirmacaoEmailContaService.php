@@ -132,12 +132,20 @@ class ConfirmacaoEmailContaService
 
         try {
             $tokenSubstituto = hash('sha256', random_bytes(32));
-            $reivindicado = $this->banco->table('solicitacoes_troca_email')
-                ->where('id', $solicitacao['id'])
-                ->where('token_hash', $hashToken)
-                ->update(['token_hash' => $tokenSubstituto]);
+            $solicitacaoId = (int) $solicitacao['id'];
 
-            if (! $reivindicado || $this->banco->affectedRows() !== 1) {
+            if (! $this->solicitacoes->reivindicarToken($solicitacaoId, $hashToken, $tokenSubstituto)) {
+                if ($this->solicitacoes->removerTokenExpirado($solicitacaoId, $hashToken)) {
+                    $this->finalizarAuditoria((int) $solicitacao['auditoria_id'], 'expirada');
+                    $this->confirmarTransacao();
+
+                    return $this->falha(
+                        'validacao',
+                        'TOKEN_EMAIL_EXPIRADO',
+                        'O link de confirmação é inválido ou expirou.',
+                    );
+                }
+
                 $this->banco->transRollback();
 
                 if ($donaDaTransacao) {
@@ -147,18 +155,6 @@ class ConfirmacaoEmailContaService
                 return $this->falha(
                     'validacao',
                     'TOKEN_EMAIL_INVALIDO',
-                    'O link de confirmação é inválido ou expirou.',
-                );
-            }
-
-            if (strtotime((string) $solicitacao['expira_em']) < time()) {
-                $this->finalizarAuditoria((int) $solicitacao['auditoria_id'], 'expirada');
-                $this->solicitacoes->delete((int) $solicitacao['id']);
-                $this->confirmarTransacao();
-
-                return $this->falha(
-                    'validacao',
-                    'TOKEN_EMAIL_EXPIRADO',
                     'O link de confirmação é inválido ou expirou.',
                 );
             }

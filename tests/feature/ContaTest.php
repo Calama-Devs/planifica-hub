@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Models\UsuarioAutenticacaoModel;
 use App\Models\AuditoriaEdicaoContaModel;
+use App\Models\SolicitacaoTrocaEmailModel;
 use App\Services\ConfirmacaoEmailContaService;
 use App\Services\EdicaoContaService;
 use CodeIgniter\Config\Services;
@@ -721,6 +722,34 @@ final class ContaTest extends CIUnitTestCase
             'token' => $this->tokenDaMensagem(0),
         ]);
         $repeticao->assertStatus(410);
+    }
+
+    public function testReivindicacaoAtomicaExigeTokenPendenteEValido(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+        $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Conta alvo',
+            'senha_admin' => $this->senha,
+            'email' => 'novo.email@ifro.edu.br',
+            'justificativa' => 'Correção solicitada pelo titular.',
+        ])->assertOK();
+
+        $modelo = model(SolicitacaoTrocaEmailModel::class);
+        $hash = hash('sha256', $this->tokenDaMensagem(0));
+        $hashNovo = hash('sha256', 'hash substituto de teste');
+        $hashErrado = hash('sha256', 'hash incorreto de teste');
+        $solicitacao = $modelo->where('conta_id', $alvo->id)->first();
+        self::assertIsArray($solicitacao);
+        $id = (int) $solicitacao['id'];
+
+        self::assertFalse($modelo->reivindicarToken($id, $hashErrado, $hashNovo));
+        self::assertTrue($modelo->reivindicarToken($id, $hash, $hashNovo));
+        self::assertFalse($modelo->reivindicarToken($id, $hash, $hashErrado));
+        $modelo->update($id, ['expira_em' => Time::now()->subSeconds(1)->toDateTimeString()]);
+        self::assertFalse($modelo->reivindicarToken($id, $hashNovo, $hashErrado));
+        $modelo->delete($id);
+        self::assertFalse($modelo->reivindicarToken($id, $hashNovo, $hashErrado));
     }
 
     public function testLinkExpiradoNaoAtualizaIdentidade(): void
