@@ -1,7 +1,11 @@
 /* Estilos customizados globais do layout - PlanIFica Hub */
 
-html, body {
-    height: 100%;
+html {
+    min-height: 100%;
+}
+
+body {
+    min-height: 100%;
     background-color: #000;
 }
 

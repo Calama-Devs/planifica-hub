@@ -6,6 +6,7 @@ use App\Services\MenuService;
 use Config\Menu;
 use App\Services\RedefinirSenhaService;
 use App\Services\PerfilService;
+use App\Services\AcessoService;
 use App\Services\PermissaoService;
 use App\Services\EdicaoContaService;
 use App\Services\ConfirmacaoOperacaoService;
@@ -80,6 +81,15 @@ class Services extends BaseService
         }
 
         return new PermissaoService();
+    }
+
+    public static function acessoService(bool $getShared = true): AcessoService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('acessoService');
+        }
+
+        return new AcessoService();
     }
 
     public static function menu(?Menu $config = null, bool $getShared = true): MenuService

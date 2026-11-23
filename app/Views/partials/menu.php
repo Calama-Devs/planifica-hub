@@ -10,66 +10,6 @@ $itensMenu = $itensMenu ?? [];
     </div>
 
     <ul class="nav">
-        <li class="nav-item nav-category">
-            <span class="nav-link">Menu</span>
-        </li>
-
-        <li class="nav-item menu-items <?= url_is('/') ? 'active' : '' ?>">
-            <a class="nav-link" href="<?= site_url('/') ?>">
-                <span class="menu-icon">
-                    <i class="mdi mdi-home text-primary" aria-hidden="true"></i>
-                </span>
-                <span class="menu-title">Dashboard</span>
-            </a>
-        </li>
-
-        <li class="nav-item menu-items <?= url_is('sobre*') ? 'active' : '' ?>">
-            <a class="nav-link" href="<?= site_url('sobre') ?>">
-                <span class="menu-icon">
-                    <i class="mdi mdi-information-outline text-info" aria-hidden="true"></i>
-                </span>
-                <span class="menu-title">Sobre</span>
-            </a>
-        </li>
-
-        <?php // Só conveniência: quem digitar a URL sem a permissão é barrado pelo filtro da rota. ?>
-        <?php if (auth()->loggedIn() && auth()->user()->can('acessos.administrar')) : ?>
-            <li class="nav-item nav-category">
-                <span class="nav-link">Administração</span>
-            </li>
-
-            <li class="nav-item menu-items <?= url_is('admin/permissoes*') ? 'active' : '' ?>">
-                <a class="nav-link" href="<?= site_url('admin/permissoes') ?>">
-                    <span class="menu-icon">
-                        <i class="mdi mdi-shield-key-outline text-warning" aria-hidden="true"></i>
-                    </span>
-                    <span class="menu-title">Permissões</span>
-                </a>
-            </li>
-
-            <li class="nav-item menu-items <?= url_is('admin/acessos*') ? 'active' : '' ?>">
-                <a class="nav-link" href="<?= site_url('admin/acessos') ?>">
-                    <span class="menu-icon">
-                        <i class="mdi mdi-account-key text-warning" aria-hidden="true"></i>
-                    </span>
-                    <span class="menu-title">Acessos</span>
-                </a>
-            </li>
-        <?php endif ?>
-
-        <?php if (auth()->loggedIn() && auth()->user()->can('contas.editar')) : ?>
-            <?php if (! auth()->user()->can('acessos.administrar')) : ?>
-                <li class="nav-item nav-category"><span class="nav-link">Administração</span></li>
-            <?php endif ?>
-            <li class="nav-item menu-items <?= url_is('admin/contas*') ? 'active' : '' ?>">
-                <a class="nav-link" href="<?= site_url('admin/contas') ?>">
-                    <span class="menu-icon">
-                        <i class="mdi mdi-account-edit text-success" aria-hidden="true"></i>
-                    </span>
-                    <span class="menu-title">Gerenciar usuários</span>
-                </a>
-            </li>
-        <?php endif ?>
         <?php foreach ($itensMenu as $item) : ?>
             <?php if ($item['categoria'] !== null) : ?>
                 <li class="nav-item nav-category">
