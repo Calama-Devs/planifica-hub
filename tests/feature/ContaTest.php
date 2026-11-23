@@ -502,6 +502,12 @@ final class ContaTest extends CIUnitTestCase
         ]);
         $confirmacao->assertOK();
         self::assertStringContainsString('Novo e-mail confirmado', $confirmacao->getBody());
+        self::assertFalse($this->db->fieldExists('email', config('Auth')->tables['users']));
+        $contaAtualizada = model(UsuarioAutenticacaoModel::class)->findById((int) $alvo->id);
+        self::assertSame('novo.email@ifro.edu.br', $contaAtualizada?->email);
+        $consulta = $this->actingAs($operador)->get('admin/contas/' . $alvo->id);
+        $consulta->assertOK();
+        self::assertSame('novo.email@ifro.edu.br', json_decode($consulta->getJSON(), true)['conta']['email']);
         $this->seeInDatabase('auth_identities', [
             'user_id' => $alvo->id,
             'type' => 'email_password',
