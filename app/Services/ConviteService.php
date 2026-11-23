@@ -160,14 +160,7 @@ class ConviteService
                     throw new \RuntimeException('Falha ao atualizar o estado do convite.');
                 }
 
-                $this->auditoria->registrar([
-                    'modulo'        => 'convites',
-                    'acao'          => 'emitir_convite',
-                    'entidade_tipo' => 'convite',
-                    'entidade_id'   => (string) $conviteId,
-                    'descricao'     => 'Convite emitido com sucesso.',
-                    'resultado'     => 'concluida',
-                ]);
+                $this->registrarAuditoriaEmissao((int) $conviteId, 'concluida', 'Convite emitido com sucesso.');
 
                 if (! $db->transCommit()) {
                     throw new \RuntimeException('Falha ao confirmar o estado do convite.');
@@ -189,6 +182,14 @@ class ConviteService
                 }
             }
         } elseif ($convites->marcarFalhaEnvio((int) $conviteId, $momentoResultado)) {
+            try {
+                $this->registrarAuditoriaEmissao((int) $conviteId, 'erro', 'Falha no envio do convite.');
+            } catch (Throwable $erro) {
+                log_message('error', 'Falha ao registrar auditoria da tentativa de envio do convite: {tipo}', [
+                    'tipo' => $erro::class,
+                ]);
+            }
+
             return $this->resultado('inesperado', 'CONVITE_ENVIO_FALHOU', 'Não foi possível enviar o convite.');
         }
 
@@ -210,6 +211,18 @@ class ConviteService
             'codigo'   => $codigo,
             'mensagem' => $mensagem,
         ];
+    }
+
+    private function registrarAuditoriaEmissao(int $conviteId, string $resultado, string $descricao): void
+    {
+        $this->auditoria->registrar([
+            'modulo'        => 'convites',
+            'acao'          => 'emitir_convite',
+            'entidade_tipo' => 'convite',
+            'entidade_id'   => (string) $conviteId,
+            'descricao'     => $descricao,
+            'resultado'     => $resultado,
+        ]);
     }
 
     /** @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string}|list<string> */

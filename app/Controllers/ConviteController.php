@@ -16,12 +16,12 @@ class ConviteController extends BaseController
             (! is_null($grupos) && ! is_array($grupos))
             || ! $this->validate(['email' => 'required|valid_email|max_length[254]'])
         ) {
-            return $this->response->setStatusCode(422)->setJSON([
+            return $this->responder([
                 'sucesso'  => false,
                 'tipo'     => 'validacao',
                 'codigo'   => 'CONVITE_DADOS_INVALIDOS',
                 'mensagem' => 'Verifique os dados informados.',
-            ]);
+            ], 422);
         }
 
         $resultado = service('conviteService')->emitirConvite(
@@ -36,6 +36,12 @@ class ConviteController extends BaseController
             default => 422,
         };
 
+        return $this->responder($resultado, $statusHttp);
+    }
+
+    /** @param array<string, mixed> $resultado */
+    private function responder(array $resultado, int $statusHttp): ResponseInterface
+    {
         $resultado['csrf'] = [
             'nome' => csrf_token(),
             'hash' => csrf_hash(),

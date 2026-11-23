@@ -548,6 +548,9 @@ $(document).ready(function () {
             }
         }).fail(function (xhr) {
             atualizarTokenCsrf(xhr.responseJSON || {});
+            if (xhr.responseJSON && xhr.responseJSON.tipo === 'validacao') {
+                emailInput.addClass('is-invalid');
+            }
             alerta
                 .removeClass('alert-warning alert-success')
                 .addClass('alert-danger')

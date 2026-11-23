@@ -243,12 +243,20 @@ final class ConviteServiceTest extends CIUnitTestCase
         $this->assertSame(0, model(EventoAuditoriaModel::class)->countAllResults());
     }
 
-    public function testNaoAuditaQuandoEnvioDoEmailFalhaAntesDaConfirmacao(): void
+    public function testAuditaFalhaNoEnvioSemRegistrarDadosSensiveis(): void
     {
         $mensagem = '';
         $this->configurarEmail(false, $mensagem);
         $auditoria = $this->createMock(AuditoriaService::class);
-        $auditoria->expects($this->never())->method('registrar');
+        $auditoria->expects($this->once())
+            ->method('registrar')
+            ->with($this->callback(static function (array $evento): bool {
+                return $evento['acao'] === 'emitir_convite'
+                    && $evento['resultado'] === 'erro'
+                    && $evento['descricao'] === 'Falha no envio do convite.'
+                    && ! array_key_exists('email', $evento)
+                    && ! array_key_exists('token', $evento);
+            }));
 
         $resultado = (new ConviteService($auditoria))->emitirConvite('email-falhou@ifro.edu.br', $this->operadorId);
         $convite   = $this->conviteModel->where('email', 'email-falhou@ifro.edu.br')->first();
@@ -298,14 +306,21 @@ final class ConviteServiceTest extends CIUnitTestCase
     {
         $mensagem = '';
         $this->configurarEmail(false, $mensagem);
+        auth()->login(auth()->getProvider()->findById($this->operadorId));
 
         $resultado = (new ConviteService())->emitirConvite('falha@ifro.edu.br', $this->operadorId);
         $convite   = $this->conviteModel->where('email', 'falha@ifro.edu.br')->first();
+        $evento    = model(EventoAuditoriaModel::class)->where('acao', 'emitir_convite')->first();
 
         $this->assertSame('CONVITE_ENVIO_FALHOU', $resultado['codigo']);
         $this->assertSame('falha_envio', $convite['status']);
         $this->assertNull($convite['email_pendente']);
         $this->assertNotNull($convite['falhou_em']);
+        $this->assertSame($this->operadorId, (int) $evento['usuario_id']);
+        $this->assertSame((string) $convite['id'], $evento['entidade_id']);
+        $this->assertSame('erro', $evento['resultado']);
+
+        auth()->logout();
     }
 
     public function testRegistraMomentoDoResultadoDoEnvio(): void

@@ -46,6 +46,7 @@ final class ConviteControllerTest extends CIUnitTestCase
     protected function tearDown(): void
     {
         $_SESSION = [];
+        $this->db->table('eventos_auditoria')->emptyTable();
         parent::tearDown();
     }
 
@@ -63,6 +64,29 @@ final class ConviteControllerTest extends CIUnitTestCase
         $resposta->assertRedirectTo(rtrim(site_url('/'), '/'));
     }
 
+    public function testRotaRecusaAdministradorDeAcessosSemPermissaoContasCriar(): void
+    {
+        $usuario = $this->criarUsuario('user');
+        $usuario->addPermission('acessos.administrar');
+
+        $resposta = $this->actingAs($usuario)
+            ->withSession($_SESSION)
+            ->post('admin/convites', [
+                'email'     => 'sem-contas-criar@ifro.edu.br',
+                csrf_token() => csrf_hash(),
+            ]);
+
+        $resposta->assertRedirectTo(rtrim(site_url('/'), '/'));
+    }
+
+    public function testTelaExclusivaDeConvitesNaoEstaDisponivel(): void
+    {
+        $operador = $this->criarUsuario('admin');
+
+        $this->expectException(PageNotFoundException::class);
+        $this->actingAs($operador)->get('admin/convites');
+    }
+
     public function testRotaRecusaEmissaoSemCsrf(): void
     {
         $operador = $this->criarUsuario('admin');
@@ -77,17 +101,22 @@ final class ConviteControllerTest extends CIUnitTestCase
     public function testRotaRecusaGruposForaDoFormatoDeLista(): void
     {
         $operador = $this->criarUsuario('admin');
+        $csrfAnterior = csrf_hash();
 
         $resposta = $this->actingAs($operador)
             ->withSession($_SESSION)
             ->post('admin/convites', [
                 'email'      => 'grupos@ifro.edu.br',
                 'grupos'     => 'admin',
-                csrf_token() => csrf_hash(),
+                csrf_token() => $csrfAnterior,
             ]);
 
         $resposta->assertStatus(422);
         $resposta->assertJSONFragment(['codigo' => 'CONVITE_DADOS_INVALIDOS']);
+        $json = json_decode($resposta->getJSON(), true);
+        $this->assertSame(csrf_token(), $json['csrf']['nome']);
+        $this->assertSame(csrf_hash(), $json['csrf']['hash']);
+        $this->assertNotSame($csrfAnterior, $json['csrf']['hash']);
     }
 
     public function testEndpointRecusaEmailJaCadastradoSemCriarConvite(): void
