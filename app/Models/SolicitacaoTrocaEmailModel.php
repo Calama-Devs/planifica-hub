@@ -28,6 +28,15 @@ class SolicitacaoTrocaEmailModel extends Model
     ];
     protected $useTimestamps = false;
 
+    public function existePendenteEmOutraConta(string $emailNormalizado, int $contaId): bool
+    {
+        return $this->builder()
+            ->where('conta_id !=', $contaId)
+            ->where('LOWER(email_novo) =', $emailNormalizado)
+            ->where('expira_em >', Time::now()->toDateTimeString())
+            ->countAllResults() > 0;
+    }
+
     public function reivindicarToken(int $id, string $hashAtual, string $novoHash): bool
     {
         $atualizou = $this->builder()

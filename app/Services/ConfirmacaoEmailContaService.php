@@ -46,10 +46,7 @@ class ConfirmacaoEmailContaService
 
     public function emailPendenteEmUso(string $email, int $contaId): bool
     {
-        return $this->solicitacoes->where('conta_id !=', $contaId)
-            ->where('email_novo', mb_strtolower(trim($email)))
-            ->where('expira_em >', Time::now()->toDateTimeString())
-            ->countAllResults() > 0;
+        return $this->solicitacoes->existePendenteEmOutraConta(mb_strtolower(trim($email)), $contaId);
     }
 
     /** Participa da transação de EdicaoContaService; este método não controla a transação. */

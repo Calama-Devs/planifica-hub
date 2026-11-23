@@ -880,6 +880,32 @@ final class ContaTest extends CIUnitTestCase
         $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
     }
 
+    public function testRecusaEmailReservadoPorSolicitacaoLegadaComMaiusculas(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $primeiraConta = $this->criarUsuario('conta.primeira');
+        $segundaConta = $this->criarUsuario('conta.segunda');
+        $campos = [
+            'nome' => 'Nome revisado',
+            'senha_admin' => $this->senha,
+            'email' => 'email.pendente@ifro.edu.br',
+            'justificativa' => 'Correção solicitada pelo titular.',
+        ];
+
+        $this->enviarAtualizacao($operador, (int) $primeiraConta->id, $campos)->assertOK();
+        model(SolicitacaoTrocaEmailModel::class)
+            ->where('conta_id', $primeiraConta->id)
+            ->set('email_novo', 'Email.Pendente@IFRO.EDU.BR')
+            ->update();
+
+        $resposta = $this->enviarAtualizacao($operador, (int) $segundaConta->id, $campos);
+        $resposta->assertStatus(422);
+        self::assertSame('EMAIL_DUPLICADO', json_decode($resposta->getJSON(), true)['codigo']);
+        $this->dontSeeInDatabase('solicitacoes_troca_email', ['conta_id' => $segundaConta->id]);
+        $this->seeInDatabase('users', ['id' => $segundaConta->id, 'nome_completo' => null]);
+        self::assertCount(1, $this->emailFake->corpos);
+    }
+
     public function testRecusaEmailDuplicadoEEmailInvalido(): void
     {
         $operador = $this->criarUsuario('operador', true);
