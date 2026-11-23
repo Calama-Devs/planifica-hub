@@ -171,6 +171,12 @@ final class PerfilTest extends CIUnitTestCase
             ['permissions' => ['contas.editar']],
             ['username' => 'outro.usuario'],
             ['password' => 'senha-nao-permitida'],
+            ['Password' => 'senha-nao-permitida'],
+            ['PASSWORD' => 'senha-nao-permitida'],
+            ['EMAIL' => 'outro@ifro.edu.br'],
+            ['Permissions' => ['contas.editar']],
+            ['permissions[]' => 'contas.editar'],
+            ['campo_extra' => 'valor nao permitido'],
         ];
 
         foreach ($camposSensiveis as $campoSensivel) {
