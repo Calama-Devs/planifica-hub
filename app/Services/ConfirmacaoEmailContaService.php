@@ -183,6 +183,30 @@ class ConfirmacaoEmailContaService
                 );
             }
 
+            $operadorId = (int) $solicitacao['operador_id'];
+            $operador = $this->contas->findById($operadorId);
+            if (
+                ! $operador instanceof User
+                || ! $operador->can('contas.editar')
+                || ! config('Contas')->operadorSuperaAlvo($operador->getGroups(), $conta->getGroups())
+            ) {
+                log_message('warning', 'Troca de e-mail bloqueada. Operador {operador}, conta {conta}.', [
+                    'operador' => $operadorId,
+                    'conta' => $contaId,
+                ]);
+                $this->finalizarAuditoria((int) $solicitacao['auditoria_id'], 'cancelada');
+                if (! $this->solicitacoes->delete((int) $solicitacao['id'])) {
+                    throw new \RuntimeException('Falha ao cancelar a solicitação.');
+                }
+                $this->confirmarTransacao();
+
+                return $this->falha(
+                    'permissao',
+                    'CONTA_HIERARQUIA_INSUFICIENTE',
+                    'A solicitação de e-mail não pode mais ser confirmada.',
+                );
+            }
+
             if (mb_strlen($emailNovo) > 254 || filter_var($emailNovo, FILTER_VALIDATE_EMAIL) === false) {
                 $this->finalizarAuditoria((int) $solicitacao['auditoria_id'], 'email_invalido');
                 $this->solicitacoes->delete((int) $solicitacao['id']);

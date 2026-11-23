@@ -31,13 +31,8 @@ class ContaController extends BaseController
             $operador,
         );
 
-        if ($conta === null) {
-            return $this->jsonResponse([
-                'sucesso' => false,
-                'tipo' => 'regra_negocio',
-                'codigo' => 'CONTA_NAO_ENCONTRADA',
-                'mensagem' => 'Conta não encontrada.',
-            ], 404);
+        if (($conta['sucesso'] ?? true) === false) {
+            return $this->jsonResponse($conta, $this->statusHttp($conta));
         }
 
         return $this->response->setHeader('Cache-Control', 'no-store')
@@ -96,7 +91,7 @@ class ContaController extends BaseController
             $resultado['sucesso'] => 200,
             $resultado['codigo'] === 'CONTA_NAO_ENCONTRADA' => 404,
             $resultado['codigo'] === 'CONFIRMACAO_EMAIL_NAO_ENVIADA' => 503,
-            $resultado['codigo'] === 'CONTA_SEM_PERMISSAO' => 403,
+            in_array($resultado['codigo'], ['CONTA_SEM_PERMISSAO', 'CONTA_HIERARQUIA_INSUFICIENTE'], true) => 403,
             $resultado['tipo'] === 'inesperado' => 500,
             default => 422,
         };

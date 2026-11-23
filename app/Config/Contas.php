@@ -14,6 +14,31 @@ use CodeIgniter\Config\BaseConfig;
  */
 class Contas extends BaseConfig
 {
+    /** @var list<string> Grupos do menor para o maior nível de acesso, configuráveis por índice no .env. */
+    public array $hierarquiaGrupos = ['user', 'beta', 'developer', 'admin', 'superadmin'];
+
+    /**
+     * @param list<string>|null $gruposOperador
+     * @param list<string>|null $gruposAlvo
+     */
+    public function operadorSuperaAlvo(?array $gruposOperador, ?array $gruposAlvo): bool
+    {
+        return $this->maiorNivel($gruposOperador ?? [], -1)
+            > $this->maiorNivel($gruposAlvo ?? [], count($this->hierarquiaGrupos));
+    }
+
+    /** @param list<string> $grupos */
+    private function maiorNivel(array $grupos, int $nivelDesconhecido): int
+    {
+        $maior = -1;
+        foreach ($grupos as $grupo) {
+            $nivel = array_search($grupo, $this->hierarquiaGrupos, true);
+            $maior = max($maior, $nivel === false ? $nivelDesconhecido : $nivel);
+        }
+
+        return $maior;
+    }
+
     /**
      * Domínios institucionais aceitos na troca excepcional de e-mail.
      * Comparação exata do domínio completo (após o último `@`), sem

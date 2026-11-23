@@ -129,6 +129,61 @@ final class ContaTest extends CIUnitTestCase
         $this->seeInDatabase('users', ['id' => $operador->id, 'nome_completo' => null]);
     }
 
+    public function testAdministradorNaoConsultaContaDeGrupoSuperior(): void
+    {
+        $operador = $this->criarUsuario('operador');
+        $operador->addGroup('admin');
+        $alvo = $this->criarUsuario('conta.alvo');
+        $alvo->addGroup('user', 'superadmin');
+
+        $resposta = $this->actingAs($operador)->get('admin/contas/' . $alvo->id);
+        $resposta->assertStatus(403);
+        self::assertStringContainsString('CONTA_HIERARQUIA_INSUFICIENTE', $resposta->getJSON());
+
+        $atualizacao = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Nome revisado',
+            'senha_admin' => $this->senha,
+            'email' => 'nome.revisado@ifro.edu.br',
+            'justificativa' => 'Correção solicitada pelo titular.',
+        ]);
+        $atualizacao->assertStatus(403);
+        $this->dontSeeInDatabase('solicitacoes_troca_email', ['conta_id' => $alvo->id]);
+        $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
+    }
+
+    public function testHierarquiaBloqueiaGrupoIgualEPermiteGrupoInferior(): void
+    {
+        $administrador = $this->criarUsuario('administrador', true);
+        $outroAdministrador = $this->criarUsuario('outro.admin', true);
+        $superadmin = $this->criarUsuario('administrador.geral');
+        $superadmin->addGroup('superadmin');
+
+        $campos = ['nome' => 'Nome revisado', 'senha_admin' => $this->senha];
+        $this->enviarAtualizacao($administrador, (int) $outroAdministrador->id, $campos)->assertStatus(403);
+        $this->enviarAtualizacao($superadmin, (int) $outroAdministrador->id, $campos)->assertOK();
+    }
+
+    public function testPromocaoDaContaCancelaTrocaPendente(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+        $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Conta alvo',
+            'senha_admin' => $this->senha,
+            'email' => 'novo.email@ifro.edu.br',
+            'justificativa' => 'Correção solicitada pelo titular.',
+        ])->assertOK();
+
+        $alvo->addGroup('admin');
+        $this->post('confirmar-troca-email', [
+            csrf_token() => csrf_hash(),
+            'token' => $this->tokenDaMensagem(0),
+        ])->assertStatus(403);
+        $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
+        $this->dontSeeInDatabase('solicitacoes_troca_email', ['conta_id' => $alvo->id]);
+        $this->seeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id, 'resultado' => 'cancelada']);
+    }
+
     public function testRecusaOperadorSemPermissao(): void
     {
         $operador = $this->criarUsuario('operador');
@@ -1082,7 +1137,7 @@ final class ContaTest extends CIUnitTestCase
         ]);
 
         if ($podeEditar) {
-            $usuario->addPermission('contas.editar');
+            $usuario->addGroup('admin');
         }
 
         return $usuario;

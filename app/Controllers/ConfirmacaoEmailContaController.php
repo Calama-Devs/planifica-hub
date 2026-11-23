@@ -44,6 +44,7 @@ class ConfirmacaoEmailContaController extends BaseController
             $resultado['sucesso'] => 200,
             in_array($resultado['codigo'], $codigosLinkInvalido, true) => 410,
             in_array($resultado['codigo'], $codigosEmailNaoAceito, true) => 422,
+            $resultado['tipo'] === 'permissao' => 403,
             $resultado['tipo'] === 'inesperado' => 500,
             default => 422,
         };

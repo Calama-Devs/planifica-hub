@@ -44,17 +44,23 @@ class EdicaoContaService
         $this->confirmacaoEmail = $confirmacaoEmail ?? service('confirmacaoEmailContaService');
     }
 
-    public function consultar(int $contaId, ?User $operador = null): ?array
+    public function consultar(int $contaId, User $operador): array
     {
+        if (! $operador->can(self::PERMISSAO)) {
+            return $this->falha('permissao', 'CONTA_SEM_PERMISSAO', 'Você não tem permissão para editar contas.');
+        }
+
         $conta = $this->contas->findById($contaId);
 
         if ($conta === null) {
-            return null;
+            return $this->falha('regra_negocio', 'CONTA_NAO_ENCONTRADA', 'Conta não encontrada.');
         }
 
-        $segundosRestantes = $operador === null
-            ? null
-            : $this->confirmacao->segundosRestantes($operador, self::OPERACAO, $contaId);
+        if (! config('Contas')->operadorSuperaAlvo($operador->getGroups(), $conta->getGroups())) {
+            return $this->falhaHierarquia((int) $operador->id, $contaId);
+        }
+
+        $segundosRestantes = $this->confirmacao->segundosRestantes($operador, self::OPERACAO, $contaId);
 
         return [
             'id' => (int) $conta->id,
@@ -88,6 +94,10 @@ class EdicaoContaService
 
         if ($conta === null) {
             return $this->falha('regra_negocio', 'CONTA_NAO_ENCONTRADA', 'Conta não encontrada.');
+        }
+
+        if (! config('Contas')->operadorSuperaAlvo($operador->getGroups(), $conta->getGroups())) {
+            return $this->falhaHierarquia((int) $operador->id, $contaId);
         }
 
         $nome = preg_replace('/\s+/u', ' ', trim($nome)) ?? '';
@@ -281,6 +291,16 @@ class EdicaoContaService
             'codigo' => $alterarEmail ? 'CONFIRMACAO_EMAIL_ENVIADA' : 'CONTA_ATUALIZADA',
             'mensagem' => $this->mensagemAtualizacao($nome !== $nomeAtual, $alterarEmail),
         ];
+    }
+
+    private function falhaHierarquia(int $operadorId, int $contaId): array
+    {
+        log_message('warning', 'Edição de conta bloqueada por hierarquia. Operador {operador}, conta {conta}.', [
+            'operador' => $operadorId,
+            'conta' => $contaId,
+        ]);
+
+        return $this->falha('permissao', 'CONTA_HIERARQUIA_INSUFICIENTE', 'Operação não autorizada.');
     }
 
     private function nomeValido(string $nome): bool
