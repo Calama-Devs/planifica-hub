@@ -6,10 +6,10 @@ Base: Manual Calama Devs, capítulos 6 e 7. Em caso de dúvida, o manual prevale
 
 | Camada | Faz | Não faz |
 |---|---|---|
-| Controller | Recebe a requisição, valida a entrada, chama o Service, devolve a View ou o redirecionamento | SQL direto, regra de negócio extensa, métodos gigantes |
-| Service | Concentra a regra de negócio, em etapas (métodos) pequenas e nomeadas | Acessar o banco sem passar pela Model, manipular resposta HTTP |
-| Model | Acesso aos dados: Query Builder, configuração da tabela, validações de persistência | Regra de negócio complexa, redirecionamentos, instanciar várias Models para orquestrar processos |
-| View | Apresentação: HTML, `if`, `foreach` e `esc()` | Consultas ao banco, regra de negócio, controle de acesso |
+| Controller | Recebe a requisição, valida a entrada, chama o Service, devolve a View ou o redirecionamento | SQL direto, regra de negócio, gravação de auditoria, métodos gigantes |
+| Service | Executa as regras de negócio e de escopo, coordena Models, transação e auditoria | Acessar dados sem passar pela Model, manipular resposta HTTP |
+| Model | Acesso aos dados: Query Builder, configuração da tabela, validações de persistência | Decisões de negócio, redirecionamentos, orquestração de processos |
+| View | Apresentação: HTML, `if`, `foreach` e `esc()` | Consultas ao banco, regra de negócio, controle de acesso ou gravação de auditoria |
 | Filter | Autenticação, autorização e verificações gerais da rota | Regra de negócio, consultas pesadas, alterações no banco |
 | Helper | Funções pequenas, genéricas e reutilizáveis (formatação, conversão, máscaras) | Regra de negócio, processos complexos |
 | Library | Componente reutilizável com responsabilidade própria e independente do domínio (ex.: gerador de PDF) | Regra de negócio, validação de requisição, decisões de fluxo |
@@ -18,11 +18,12 @@ Fluxo correto: View envia, Controller recebe e valida, Service processa, Model p
 
 ## Regras obrigatórias
 
-- Services não são obrigatórios, mas toda regra de negócio que não seja trivial vai para um Service, não para o Controller.
+- No Hub e nos módulos integrados, **novas funcionalidades usam a camada Service**. Reaproveite um Service do mesmo domínio quando ele já atender à responsabilidade; crie outro apenas se necessário. Mudanças em operações de CRUD existentes seguem a mesma regra para o fluxo alterado, sem exigir refatorações fora do escopo.
+- Toda criação, atualização e exclusão de dados no escopo da alteração, inclusive exclusão lógica, usa a [auditoria centralizada](../auditoria.md). O Service da operação coordena a escrita e o evento na mesma transação; não grave a auditoria diretamente no Controller, na View ou na Model de negócio.
 - Models usam os recursos nativos do CI4 e retornam **array** (`protected $returnType = 'array';`). Acesso em Views e Services: `$aluno['nome']`.
 - Query Builder é o padrão. SQL manual só quando o Query Builder não atende, e sempre parametrizado (`?` ou bindings). Nunca concatenar dados externos em SQL.
 - Uma Model por tabela, com `$table`, `$primaryKey`, `$allowedFields`, `$useTimestamps` e `$useSoftDeletes` configurados quando aplicável.
-- Controle de acesso fica em Filters (por rota ou grupo de rotas) e é repetido no back-end em toda operação sensível. Esconder botão não protege nada.
+- Proteja rotas restritas com os Filters do Shield. Em operações sensíveis, o Service também verifica a permissão efetiva e o escopo do registro quando aplicável. Siga o [padrão de permissões](permissoes.md); esconder botão não protege nada.
 - Toda entrada (formulário, rota, query string, API, upload) é validada antes do processamento, preferencialmente com o serviço de validação do CI4 (`$this->validate()` ou regras na Model).
 - Erros técnicos nunca aparecem para o usuário em produção: registrar em log e exibir mensagem clara.
 
@@ -50,9 +51,9 @@ Mensagens ao usuário: curtas, sem detalhe técnico. Mensagens de redirecionamen
 
 ## Logs (manual 6.10.4 e 10.6)
 
-- Registrar falhas relevantes com contexto suficiente (usuário, recurso, motivo).
-- Nunca registrar senha, token, credencial ou dado pessoal desnecessário.
-- Separar log técnico de log de ação do usuário (auditoria).
+- Registrar falhas relevantes com contexto técnico suficiente, como código interno de erro e nome da operação, sem expor detalhes ao usuário.
+- Nunca registrar senhas, tokens, credenciais ou dados pessoais em logs técnicos.
+- Log técnico é para diagnóstico; não substitui o [evento de auditoria](../auditoria.md).
 
 ## Organização de pastas (manual 7.1 e 7.2)
 
@@ -120,6 +121,7 @@ class PedidoService
 ## Sinais de alerta para o revisor
 
 - Controller com SQL, laço de regra de negócio ou mais de ~40 linhas por método.
+- Escrita de dados que não passa por um Service ou que pode ser confirmada sem a auditoria obrigatória.
 - `new AlgumaModel()` dentro de View.
 - Service chamando `$this->db->query()` com variáveis concatenadas.
 - Helper com nome de ação de negócio (`aprovarMatricula`).

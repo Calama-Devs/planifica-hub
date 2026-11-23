@@ -1,7 +1,11 @@
 /* Estilos customizados globais do layout - PlanIFica Hub */
 
-html, body {
-    height: 100%;
+html {
+    min-height: 100%;
+}
+
+body {
+    min-height: 100%;
     background-color: #000;
 }
 
@@ -126,13 +130,6 @@ html, body {
     border-radius: 8px;
 }
 
-/* Tabelas da administração de acessos: o tema não deixa as células quebrarem linha, e a coluna de ação
-   saía da área visível em telas de 1024 px. Com a quebra, as colunas se ajustam e a ação continua à vista. */
-.tabela-acessos th,
-.tabela-acessos td {
-    white-space: normal;
-}
-
 /* Checkbox visível e acessível no tema escuro (Login e Formulários) */
 .form-check .form-check-input {
     position: relative !important;
@@ -193,43 +190,6 @@ html, body {
 
 #botao-alterar-senha .text-primary {
     color: #7952b3 !important;
-}
-
-/* Tela de permissões da conta (administração de acessos). O cinza do tema (#6c7293) fica apagado sobre o
-   cartão escuro, então o texto de apoio usa branco com transparência, que mantém o contraste. */
-.permissoes-conta .texto-apoio,
-.permissoes-conta .categoria-permissoes {
-    color: rgba(255, 255, 255, 0.7);
-}
-
-.permissoes-conta .texto-apoio strong {
-    color: #fff;
-    font-weight: 500;
-}
-
-/* Título de cada categoria da lista de permissões. O legend continua flutuante, como no Bootstrap, para
-   ficar abaixo da linha da categoria e não sobre ela. */
-.permissoes-conta .categoria-permissoes {
-    font-size: 0.6875rem;
-    font-weight: 500;
-    letter-spacing: 0.06em;
-    margin-bottom: 0.75rem;
-    padding: 0;
-    text-transform: uppercase;
-}
-
-/* O rótulo fica em linha para os ícones de informação e de acesso efetivo virem logo depois do texto. */
-.permissoes-conta .form-check-label {
-    color: #fff;
-    display: inline;
-}
-
-.permissoes-conta .permissao-info {
-    cursor: help;
-}
-
-.permissoes-conta .legenda-permissoes {
-    font-size: 0.8125rem;
 }
 
 /* Campos de autenticação */

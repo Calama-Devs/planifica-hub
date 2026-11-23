@@ -30,6 +30,7 @@ Nomes proibidos para tabelas: `dados`, `registros`, `infos`, `tabela1`, `auxilia
 - Quando houver rastreio de autoria: `created_by`, `updated_by`, `deleted_by`, como chaves estrangeiras para a tabela de usuários.
 - Obrigatórios em tabelas de processos críticos, permissões, movimentações administrativas, registros acadêmicos, documentos, solicitações e aprovações.
 - Exclusão lógica (`deleted_at`) é a regra para dados relevantes; exclusão física só com justificativa.
+- Campos de data e autoria da tabela não substituem o evento da [auditoria centralizada](../auditoria.md).
 
 ## Migrations (manual 8.5)
 

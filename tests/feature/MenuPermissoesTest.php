@@ -57,7 +57,6 @@ class MenuPermissoesTest extends CIUnitTestCase
         $resposta->assertSee('Sobre');
         $resposta->assertSee('Administração');
         $resposta->assertSee('Permissões');
-        $resposta->assertSee('Acessos');
     }
 
     public function testExibeItemRestritoQuandoUsuarioPossuiPermissaoDireta(): void
@@ -119,10 +118,10 @@ class MenuPermissoesTest extends CIUnitTestCase
         $menu->itens[] = [
             'categoria'   => 'Administração',
             'titulo'      => 'Contas',
-            'rota'        => 'contas',
+            'rota'        => 'permissoes.index',
             'padraoAtivo' => 'contas*',
             'icone'       => 'mdi mdi-account-multiple text-warning',
-            'permissao'   => 'contas.consultar',
+            'permissao'   => 'acessos.administrar',
         ];
     }
 

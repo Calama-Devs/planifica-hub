@@ -20,12 +20,10 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
         $routes->get('/', 'PermissaoController::index', ['as' => 'permissoes.index']);
     });
 
-    // Administração de acessos: o filtro do grupo (session) soma com o permission da rota.
+    // Gerenciamento de usuários: o filtro do grupo (session) soma com o permission da rota.
     $routes->group('admin/acessos', ['filter' => 'permission:acessos.administrar'], static function (RouteCollection $routes): void {
         $routes->get('/', 'AcessoController::index', ['as' => 'acessos.index']);
-        $routes->get('pesquisa', 'AcessoController::consultarConta', ['as' => 'acessos.pesquisa']);
-        $routes->get('(:num)/permissoes', 'AcessoController::permissoes/$1', ['as' => 'acessos.permissoes']);
-        $routes->post('(:num)/permissoes', 'AcessoController::salvar/$1', ['as' => 'acessos.permissoes.salvar']);
+        $routes->get('listar', 'AcessoController::listar', ['as' => 'acessos.listar']);
     });
 });
 
@@ -40,3 +38,8 @@ $routes->get('recuperar-senha/verificar', 'RedefinirSenhaController::verificar',
 $routes->get('reset-password', 'RedefinirSenhaController::redefinir');
 $routes->post('reset-password', 'RedefinirSenhaController::atualizar');
 $routes->post('reset-password/cancelar', 'RedefinirSenhaController::cancelar');
+
+// Finalização de cadastro por convite.
+$routes->get('finalizar-cadastro', 'FinalizarCadastroController::index', ['as' => 'finalizar_cadastro']);
+$routes->post('finalizar-cadastro', 'FinalizarCadastroController::concluir', ['as' => 'finalizar_cadastro.concluir', 'filter' => 'auth-rates']);
+$routes->get('convite/finalizar', 'FinalizarCadastroController::index', ['as' => 'convite.finalizar']);
