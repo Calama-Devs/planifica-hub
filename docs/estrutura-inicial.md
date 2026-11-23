@@ -14,7 +14,7 @@ complementar de autoload do CodeIgniter; não é necessário alterá-lo.
 |---|---|---|
 | `app/Controllers/` | `App\Controllers` | Existente: `BaseController.php`, `Home.php`, `PerfilController.php`, `PermissaoController.php` e `RedefinirSenhaController.php` |
 | `app/Models/` | `App\Models` | Existente: `AuditoriaPermissaoModel.php`; a autenticação usa as Models do Shield |
-| `app/Services/` | `App\Services` | Existente: `PerfilService.php`, `PermissaoService.php` e `RedefinirSenhaService.php`; criar novos somente quando houver regra de negócio que justifique |
+| `app/Services/` | `App\Services` | Camada obrigatória para novas funcionalidades; reaproveitar Services do domínio quando possível, conforme o [padrão de back-end](padroes/arquitetura-backend.md) |
 | `app/Filters/` | `App\Filters` | Existente, sem Filters próprios; autenticação usa o Shield |
 | `app/Config/` | `Config` | Configurações do CodeIgniter e do Shield |
 | `app/Views/layouts/` | Layouts compartilhados | Existente: `principal.php` |
@@ -32,8 +32,8 @@ quando um diretório vazio realmente precisar ser entregue.
 
 | Camada | Responsabilidade |
 |---|---|
-| Controller | Receber a requisição, validar entradas e coordenar a resposta; delegar regras não triviais ao Service |
-| Service | Concentrar regras de negócio, acessando dados pelas Models; criar somente quando necessário |
+| Controller | Receber a requisição, validar entradas, delegar o processamento ao Service e montar a resposta |
+| Service | Executar regras de negócio, acessar dados pelas Models e coordenar as escritas com a [auditoria centralizada](auditoria.md) |
 | Model | Acessar e persistir dados com os recursos do CodeIgniter; Models próprias retornam arrays |
 | View | Apresentar os dados recebidos, sem consultas ou decisões de acesso |
 | Filter | Verificar autenticação, autorização e condições gerais das rotas no servidor |
@@ -95,7 +95,7 @@ necessários a uma demanda aprovada.
 |---|---|
 | Perfil | `app/Controllers/PerfilController.php` e `app/Views/perfil/` |
 | Administração | `app/Controllers/AdministracaoController.php` e `app/Views/administracao/` |
-| Regras não triviais desses contextos | `app/Services/`, somente conforme a necessidade real |
+| Regras de negócio desses contextos | `app/Services/`, reaproveitando um Service existente quando adequado |
 | Persistência própria | `app/Models/`, sem duplicar as Models de autenticação do Shield |
 | Permissões | Configurações do Shield em `app/Config/AuthGroups.php` e verificação no servidor pelos Filters do pacote; Filters próprios em `app/Filters/` somente se necessários |
 
