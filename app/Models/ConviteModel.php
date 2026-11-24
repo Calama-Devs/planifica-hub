@@ -19,7 +19,7 @@ class ConviteModel extends Model
         'token_hash',
         'status',
         'expira_em',
-        'enviado_em',
+        'utilizado_em',
         'grupos',
     ];
 
@@ -29,7 +29,7 @@ class ConviteModel extends Model
         'token_hash'     => 'required|regex_match[/^[a-f0-9]{64}$/]',
         'status'         => 'required|in_list[enviado,expirado,consumido]',
         'expira_em'      => 'required|valid_date[Y-m-d H:i:s]',
-        'enviado_em'     => 'permit_empty|valid_date[Y-m-d H:i:s]',
+        'utilizado_em'   => 'permit_empty|valid_date[Y-m-d H:i:s]',
         'grupos'         => 'permit_empty',
     ];
 
@@ -47,7 +47,7 @@ class ConviteModel extends Model
     protected $useTimestamps = true;
     protected $dateFormat    = 'datetime';
     protected $createdField  = 'created_at';
-    protected $updatedField  = 'updated_at';
+    protected $updatedField  = '';
 
     /** @return array<string, mixed>|null */
     public function buscarPendenteValidoPorEmail(string $email, string $agora): ?array
@@ -67,7 +67,6 @@ class ConviteModel extends Model
             ->update([
                 'status'         => 'expirado',
                 'email_pendente' => null,
-                'updated_at'     => $agora,
             ]);
     }
 }
