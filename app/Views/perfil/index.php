@@ -38,7 +38,7 @@
 
                     <div class="row mb-3 align-items-center">
                         <label for="campo-nome" class="col-sm-3 col-form-label">
-                            Nome completo <span class="text-danger" aria-hidden="true">*</span>
+                            Nome <span class="text-danger" aria-hidden="true">*</span>
                         </label>
                         <div class="col-sm-9">
                             <div class="input-group">
