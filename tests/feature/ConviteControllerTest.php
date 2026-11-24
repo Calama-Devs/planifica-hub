@@ -150,7 +150,7 @@ final class ConviteControllerTest extends CIUnitTestCase
             'email'          => 'pendente@ifro.edu.br',
             'email_pendente' => 'pendente@ifro.edu.br',
             'token_hash'      => hash('sha256', 'token-pendente'),
-            'status'         => 'enviado',
+            'status'         => 'pendente',
             'expira_em'      => date('Y-m-d H:i:s', time() + 1800),
             'grupos'         => json_encode(['user'], JSON_THROW_ON_ERROR),
         ]);
@@ -190,7 +190,8 @@ final class ConviteControllerTest extends CIUnitTestCase
             'sucesso' => false,
             'codigo'  => 'CONVITE_ENVIO_FALHOU',
         ]);
-        $this->assertNull($convite);
+        $this->assertSame('pendente', $convite['status']);
+        $this->assertSame(1, model(EventoAuditoriaModel::class)->countAllResults());
     }
 
     public function testEndpointImpedeEnvioQuandoAuditoriaEstaIndisponivel(): void
