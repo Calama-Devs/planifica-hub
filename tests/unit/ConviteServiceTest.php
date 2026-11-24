@@ -67,7 +67,7 @@ final class ConviteServiceTest extends CIUnitTestCase
             'email'          => 'invalido@ifro.edu.br',
             'email_pendente' => 'invalido@ifro.edu.br',
             'token_hash'     => str_repeat('z', 64),
-            'status'         => 'estado_inexistente',
+            'status'         => 'preparado',
             'expira_em'      => 'data inválida',
         ]);
 
@@ -204,7 +204,20 @@ final class ConviteServiceTest extends CIUnitTestCase
         $operador = auth()->getProvider()->findById($this->operadorId);
         auth()->login($operador);
         $mensagem = '';
-        $this->configurarEmail(true, $mensagem);
+        $auditoriaRegistradaNoEnvio = false;
+        $conviteEnviadoNoEnvio      = false;
+        $this->configurarEmail(
+            true,
+            $mensagem,
+            function () use (&$auditoriaRegistradaNoEnvio, &$conviteEnviadoNoEnvio): void {
+                $auditoriaRegistradaNoEnvio = model(EventoAuditoriaModel::class)
+                    ->where('acao', 'emitir_convite')
+                    ->countAllResults() > 0;
+                $conviteEnviadoNoEnvio = model(ConviteModel::class)
+                    ->where('email', 'auditado@ifro.edu.br')
+                    ->first()['status'] === 'enviado';
+            }
+        );
 
         $resultado = (new ConviteService())->emitirConvite('auditado@ifro.edu.br', $this->operadorId);
         $convite   = $this->conviteModel->where('email', 'auditado@ifro.edu.br')->first();
@@ -215,16 +228,21 @@ final class ConviteServiceTest extends CIUnitTestCase
         $this->assertSame($this->operadorId, (int) $evento['usuario_id']);
         $this->assertSame((string) $convite['id'], $evento['entidade_id']);
         $this->assertSame('concluida', $evento['resultado']);
+        $this->assertTrue($auditoriaRegistradaNoEnvio);
+        $this->assertTrue($conviteEnviadoNoEnvio);
         $this->assertStringNotContainsString('auditado@ifro.edu.br', $evento['descricao']);
         $this->assertStringNotContainsString('auditado@ifro.edu.br', $mensagem);
 
         auth()->logout();
     }
 
-    public function testFalhaNaAuditoriaDaEmissaoInvalidaConviteJaEnviado(): void
+    public function testFalhaNaAuditoriaImpedeEnvioDoConvite(): void
     {
         $mensagem = '';
-        $this->configurarEmail(true, $mensagem);
+        $envios = 0;
+        $this->configurarEmail(true, $mensagem, static function () use (&$envios): void {
+            $envios++;
+        });
         $auditoria = $this->createMock(AuditoriaService::class);
         $auditoria->expects($this->once())
             ->method('registrar')
@@ -233,14 +251,10 @@ final class ConviteServiceTest extends CIUnitTestCase
         $resultado = (new ConviteService($auditoria))->emitirConvite('rollback@ifro.edu.br', $this->operadorId);
         $convite   = $this->conviteModel->where('email', 'rollback@ifro.edu.br')->first();
 
-        $this->assertSame('CONVITE_STATUS_FALHOU', $resultado['codigo']);
-        $this->assertSame('falha_envio', $convite['status']);
-        $this->assertNull($convite['email_pendente']);
-        $this->assertNotNull($convite['falhou_em']);
-        $this->assertNull(
-            $this->conviteModel->buscarPendenteValidoPorEmail('rollback@ifro.edu.br', date('Y-m-d H:i:s'))
-        );
+        $this->assertSame('CONVITE_PREPARO_FALHOU', $resultado['codigo']);
+        $this->assertNull($convite);
         $this->assertSame(0, model(EventoAuditoriaModel::class)->countAllResults());
+        $this->assertSame(0, $envios);
     }
 
     public function testAuditaFalhaNoEnvioSemRegistrarDadosSensiveis(): void
@@ -248,22 +262,23 @@ final class ConviteServiceTest extends CIUnitTestCase
         $mensagem = '';
         $this->configurarEmail(false, $mensagem);
         $auditoria = $this->createMock(AuditoriaService::class);
-        $auditoria->expects($this->once())
+        $eventos = [];
+        $auditoria->expects($this->exactly(2))
             ->method('registrar')
-            ->with($this->callback(static function (array $evento): bool {
-                return $evento['acao'] === 'emitir_convite'
-                    && $evento['resultado'] === 'erro'
-                    && $evento['descricao'] === 'Falha no envio do convite.'
-                    && ! array_key_exists('email', $evento)
-                    && ! array_key_exists('token', $evento);
-            }));
+            ->willReturnCallback(static function (array $evento) use (&$eventos): void {
+                $eventos[] = $evento;
+            });
 
         $resultado = (new ConviteService($auditoria))->emitirConvite('email-falhou@ifro.edu.br', $this->operadorId);
         $convite   = $this->conviteModel->where('email', 'email-falhou@ifro.edu.br')->first();
 
         $this->assertSame('CONVITE_ENVIO_FALHOU', $resultado['codigo']);
-        $this->assertSame('falha_envio', $convite['status']);
-        $this->assertNull($convite['email_pendente']);
+        $this->assertNull($convite);
+        $this->assertSame('concluida', $eventos[0]['resultado']);
+        $this->assertSame('erro', $eventos[1]['resultado']);
+        $this->assertSame('Falha no envio do convite.', $eventos[1]['descricao']);
+        $this->assertArrayNotHasKey('email', $eventos[0]);
+        $this->assertArrayNotHasKey('token', $eventos[0]);
     }
 
     public function testRecusaConvitePendenteValidoParaMesmoEmail(): void
@@ -310,37 +325,69 @@ final class ConviteServiceTest extends CIUnitTestCase
 
         $resultado = (new ConviteService())->emitirConvite('falha@ifro.edu.br', $this->operadorId);
         $convite   = $this->conviteModel->where('email', 'falha@ifro.edu.br')->first();
-        $evento    = model(EventoAuditoriaModel::class)->where('acao', 'emitir_convite')->first();
+        $evento    = model(EventoAuditoriaModel::class)
+            ->where('acao', 'emitir_convite')
+            ->orderBy('id', 'DESC')
+            ->first();
 
         $this->assertSame('CONVITE_ENVIO_FALHOU', $resultado['codigo']);
-        $this->assertSame('falha_envio', $convite['status']);
-        $this->assertNull($convite['email_pendente']);
-        $this->assertNotNull($convite['falhou_em']);
+        $this->assertNull($convite);
         $this->assertSame($this->operadorId, (int) $evento['usuario_id']);
-        $this->assertSame((string) $convite['id'], $evento['entidade_id']);
         $this->assertSame('erro', $evento['resultado']);
 
         auth()->logout();
     }
 
-    public function testRegistraMomentoDoResultadoDoEnvio(): void
+    public function testInvalidaConviteQuandoTransporteLancaExcecao(): void
     {
-        $mensagem         = '';
-        $momentoResultado = '';
-        $this->configurarEmail(true, $mensagem, static function () use (&$momentoResultado): void {
-            usleep(1_200_000);
-            $momentoResultado = date('Y-m-d H:i:s');
+        $mensagem = '';
+        $this->configurarEmail(true, $mensagem, static function (): void {
+            throw new RuntimeException('Falha simulada no transporte de e-mail.');
         });
 
-        $resultado = (new ConviteService())->emitirConvite('momento@ifro.edu.br', $this->operadorId);
-        $convite   = $this->conviteModel->where('email', 'momento@ifro.edu.br')->first();
-
-        $this->assertTrue($resultado['sucesso']);
-        $this->assertNotSame('', $momentoResultado);
-        $this->assertGreaterThanOrEqual(
-            strtotime($momentoResultado),
-            strtotime($convite['enviado_em'])
+        $resultado = (new ConviteService())->emitirConvite(
+            'transporte-excecao@ifro.edu.br',
+            $this->operadorId
         );
+        $convite = $this->conviteModel->where('email', 'transporte-excecao@ifro.edu.br')->first();
+
+        $this->assertSame('CONVITE_ENVIO_FALHOU', $resultado['codigo']);
+        $this->assertNull($convite);
+    }
+
+    public function testReverteFalhaDeEnvioQuandoAuditoriaNaoPodeSerRegistrada(): void
+    {
+        $mensagem = '';
+        $this->configurarEmail(false, $mensagem);
+        $auditoria = new class (new EventoAuditoriaModel($this->db)) extends AuditoriaService {
+            private int $quantidadeRegistros = 0;
+
+            public function registrar(array $evento): void
+            {
+                $this->quantidadeRegistros++;
+
+                if ($this->quantidadeRegistros === 2) {
+                    throw new RuntimeException('Falha simulada na auditoria da falha de envio.');
+                }
+
+                parent::registrar($evento);
+            }
+        };
+
+        $resultado = (new ConviteService($auditoria))->emitirConvite(
+            'auditoria-envio-falhou@ifro.edu.br',
+            $this->operadorId
+        );
+        $convite = $this->conviteModel->where('email', 'auditoria-envio-falhou@ifro.edu.br')->first();
+        $eventos = model(EventoAuditoriaModel::class)
+            ->where('entidade_id', (string) $convite['id'])
+            ->findAll();
+
+        $this->assertSame('CONVITE_STATUS_FALHOU', $resultado['codigo']);
+        $this->assertSame('enviado', $convite['status']);
+        $this->assertSame('auditoria-envio-falhou@ifro.edu.br', $convite['email_pendente']);
+        $this->assertCount(1, $eventos);
+        $this->assertSame('concluida', $eventos[0]['resultado']);
     }
 
     public function testUnicidadeNoBancoImpedeConvitesPendentesSimultaneos(): void
@@ -349,7 +396,7 @@ final class ConviteServiceTest extends CIUnitTestCase
             'email'          => 'concorrente@ifro.edu.br',
             'email_pendente' => 'concorrente@ifro.edu.br',
             'token_hash'      => hash('sha256', 'primeiro'),
-            'status'         => 'preparado',
+            'status'         => 'enviado',
             'expira_em'      => date('Y-m-d H:i:s', time() + 1800),
         ];
 
