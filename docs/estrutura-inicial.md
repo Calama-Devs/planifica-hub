@@ -61,9 +61,10 @@ seguem a convenção de sufixos descrita acima.
   matriz de permissões do Shield. Essas configurações não implicam a
   existência de telas administrativas.
 - `app/Config/Routes.php` registra as rotas do Shield e protege `/` e `/sobre`
-  com o filtro `session`. As rotas de `admin/permissoes` ficam no mesmo grupo e
-  somam o filtro `permission:acessos.administrar`. O logout permanece
-  exclusivamente por POST.
+  com o filtro `session`. As rotas de `admin/acessos` e `admin/permissoes` ficam no mesmo grupo e
+  somam o filtro `permission:acessos.administrar`. Os endpoints JSON `/admin/contas/{id}`
+  exigem `contas.editar`, com resposta JSON do filtro e conferência repetida no
+  Controller e no Service. O logout permanece exclusivamente por POST.
   `app/Config/Filters.php` e `Security.php` mantêm a proteção CSRF global
   baseada em sessão.
 
@@ -73,7 +74,13 @@ seguem a convenção de sufixos descrita acima.
 |---|---|---|
 | GET | `/` | `Home::index`, exige autenticação e apresenta o dashboard |
 | GET | `/sobre` | `Home::sobre`, exige autenticação e reutiliza o layout |
-| GET | `/admin/permissoes` | `PermissaoController::index`, exige a permissão `acessos.administrar` e mostra o catálogo de permissões para consulta |
+| GET | `/admin/permissoes` | Catálogo de permissões protegido por `acessos.administrar` |
+| GET | `/admin/acessos` | Tela de gerenciamento de usuários protegida por `acessos.administrar` |
+| GET | `/admin/acessos/listar` | Listagem de contas protegida por `acessos.administrar` |
+| GET | `/admin/contas/{id}` | `ContaController::consultar`, exige `contas.editar` no Controller e carrega nome completo e e-mail pelo identificador da rota |
+| POST | `/admin/contas/{id}` | `ContaController::atualizar`, exige `contas.editar` e CSRF; atualiza o nome e, para e-mail, cria solicitação pendente de confirmação no novo endereço |
+| GET | `/confirmar-troca-email?token={token}` | `ConfirmacaoEmailContaController::formulario`, apresenta a confirmação sem consumir o token |
+| POST | `/confirmar-troca-email` | `ConfirmacaoEmailContaController::confirmar`, exige CSRF e confirma a posse do novo endereço antes de atualizar a identidade do Shield |
 | GET / POST | `/register` | Formulário e cadastro pelo Shield |
 | GET / POST | `/login` | Formulário e autenticação pelo Shield |
 | POST | `/logout` | Encerra a sessão pelo Shield, com CSRF; GET não é permitido |
@@ -82,8 +89,19 @@ seguem a convenção de sufixos descrita acima.
 | GET | `/auth/a/show` | Exibição de ação de autenticação do Shield |
 | POST | `/auth/a/handle`, `/auth/a/verify` | Processamento e verificação de ações pelo Shield |
 
+Na edição administrativa, `nome_completo` é o nome de exibição alterado; o campo `username` permanece como identificador do Shield e não é modificado.
+
 Os fluxos por e-mail dependem da configuração local descrita no
 [README](../README.md).
+
+### Edição administrativa de contas e política de auditoria
+
+Os endpoints JSON `GET` e `POST /admin/contas/{id}` são destinados à integração pela área Acessos. A atualização exige `contas.editar`; os grupos `superadmin` e `admin` recebem essa permissão pela matriz do Shield. A confirmação da senha do operador autenticado (`senha_admin`) pode ser reutilizada por até 300 segundos, restrita ao operador, operação e conta afetada, somente para edições sem o campo `email`. A consulta inclui `confirmacao_recente` e `confirmacao_expira_em`.
+- **Campos aceitos:** `nome` (2 a 255 caracteres), `senha_admin` (obrigatória para toda solicitação que inclua `email`, mesmo que a confirmação recente esteja ativa; para edição sem `email`, é obrigatória apenas sem confirmação recente) e, exclusivamente no fluxo excepcional de alteração de e-mail, `email` e `justificativa` (15 a 500 caracteres). Propriedades adicionais como `groups`, `permissions`, `active` e `password` são rejeitadas com HTTP 400 (`DADOS_CONTA_INVALIDOS`).
+- **Autorização:** filtro JSON, Controller e Service conferem `contas.editar`; a senha correta não substitui a permissão. A autorização exige que o grupo mais alto do operador seja estritamente superior ao do alvo na ordem configurada em `Config\Contas`. A confirmação do novo e-mail revalida a permissão e a hierarquia do operador original. Uma permissão exclusiva para troca excepcional de e-mail pode ser avaliada futuramente.
+- **Política de e-mail institucional:** somente os domínios configurados em `Config\Contas` são aceitos, com comparação exata e sem curingas. Formato e domínio são revalidados na confirmação. Se o domínio deixar de ser permitido, a solicitação é cancelada e auditada como `dominio_bloqueado`; a identidade de login e o endereço anterior permanecem inalterados, e a página apresenta uma mensagem genérica. A solicitação expira em 24 horas e só altera a identidade Shield depois da confirmação no novo endereço. Então links pendentes `magic-link-reset` e `magic-link` são invalidados e o endereço anterior recebe uma notificação. Solicitações pendentes da mesma conta são substituídas; tokens são armazenados somente como hash.
+- **Auditoria transacional e minimização de dados:** todas as edições são persistidas na tabela `auditoria_edicao_contas` atomicamente com os dados da conta; falhas no registro de auditoria causam rollback imediato da operação. `created_at` registra a criação do evento e permanece imutável; `updated_at` registra a data e hora em que o resultado da solicitação de troca de e-mail muda. Em observância ao princípio da minimização de dados (LGPD), o IP do operador é armazenado em formato minimizado (IPv4 com último octeto zerado e IPv6 truncado após os 3 primeiros grupos; endereços inválidos ou vazios são gravados como nulos). A finalidade é a rastreabilidade administrativa sem coleta excessiva de dados de rede. Registros de auditoria antigos anteriores a esta política permanecem inalterados como estão.
+- **Confirmação recente de senha:** uma senha válida autoriza novas edições por até 300 segundos, somente para o mesmo operador, a operação de edição de conta e a conta afetada. A confirmação pode ser reutilizada durante esse período, somente na edição sem troca de e-mail; não é armazenada senha ou hash e o logout encerra a janela com a sessão. `consultar` acrescenta `confirmacao_recente` (booleano) e `confirmacao_expira_em` (segundos restantes ou `null`). Sem confirmação válida e com senha ausente/incorreta, a atualização retorna HTTP 422 e `CONFIRMACAO_INVALIDA`.
 
 ## Convenções para perfil e administração
 
@@ -95,11 +113,14 @@ necessários a uma demanda aprovada.
 |---|---|
 | Perfil | `app/Controllers/PerfilController.php` e `app/Views/perfil/` |
 | Administração | `app/Controllers/AdministracaoController.php` e `app/Views/administracao/` |
-| Regras de negócio desses contextos | `app/Services/`, reaproveitando um Service existente quando adequado |
+| Regras de negócio não triviais desses contextos | `app/Services/`, reaproveitando um Service existente quando adequado |
 | Persistência própria | `app/Models/`, sem duplicar as Models de autenticação do Shield |
 | Permissões | Configurações do Shield em `app/Config/AuthGroups.php` e verificação no servidor pelos Filters do pacote; Filters próprios em `app/Filters/` somente se necessários |
 
-Esses caminhos não aprovam funcionalidades nem exigem classes vazias.
+Esses caminhos são referências de organização e não exigem classes vazias.
+A edição administrativa de contas usa `app/Controllers/ContaController.php`,
+`app/Services/EdicaoContaService.php` e `app/Filters/PermissaoJsonFilter.php`.
+Os endpoints JSON são destinados à integração pela área Acessos.
 Telas futuras devem reaproveitar `layouts/` e `partials/`, seguindo o
 [padrão de layout](padroes/layout-e-dashboard.md) e o
 [padrão de segurança](padroes/seguranca.md).

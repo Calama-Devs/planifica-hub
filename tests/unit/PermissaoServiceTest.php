@@ -16,11 +16,7 @@ final class PermissaoServiceTest extends CIUnitTestCase
 {
     use DatabaseTestTrait;
 
-    protected $namespace = [
-        'CodeIgniter\Shield',
-        'CodeIgniter\Settings',
-        'App',
-    ];
+    protected $namespace = null;
 
     private PermissaoService $service;
     private PermissaoModel $model;

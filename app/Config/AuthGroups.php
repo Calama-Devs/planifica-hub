@@ -47,7 +47,7 @@ class AuthGroups extends ShieldAuthGroups
         ],
         'admin' => [
             'title'       => 'Administrador de contas',
-            'description' => 'Pode consultar e criar contas, mas não administrar grupos e permissões.',
+            'description' => 'Pode consultar, criar e editar dados de contas, mas não administrar grupos e permissões.',
         ],
         'developer' => [
             'title'       => 'Desenvolvedor',
@@ -78,6 +78,8 @@ class AuthGroups extends ShieldAuthGroups
     public array $permissions = [
         'contas.consultar'    => 'Consultar a lista e os dados das contas de usuário',
         'contas.criar'        => 'Criar novas contas de usuário',
+        'contas.editar'       => 'Editar nome de outras contas e solicitar troca excepcional do e-mail com justificativa, '
+            . 'efetivada após confirmação no novo endereço',
         'acessos.administrar' => 'Conceder e remover grupos e permissões das contas de usuário',
     ];
 
@@ -94,11 +96,13 @@ class AuthGroups extends ShieldAuthGroups
         'superadmin' => [
             'contas.consultar',
             'contas.criar',
+            'contas.editar',
             'acessos.administrar',
         ],
         'admin' => [
             'contas.consultar',
             'contas.criar',
+            'contas.editar',
         ],
         'developer' => [],
         'user'      => [],
@@ -118,6 +122,7 @@ class AuthGroups extends ShieldAuthGroups
     private const PERMISSOES_NATIVAS = [
         'contas.consultar',
         'contas.criar',
+        'contas.editar',
         'acessos.administrar',
     ];
 
