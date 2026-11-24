@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\GrupoUsuarioModel;
 use App\Models\PermissaoModel;
-use CodeIgniter\Database\BaseConnection;
 use Config\AuthGroups;
 
 class PermissaoService
 {
     private PermissaoModel $permissaoModel;
-    private BaseConnection $banco;
+    private GrupoUsuarioModel $grupoUsuarioModel;
 
     public function __construct(
         ?PermissaoModel $permissaoModel = null,
-        ?BaseConnection $banco = null,
+        ?GrupoUsuarioModel $grupoUsuarioModel = null,
     ) {
-        $this->permissaoModel = $permissaoModel ?? model(PermissaoModel::class);
-        $this->banco          = $banco ?? db_connect();
+        $this->permissaoModel    = $permissaoModel ?? model(PermissaoModel::class);
+        $this->grupoUsuarioModel = $grupoUsuarioModel ?? model(GrupoUsuarioModel::class);
     }
 
     /**
@@ -52,7 +52,7 @@ class PermissaoService
         $definidos        = setting('AuthGroups.groups');
         $definidos        = is_array($definidos) ? $definidos : [];
         $gruposProtegidos = array_values(array_unique(['superadmin', (string) $authGroups->defaultGroup]));
-        $contagens        = $this->contarUsuariosPorGrupo();
+        $contagens        = $this->grupoUsuarioModel->contarUsuariosPorGrupo();
 
         $todos = [];
 
@@ -153,35 +153,5 @@ class PermissaoService
         }
 
         return $this->permissaoModel->obterMapaCatalogo();
-    }
-
-    /**
-     * Conta quantos usuários não removidos estão vinculados a cada grupo na tabela do Shield.
-     *
-     * @return array<string, int>
-     */
-    private function contarUsuariosPorGrupo(): array
-    {
-        if (! $this->banco->tableExists('auth_groups_users') || ! $this->banco->tableExists('users')) {
-            return [];
-        }
-
-        $linhas = $this->banco->table('auth_groups_users agu')
-            ->select('agu.group')
-            ->select('COUNT(DISTINCT agu.user_id) AS total', false)
-            ->join('users u', 'u.id = agu.user_id', 'inner')
-            ->where('u.deleted_at', null)
-            ->groupBy('agu.group')
-            ->get()
-            ->getResultArray();
-
-        $contagens = [];
-
-        foreach ($linhas as $linha) {
-            $grupo             = (string) ($linha['group'] ?? '');
-            $contagens[$grupo] = (int) ($linha['total'] ?? 0);
-        }
-
-        return $contagens;
     }
 }
