@@ -78,7 +78,7 @@ final class RodapeTest extends CIUnitTestCase
     {
         $usuario = $this->criarUsuario();
 
-        $resposta = $this->actingAs($usuario)->get('/');
+        $resposta = $this->actingAs($usuario)->withSession()->get('/');
 
         $resposta->assertOK();
         $resposta->assertSeeElement('footer.footer');
@@ -94,7 +94,7 @@ final class RodapeTest extends CIUnitTestCase
     {
         $usuario = $this->criarUsuario();
 
-        $resposta = $this->actingAs($usuario)->get('sobre');
+        $resposta = $this->actingAs($usuario)->withSession()->get('sobre');
 
         $resposta->assertOK();
         $resposta->assertSeeElement('footer.footer');
@@ -127,6 +127,7 @@ final class RodapeTest extends CIUnitTestCase
     {
         $users = model(UserModel::class);
         $user  = new User([
+            'active'   => true,
             'username' => 'usuario.rodape',
             'email'    => 'rodape@example.com',
             'password' => 'SenhaForte123!',

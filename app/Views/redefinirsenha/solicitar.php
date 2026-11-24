@@ -16,7 +16,7 @@
 
         <header class="recuperacao-senha-cabecalho">
             <div>
-                <div class="recuperacao-senha-marca">PLANIFICAHUB</div>
+                <div class="recuperacao-senha-marca">PLANIFICA</div>
                 <h1 id="titulo-recuperacao" class="recuperacao-senha-titulo">Recuperação de senha</h1>
             </div>
         </header>
@@ -71,7 +71,6 @@
         </div>
 
         <footer class="recuperacao-senha-rodape">
-            Lembrou sua senha?
             <a class="recuperacao-senha-link" href="<?= url_to('login') ?>">Voltar para o login</a>
         </footer>
     </section>

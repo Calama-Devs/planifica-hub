@@ -80,6 +80,8 @@ class AuthGroups extends ShieldAuthGroups
         'contas.criar'        => 'Criar novas contas de usuário',
         'contas.editar'       => 'Editar nome de outras contas e solicitar troca excepcional do e-mail com justificativa, '
             . 'efetivada após confirmação no novo endereço',
+        'contas.desativar'    => 'Desativar contas de usuário',
+        'contas.reativar'     => 'Reativar contas de usuário',
         'acessos.administrar' => 'Conceder e remover grupos e permissões das contas de usuário',
     ];
 
@@ -97,6 +99,8 @@ class AuthGroups extends ShieldAuthGroups
             'contas.consultar',
             'contas.criar',
             'contas.editar',
+            'contas.desativar',
+            'contas.reativar',
             'acessos.administrar',
         ],
         'admin' => [
@@ -123,6 +127,8 @@ class AuthGroups extends ShieldAuthGroups
         'contas.consultar',
         'contas.criar',
         'contas.editar',
+        'contas.desativar',
+        'contas.reativar',
         'acessos.administrar',
     ];
 

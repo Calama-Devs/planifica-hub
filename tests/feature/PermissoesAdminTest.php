@@ -50,7 +50,7 @@ final class PermissoesAdminTest extends CIUnitTestCase
     {
         $usuarioComum = $this->criarUsuario('user');
 
-        $resposta = $this->actingAs($usuarioComum)->get('admin/permissoes');
+        $resposta = $this->actingAs($usuarioComum)->withSession()->get('admin/permissoes');
 
         $resposta->assertRedirectTo(rtrim(site_url('/'), '/'));
         $resposta->assertSessionHas('error');
@@ -60,7 +60,7 @@ final class PermissoesAdminTest extends CIUnitTestCase
     {
         $superadmin = $this->criarUsuario('superadmin');
 
-        $resposta = $this->actingAs($superadmin)->get('admin/permissoes');
+        $resposta = $this->actingAs($superadmin)->withSession()->get('admin/permissoes');
 
         $resposta->assertOK();
         $resposta->assertSee('Catálogo de Permissões');
@@ -121,7 +121,10 @@ final class PermissoesAdminTest extends CIUnitTestCase
 
     private function criarUsuario(string $grupo): User
     {
-        $this->userModel->save(new User(['username' => 'usuario.' . $grupo . '.' . bin2hex(random_bytes(4))]));
+        $this->userModel->save(new User([
+            'username' => 'usuario.' . $grupo . '.' . bin2hex(random_bytes(4)),
+            'active' => true,
+        ]));
 
         /** @var User $usuario */
         $usuario = $this->userModel->findById($this->userModel->getInsertID());

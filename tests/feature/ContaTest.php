@@ -69,7 +69,7 @@ final class ContaTest extends CIUnitTestCase
 
     public function testCamposPermitidosDoShieldContinuamFuncionando(): void
     {
-        $usuario = $this->criarUsuario('usuario.shield');
+        $usuario = $this->criarUsuario('usuario.shield', ativo: false);
         $modelo = model(UsuarioAutenticacaoModel::class);
         $modelo->activate($usuario);
 
@@ -364,7 +364,7 @@ final class ContaTest extends CIUnitTestCase
             'senha_admin' => $this->senha,
             'groups' => ['admin'],
             'permissions' => ['contas.editar'],
-            'active' => '1',
+            'active' => '0',
             'status' => 'banned',
             'status_message' => 'Mensagem adulterada',
         ]);
@@ -1304,10 +1304,10 @@ final class ContaTest extends CIUnitTestCase
         return $correspondencias[1];
     }
 
-    private function criarUsuario(string $nome, bool $podeEditar = false): User
+    private function criarUsuario(string $nome, bool $podeEditar = false, bool $ativo = true): User
     {
         $modelo = model(UserModel::class);
-        $usuario = new User(['username' => $nome]);
+        $usuario = new User(['username' => $nome, 'active' => $ativo]);
         $modelo->save($usuario);
         $usuario = $modelo->findById($modelo->getInsertID());
         $usuario->createEmailIdentity([

@@ -21,6 +21,8 @@ final class PermissoesAdministrativasTest extends CIUnitTestCase
         'contas.consultar',
         'contas.criar',
         'contas.editar',
+        'contas.desativar',
+        'contas.reativar',
         'acessos.administrar',
     ];
 
@@ -98,13 +100,15 @@ final class PermissoesAdministrativasTest extends CIUnitTestCase
         }
     }
 
-    public function testAdminConsultaECriaContasSemAdministrarAcessos(): void
+    public function testAdminConsultaCriaEEditaContasSemGerenciarSituacaoOuAcessos(): void
     {
         $usuario = $this->criarUsuario('admin');
 
         $this->assertTrue($usuario->can('contas.consultar'));
         $this->assertTrue($usuario->can('contas.criar'));
         $this->assertTrue($usuario->can('contas.editar'));
+        $this->assertFalse($usuario->can('contas.desativar'));
+        $this->assertFalse($usuario->can('contas.reativar'));
         $this->assertFalse($usuario->can('acessos.administrar'));
     }
 
@@ -150,7 +154,7 @@ final class PermissoesAdministrativasTest extends CIUnitTestCase
     private function criarUsuario(?string $grupo = null): User
     {
         $usuarios = model(UserModel::class);
-        $usuarios->save(new User(['username' => 'usuario.permissoes']));
+        $usuarios->save(new User(['username' => 'usuario.permissoes', 'active' => true]));
 
         /** @var User $usuario */
         $usuario = $usuarios->findById($usuarios->getInsertID());
