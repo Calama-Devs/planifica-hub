@@ -30,6 +30,11 @@
         });
     }
 
+    // Impede envio duplicado do perfil (o segundo clique chegaria com token CSRF já usado)
+    $('#formulario-perfil').on('submit', function () {
+        $('button[form="formulario-perfil"]').prop('disabled', true);
+    });
+
     // Mostrar/ocultar senha
     $(document).on('click', '.btn-toggle-senha', function () {
         var alvo = $($(this).data('alvo'));
