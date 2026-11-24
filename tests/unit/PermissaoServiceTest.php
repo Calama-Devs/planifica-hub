@@ -130,4 +130,45 @@ final class PermissaoServiceTest extends CIUnitTestCase
             $authGroups->permissions['contas.consultar']
         );
     }
+
+    public function testListarGruposRetornaContagemDeUsuariosVinculadosEIndicacaoDeProtecao(): void
+    {
+        $usuarios = model(UserModel::class);
+        $usuarios->save(new User(['username' => 'operador.admin']));
+        /** @var User $admin */
+        $admin = $usuarios->findById($usuarios->getInsertID());
+        $admin->addGroup('admin');
+
+        $resultado = $this->service->listarGrupos(0, 10);
+
+        $this->assertSame(5, $resultado['total']);
+        $this->assertSame(5, $resultado['filtrados']);
+        $this->assertCount(5, $resultado['grupos']);
+
+        $porSlug = array_column($resultado['grupos'], null, 'identificador');
+        $this->assertSame(1, $porSlug['superadmin']['usuarios_vinculados']);
+        $this->assertTrue($porSlug['superadmin']['protegido']);
+        $this->assertTrue($porSlug['user']['protegido']);
+        $this->assertSame(1, $porSlug['admin']['usuarios_vinculados']);
+        $this->assertFalse($porSlug['admin']['protegido']);
+        $this->assertSame('ativo', $porSlug['admin']['situacao']);
+    }
+
+    public function testListarGruposAplicaBuscaEPaginacaoCorretamente(): void
+    {
+        $buscaNome = $this->service->listarGrupos(0, 10, 'beta');
+        $this->assertSame(5, $buscaNome['total']);
+        $this->assertSame(1, $buscaNome['filtrados']);
+        $this->assertSame('beta', $buscaNome['grupos'][0]['identificador']);
+
+        $semResultado = $this->service->listarGrupos(0, 10, 'grupo-inexistente-xyz');
+        $this->assertSame(5, $semResultado['total']);
+        $this->assertSame(0, $semResultado['filtrados']);
+        $this->assertSame([], $semResultado['grupos']);
+
+        $pagina = $this->service->listarGrupos(1, 2);
+        $this->assertSame(5, $pagina['total']);
+        $this->assertSame(5, $pagina['filtrados']);
+        $this->assertCount(2, $pagina['grupos']);
+    }
 }
