@@ -37,6 +37,10 @@ class ConfirmacaoAdministrativa extends BaseConfig
     /**
      * Status HTTP de cada recusa da confirmação, para os endpoints JSON que a usam.
      *
+     * O 501 de CONFIRMACAO_OPERACAO_INDISPONIVEL só ocorre quando o código do servidor cita uma ação que não está
+     * em `$acoes` (o navegador nunca informa a ação). É falha de configuração do servidor, não erro de quem chamou,
+     * por isso não usa 4xx.
+     *
      * @var array<string, int>
      */
     public array $statusHttp = [

@@ -34,6 +34,8 @@ O serviço faz as verificações abaixo, nesta ordem. A primeira que falhar devo
 
 A permissão é conferida antes da senha para que quem não tem acesso à ação não consiga usar o endpoint como oráculo de senha.
 
+`CONFIRMACAO_OPERACAO_INDISPONIVEL` (501) só ocorre quando o código do servidor cita uma ação que não está no catálogo. Como o navegador nunca informa a ação, isso é falha de configuração do servidor e não erro de quem chamou, por isso o status não é 4xx.
+
 ## 3. Contrato do Serviço
 
 ```php
