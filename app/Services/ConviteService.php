@@ -86,6 +86,7 @@ class ConviteService
         $token    = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
         $db       = db_connect();
         $etapaEnvio = false;
+        $emissorId  = (int) auth()->id();
 
         $db->transException(true)->transBegin();
 
@@ -106,7 +107,7 @@ class ConviteService
             }
 
             $conviteId = $convites->insert([
-                'emissor_id'    => (int) auth()->id(),
+                'emissor_id'    => $emissorId,
                 'email'          => $email,
                 'email_pendente' => $email,
                 'token_hash'      => hash('sha256', $token),
@@ -168,9 +169,14 @@ class ConviteService
                 ];
             }
 
-            log_message('error', 'Falha na emissão do convite: {tipo}', [
-                'tipo' => $erro::class,
-            ]);
+            log_message(
+                'error',
+                'Falha na emissão do convite. Operador {emissor_id}, exceção {tipo}.',
+                [
+                'emissor_id' => $emissorId,
+                'tipo'       => $erro::class,
+                ]
+            );
 
             if ($etapaEnvio) {
                 return [
