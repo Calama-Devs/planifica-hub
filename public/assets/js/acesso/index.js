@@ -550,6 +550,13 @@ $(document).ready(function () {
         }
     }
 
+    function exibirFalhaConfirmacao(resposta) {
+        exibirAlertaConfirmacao(
+            'alert-danger',
+            resposta && resposta.mensagem ? resposta.mensagem : 'Não foi possível concluir. Recarregue a página e tente novamente.'
+        );
+    }
+
     function aoFalharConfirmacao(requisicao, situacao) {
         var resposta = requisicao.responseJSON;
         atualizarCsrf(resposta);
@@ -565,10 +572,7 @@ $(document).ready(function () {
             return;
         }
 
-        exibirAlertaConfirmacao(
-            'alert-danger',
-            resposta && resposta.mensagem ? resposta.mensagem : 'Não foi possível concluir. Recarregue a página e tente novamente.'
-        );
+        exibirFalhaConfirmacao(resposta);
     }
 
     $('#form-confirmar-senha-admin').on('submit', function (e) {
@@ -603,8 +607,15 @@ $(document).ready(function () {
             data: $.extend({ senha_admin: senhaAdmin }, requisicao.dados),
             dataType: 'json'
         }).done(function (resposta) {
-            concluida = true;
             atualizarCsrf(resposta);
+
+            // HTTP 2xx não basta: só o retorno estruturado com sucesso verdadeiro conclui a operação.
+            if (!resposta || resposta.sucesso !== true) {
+                exibirFalhaConfirmacao(resposta);
+                return;
+            }
+
+            concluida = true;
             aoConcluirConfirmacao(resposta);
         }).fail(aoFalharConfirmacao).always(function () {
             senhaAdmin = null;

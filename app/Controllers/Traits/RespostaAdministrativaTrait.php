@@ -18,7 +18,8 @@ trait RespostaAdministrativaTrait
 {
     /**
      * O status das recusas da confirmação (sessão, permissão, senha, limite de tentativas) vem do contrato em
-     * `Config\ConfirmacaoAdministrativa`; as demais falhas usam `$statusDaFalha`, definido pela operação.
+     * `Config\ConfirmacaoAdministrativa`; as demais falhas usam `$statusDaFalha`, definido pela operação. Em
+     * qualquer caso, uma recusa sai com status 4xx ou 5xx, nunca com 2xx ou 3xx.
      *
      * @param array<string, mixed> $resultado
      */
@@ -29,6 +30,15 @@ trait RespostaAdministrativaTrait
         } else {
             $codigo = (string) ($resultado['codigo'] ?? '');
             $status = config(ConfirmacaoAdministrativa::class)->statusDaRecusa($codigo) ?? $statusDaFalha;
+
+            // Para o navegador, 2xx e 3xx não são erro: uma recusa nunca sai com esse tipo de status.
+            if ($status < 400) {
+                log_message('error', 'Recusa administrativa com status {status} trocada por 500. Código {codigo}.', [
+                    'status' => $status,
+                    'codigo' => $codigo,
+                ]);
+                $status = 500;
+            }
         }
 
         // O token é regenerado a cada envio: a modal precisa do novo valor para a próxima requisição.
