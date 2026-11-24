@@ -27,7 +27,7 @@ class ConviteModel extends Model
         'email'          => 'required|valid_email|max_length[254]',
         'email_pendente' => 'permit_empty|valid_email|max_length[254]',
         'token_hash'     => 'required|regex_match[/^[a-f0-9]{64}$/]',
-        'status'         => 'required|in_list[enviado,expirado,consumido]',
+        'status'         => 'required|in_list[pendente,expirado,consumido]',
         'expira_em'      => 'required|valid_date[Y-m-d H:i:s]',
         'utilizado_em'   => 'permit_empty|valid_date[Y-m-d H:i:s]',
         'grupos'         => 'permit_empty',
@@ -53,7 +53,7 @@ class ConviteModel extends Model
     public function buscarPendenteValidoPorEmail(string $email, string $agora): ?array
     {
         return $this->where('email_pendente', $email)
-            ->where('status', 'enviado')
+            ->where('status', 'pendente')
             ->where('expira_em >', $agora)
             ->first();
     }
@@ -62,7 +62,7 @@ class ConviteModel extends Model
     {
         return $this->builder()
             ->where('email_pendente', $email)
-            ->where('status', 'enviado')
+            ->where('status', 'pendente')
             ->where('expira_em <=', $agora)
             ->update([
                 'status'         => 'expirado',
