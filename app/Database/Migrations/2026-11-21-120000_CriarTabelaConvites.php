@@ -22,10 +22,8 @@ class CriarTabelaConvites extends Migration
             'token_hash' => ['type' => 'CHAR', 'constraint' => 64],
             'status' => ['type' => 'ENUM', 'constraint' => ['enviado', 'expirado', 'consumido']],
             'expira_em' => ['type' => 'DATETIME'],
-            'enviado_em' => ['type' => 'DATETIME', 'null' => true],
             'utilizado_em' => ['type' => 'DATETIME', 'null' => true],
             'created_at' => ['type' => 'DATETIME', 'null' => true],
-            'updated_at' => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addPrimaryKey('id');
         $this->forge->addUniqueKey('email_pendente');
