@@ -61,15 +61,28 @@ body.bg-light {
 }
 
 .recuperacao-senha .form-control {
-    background-color: #11151d;
-    border-color: #2c303a;
+    background-color: #2a3038;
+    border-color: #495057;
     color: #ffffff;
 }
 
 .recuperacao-senha .form-control:focus {
-    background-color: #11151d;
+    background-color: #2a3038;
     border-color: #0090e7;
     box-shadow: 0 0 0 0.25rem rgba(0, 144, 231, 0.2);
+    color: #ffffff;
+}
+
+.recuperacao-senha .form-control:-webkit-autofill,
+.recuperacao-senha .form-control:-webkit-autofill:hover,
+.recuperacao-senha .form-control:-webkit-autofill:focus,
+.recuperacao-senha .form-control:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #2a3038 inset !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+
+.recuperacao-senha .form-control:autofill {
+    box-shadow: 0 0 0 1000px #2a3038 inset;
     color: #ffffff;
 }
 
