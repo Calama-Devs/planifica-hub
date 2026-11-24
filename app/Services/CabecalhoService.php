@@ -16,7 +16,7 @@ class CabecalhoService
             return null;
         }
 
-        $nome = trim((string) ($usuario->username ?? ''));
+        $nome = trim((string) ($usuario->nome_completo ?? $usuario->username ?? ''));
         $email = trim((string) ($usuario->email ?? ''));
 
         return [

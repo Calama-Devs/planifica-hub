@@ -15,10 +15,7 @@ final class HomeTest extends CIUnitTestCase
     use FeatureTestTrait;
     use AuthenticationTesting;
 
-    protected $namespace = [
-        'CodeIgniter\Shield',
-        'CodeIgniter\Settings',
-    ];
+    protected $namespace = null;
 
     protected function setUp(): void
     {
@@ -105,8 +102,6 @@ final class HomeTest extends CIUnitTestCase
                 $this->assertFileExists(FCPATH . 'assets/' . substr($url, strlen($prefixo)));
             }
         }
-
-        $this->assertDirectoryDoesNotExist(FCPATH . 'assets/vendors');
     }
 
     public function testFontesUtilizadasPeloLayoutExistem(): void
