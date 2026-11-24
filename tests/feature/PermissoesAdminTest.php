@@ -11,6 +11,7 @@ use CodeIgniter\Shield\Test\AuthenticationTesting;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 final class PermissoesAdminTest extends CIUnitTestCase
 {
@@ -41,9 +42,8 @@ final class PermissoesAdminTest extends CIUnitTestCase
 
     public function testAcessoNegadoParaUsuarioDeslogado(): void
     {
-        $resposta = $this->get('admin/permissoes');
-
-        $resposta->assertRedirectTo(route_to('login'));
+        $this->get('admin/permissoes')->assertRedirectTo(route_to('login'));
+        $this->get('admin/permissoes/listar')->assertRedirectTo(route_to('login'));
     }
 
     public function testAcessoNegadoParaUsuarioSemPermissaoAcessosAdministrar(): void
@@ -51,29 +51,125 @@ final class PermissoesAdminTest extends CIUnitTestCase
         $usuarioComum = $this->criarUsuario('user');
 
         $resposta = $this->actingAs($usuarioComum)->withSession()->get('admin/permissoes');
-
         $resposta->assertRedirectTo(rtrim(site_url('/'), '/'));
         $resposta->assertSessionHas('error');
     }
 
-    public function testSuperadminAcessaListagemDePermissoesComLayoutExclusivoDeConsulta(): void
+    public function testListagemNegadaParaUsuarioSemPermissaoAcessosAdministrar(): void
+    {
+        $usuarioComum = $this->criarUsuario('user');
+
+        $resposta = $this->actingAs($usuarioComum)->withSession()->get('admin/permissoes/listar');
+        $resposta->assertRedirectTo(rtrim(site_url('/'), '/'));
+        $resposta->assertSessionHas('error');
+    }
+
+    public function testSuperadminAcessaPaginaGruposEPermissoesComControlesPreparados(): void
     {
         $superadmin = $this->criarUsuario('superadmin');
 
         $resposta = $this->actingAs($superadmin)->withSession()->get('admin/permissoes');
 
         $resposta->assertOK();
-        $resposta->assertSee('Catálogo de Permissões');
-        $resposta->assertSee('contas.consultar');
-        $resposta->assertSee('contas.criar');
-        $resposta->assertSee('acessos.administrar');
+        $resposta->assertSee('Grupos e permissões');
+        $resposta->assertSee('Criar grupo');
+        $resposta->assertSee('Grupo');
+        $resposta->assertSee('Descrição');
+        $resposta->assertSee('Usuários vinculados');
+        $resposta->assertSee('Ações');
 
-        // Garante ausência total de opções manuais de CRUD na interface (Critério 2)
-        $resposta->assertDontSee('Nova Permissão');
-        $resposta->assertDontSee('Editar permissão');
-        $resposta->assertDontSee('Excluir');
-        $resposta->assertDontSee('admin/permissoes/nova');
-        $resposta->assertDontSee('admin/permissoes/editar');
+        $html = (string) $resposta->getBody();
+        $this->assertStringContainsString('id="tabela-grupos"', $html);
+        $this->assertStringContainsString('id="alerta-erro-grupos"', $html);
+        $this->assertStringContainsString('data-url="' . url_to('permissoes.grupos.listar') . '"', $html);
+        $this->assertStringContainsString('href="' . site_url('admin/permissoes/grupos/novo') . '"', $html);
+        $this->assertStringContainsString('data-destino="' . site_url('admin/permissoes/grupos/novo') . '"', $html);
+        $this->assertStringContainsString('aria-disabled="true"', $html);
+    }
+
+    public function testListagemServerSideRetornaGruposComUsuariosVinculadosEDestinos(): void
+    {
+        $superadmin = $this->criarUsuario('superadmin');
+        $this->criarUsuario('admin');
+        $this->criarUsuario('admin');
+
+        $resposta = $this->actingAs($superadmin)->get('admin/permissoes/listar?draw=2&start=0&length=10');
+        $resposta->assertOK();
+
+        $json = json_decode($resposta->getJSON(), true);
+        $this->assertIsArray($json);
+        $this->assertSame(2, $json['draw']);
+        $this->assertSame(5, $json['recordsTotal']);
+        $this->assertSame(5, $json['recordsFiltered']);
+        $this->assertCount(5, $json['data']);
+
+        $porSlug = array_column($json['data'], null, 'identificador');
+        $this->assertArrayHasKey('superadmin', $porSlug);
+        $this->assertArrayHasKey('admin', $porSlug);
+        $this->assertSame(1, $porSlug['superadmin']['usuarios_vinculados']);
+        $this->assertTrue($porSlug['superadmin']['protegido']);
+        $this->assertSame(2, $porSlug['admin']['usuarios_vinculados']);
+        $this->assertFalse($porSlug['admin']['protegido']);
+        $this->assertSame(
+            site_url('admin/permissoes/grupos/admin/editar'),
+            $porSlug['admin']['destinos']['editar']
+        );
+        $this->assertSame(
+            site_url('admin/permissoes/grupos/admin/integrantes'),
+            $porSlug['admin']['destinos']['integrantes']
+        );
+    }
+
+    public function testListagemServerSideFiltraPorNomeOuDescricaoEPagina(): void
+    {
+        $superadmin = $this->criarUsuario('superadmin');
+
+        $porNome = $this->actingAs($superadmin)->get('admin/permissoes/listar?search[value]=Desenvolvedor');
+        $porNome->assertOK();
+        $jsonNome = json_decode($porNome->getJSON(), true);
+        $this->assertSame(5, $jsonNome['recordsTotal']);
+        $this->assertSame(1, $jsonNome['recordsFiltered']);
+        $this->assertSame('developer', $jsonNome['data'][0]['identificador']);
+
+        $porDescricao = $this->actingAs($superadmin)->get(
+            'admin/permissoes/listar?search[value]=editar%20dados%20de%20contas'
+        );
+        $porDescricao->assertOK();
+        $jsonDescricao = json_decode($porDescricao->getJSON(), true);
+        $this->assertSame(1, $jsonDescricao['recordsFiltered']);
+        $this->assertSame('admin', $jsonDescricao['data'][0]['identificador']);
+
+        $paginado = $this->actingAs($superadmin)->get('admin/permissoes/listar?start=2&length=2');
+        $paginado->assertOK();
+        $jsonPaginado = json_decode($paginado->getJSON(), true);
+        $this->assertSame(5, $jsonPaginado['recordsTotal']);
+        $this->assertCount(2, $jsonPaginado['data']);
+    }
+
+    /**
+     * @param array<string, mixed> $parametros
+     */
+    #[DataProvider('provedorParametrosInvalidos')]
+    public function testListagemServerSideRecusaParametrosInvalidos(array $parametros): void
+    {
+        $superadmin = $this->criarUsuario('superadmin');
+
+        $this->actingAs($superadmin)->get('admin/permissoes/listar?' . http_build_query($parametros))
+            ->assertStatus(422);
+    }
+
+    /**
+     * @return array<string, array{0: array<string, mixed>}>
+     */
+    public static function provedorParametrosInvalidos(): array
+    {
+        return [
+            'limite acima de 100'  => [['length' => '101']],
+            'limite zero'          => [['length' => '0']],
+            'inicio negativo'      => [['start' => '-1']],
+            'pesquisa muito longa' => [['search' => ['value' => str_repeat('a', 101)]]],
+            'search malformado'    => [['search' => ['value' => ['invalido']]]],
+        ];
     }
 
     public function testRotaNovaPermissaoRetorna404ParaRequisicaoDireta(): void
@@ -123,7 +219,7 @@ final class PermissoesAdminTest extends CIUnitTestCase
     {
         $this->userModel->save(new User([
             'username' => 'usuario.' . $grupo . '.' . bin2hex(random_bytes(4)),
-            'active' => true,
+            'active'   => true,
         ]));
 
         /** @var User $usuario */
