@@ -504,7 +504,15 @@ $(document).ready(function () {
         }
 
         if (acao.tipo === 'atualizar' && acao.dadosExtras) {
-            return { url: base, dados: { nome: acao.dadosExtras.nome, email: acao.dadosExtras.email } };
+            var dados = { nome: acao.dadosExtras.nome };
+            var email = acao.dadosExtras.email;
+
+            // O servidor lê a simples presença do campo "email" como pedido de troca de e-mail: só envia com valor.
+            if (typeof email === 'string' && email.trim() !== '') {
+                dados.email = email.trim();
+            }
+
+            return { url: base, dados: dados };
         }
 
         return null;
