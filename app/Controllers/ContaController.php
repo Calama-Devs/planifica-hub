@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Controllers\Traits\RespostaAdministrativaTrait;
 use App\Services\EdicaoContaService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\HTTP\ResponseInterface;
@@ -11,6 +12,8 @@ use CodeIgniter\Shield\Entities\User;
 
 class ContaController extends BaseController
 {
+    use RespostaAdministrativaTrait;
+
     private EdicaoContaService $edicaoContaService;
 
     public function __construct()
@@ -32,7 +35,7 @@ class ContaController extends BaseController
         );
 
         if (($conta['sucesso'] ?? true) === false) {
-            return $this->jsonResponse($conta, $this->statusHttp($conta));
+            return $this->responderOperacaoAdministrativa($conta, $this->statusHttp($conta));
         }
 
         return $this->response->setHeader('Cache-Control', 'no-store')
@@ -62,7 +65,7 @@ class ContaController extends BaseController
                 && ! is_string($dados['justificativa'])
             )
         ) {
-            return $this->jsonResponse([
+            return $this->responderOperacaoAdministrativa([
                 'sucesso' => false,
                 'tipo' => 'validacao',
                 'codigo' => 'DADOS_CONTA_INVALIDOS',
@@ -81,7 +84,7 @@ class ContaController extends BaseController
             array_key_exists('justificativa', $dados),
         );
 
-        return $this->jsonResponse($resultado, $this->statusHttp($resultado));
+        return $this->responderOperacaoAdministrativa($resultado, $this->statusHttp($resultado));
     }
 
     /** @param array<string, mixed> $resultado */
@@ -97,21 +100,12 @@ class ContaController extends BaseController
         };
     }
 
-    private function jsonResponse(array $dados, int $status): ResponseInterface
-    {
-        $dados['csrf_hash'] = csrf_hash();
-
-        return $this->response->setStatusCode($status)
-            ->setHeader('Cache-Control', 'no-store')
-            ->setJSON($dados);
-    }
-
     private function obterOperadorAutorizado(): User|ResponseInterface
     {
         $operador = auth()->user();
 
         if (! $operador instanceof User) {
-            return $this->jsonResponse([
+            return $this->responderOperacaoAdministrativa([
                 'sucesso' => false,
                 'tipo' => 'permissao',
                 'codigo' => 'AUTENTICACAO_NECESSARIA',
@@ -120,7 +114,7 @@ class ContaController extends BaseController
         }
 
         if (! $operador->can('contas.editar')) {
-            return $this->jsonResponse([
+            return $this->responderOperacaoAdministrativa([
                 'sucesso' => false,
                 'tipo' => 'permissao',
                 'codigo' => 'CONTA_SEM_PERMISSAO',

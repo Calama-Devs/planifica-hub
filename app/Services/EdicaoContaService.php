@@ -20,7 +20,7 @@ use Throwable;
 class EdicaoContaService
 {
     private const PERMISSAO = 'contas.editar';
-    private const OPERACAO = 'editar_dados_conta';
+    private const OPERACAO = 'editar_conta';
     private const JUSTIFICATIVA_MINIMA = 15;
     private const JUSTIFICATIVA_MAXIMA = 500;
 
@@ -174,11 +174,12 @@ class EdicaoContaService
         }
 
         $confirmacaoRecente = $this->confirmacao->segundosRestantes($operador, self::OPERACAO, $contaId);
-        if (
-            ($emailInformado || $confirmacaoRecente === null)
-            && ! $this->confirmacao->registrar($operador, $senha, self::OPERACAO, $contaId)
-        ) {
-            return $this->falha('permissao', 'CONFIRMACAO_INVALIDA', 'Confirme a operação com sua senha atual.');
+        if ($emailInformado || $confirmacaoRecente === null) {
+            $recusa = $this->confirmacao->registrar($operador, $senha, self::OPERACAO, $contaId);
+
+            if ($recusa !== null) {
+                return $recusa;
+            }
         }
 
         $campos = [];
