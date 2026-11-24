@@ -242,17 +242,17 @@ final class ConviteControllerTest extends CIUnitTestCase
         $this->assertSame(0, model(EventoAuditoriaModel::class)->countAllResults());
     }
 
-    public function testRotasDeFinalizacaoNaoEstaoDisponiveis(): void
+    public function testFinalizacaoSemTokenExibeConviteInvalido(): void
     {
-        $this->expectException(PageNotFoundException::class);
-
-        $this->get('finalizar-cadastro');
+        $resposta = $this->get('finalizar-cadastro');
+        $resposta->assertOK();
+        $resposta->assertSee('Convite Inválido ou Cancelado');
     }
 
     private function criarUsuario(string $grupo): User
     {
         $usuarios = model(UserModel::class);
-        $usuarios->save(new User(['username' => 'usuario.convite.' . bin2hex(random_bytes(8))]));
+        $usuarios->save(new User(['username' => 'usuario.convite.' . bin2hex(random_bytes(8)), 'active' => true]));
 
         /** @var User $usuario */
         $usuario = $usuarios->findById($usuarios->getInsertID());
