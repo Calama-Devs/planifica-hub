@@ -10,6 +10,11 @@ use Config\AuthGroups;
 
 class PermissaoService
 {
+    /**
+     * Grupos nativos protegidos contra bloqueio/exclusão, independentemente de alterações no grupo padrão.
+     */
+    private const GRUPOS_PROTEGIDOS = ['superadmin', 'user'];
+
     private PermissaoModel $permissaoModel;
     private GrupoUsuarioModel $grupoUsuarioModel;
 
@@ -51,7 +56,10 @@ class PermissaoService
         $authGroups       = config(AuthGroups::class);
         $definidos        = setting('AuthGroups.groups');
         $definidos        = is_array($definidos) ? $definidos : [];
-        $gruposProtegidos = array_values(array_unique(['superadmin', (string) $authGroups->defaultGroup]));
+        $gruposProtegidos = array_values(array_unique([
+            ...self::GRUPOS_PROTEGIDOS,
+            (string) $authGroups->defaultGroup,
+        ]));
         $contagens        = $this->grupoUsuarioModel->contarUsuariosPorGrupo();
 
         $todos = [];

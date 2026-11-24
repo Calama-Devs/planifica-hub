@@ -30,6 +30,13 @@ class PermissaoController extends BaseController
         ]);
     }
 
+    /**
+     * Endpoint JSON server-side para a listagem de grupos.
+     *
+     * Retorna o envelope padronizado (`sucesso`, `tipo`, `codigo`, `mensagem`) junto às chaves
+     * exigidas pelo contrato do DataTables (`draw`, `recordsTotal`, `recordsFiltered`, `data`).
+     * Erros retornam 422 (`LISTAGEM_GRUPOS_INVALIDA`) ou 500 (`LISTAGEM_GRUPOS_INDISPONIVEL`).
+     */
     public function listarGrupos(): ResponseInterface
     {
         $pesquisa = $this->extrairTermoBusca();
@@ -116,6 +123,10 @@ class PermissaoController extends BaseController
             }
 
             return is_string($searchParam['value']) ? $searchParam['value'] : null;
+        }
+
+        if (is_string($searchParam)) {
+            return $searchParam;
         }
 
         if ($searchParam !== null) {

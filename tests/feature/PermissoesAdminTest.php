@@ -168,7 +168,7 @@ final class PermissoesAdminTest extends CIUnitTestCase
             'limite zero'          => [['length' => '0']],
             'inicio negativo'      => [['start' => '-1']],
             'pesquisa muito longa' => [['search' => ['value' => str_repeat('a', 101)]]],
-            'search malformado'    => [['search' => 'texto-simples']],
+            'search malformado'    => [['search' => ['value' => ['invalido']]]],
         ];
     }
 
