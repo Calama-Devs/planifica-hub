@@ -1,0 +1,120 @@
+/* ==========================================================================
+   Estilos específicos da página de Finalização de Cadastro (PLAN-47)
+   Seguindo o padrão do tema escuro do PlanIFica Hub e Bootstrap
+   ========================================================================== */
+
+.finalizar-cadastro-readonly {
+    background-color: #11151d !important;
+    border-color: #2c303a !important;
+    color: #8d96aa !important;
+    cursor: not-allowed;
+}
+
+.finalizar-cadastro-grupos-container {
+    background-color: #11151d;
+    border: 1px solid #2c303a;
+    border-radius: 4px;
+    min-height: 44px;
+    padding: 0.5rem 0.75rem;
+}
+
+.finalizar-cadastro-badge-grupo {
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #e8e9ee;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    padding: 0.35rem 0.65rem;
+}
+
+.finalizar-cadastro-senha-wrapper {
+    position: relative;
+}
+
+.finalizar-cadastro-btn-toggle-senha {
+    color: #8d96aa;
+    cursor: pointer;
+    padding: 0.375rem 0.75rem;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    transition: color 0.2s ease-in-out;
+    z-index: 5;
+}
+
+.finalizar-cadastro-btn-toggle-senha:hover,
+.finalizar-cadastro-btn-toggle-senha:focus {
+    color: #ffffff;
+    text-decoration: none;
+}
+
+.finalizar-cadastro-btn-toggle-senha:focus-visible {
+    outline: 2px solid #0090e7;
+    outline-offset: -2px;
+}
+
+.finalizar-cadastro-status-card {
+    background-color: #191c24;
+    border: 1px solid #2c303a;
+    border-radius: 12px;
+    padding: 2.25rem 2rem;
+    text-align: center;
+}
+
+.finalizar-cadastro-status-icon {
+    font-size: 3.5rem;
+    line-height: 1;
+    margin-bottom: 1.25rem;
+}
+
+.finalizar-cadastro-status-titulo {
+    color: #ffffff;
+    font-size: 1.35rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.finalizar-cadastro-status-texto {
+    color: #c2c6d2;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    margin-bottom: 1.75rem;
+}
+
+/* Coluna lateral esquerda do formulário/status */
+.finalizar-cadastro-col-card {
+    background-color: #191c24;
+    min-height: 100vh;
+}
+
+/* Logotipo institucional */
+.finalizar-cadastro-logo {
+    height: auto;
+    width: 36px;
+}
+
+/* Painel institucional direito (desktop) */
+.finalizar-cadastro-lateral-box {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    max-width: 600px;
+}
+
+.finalizar-cadastro-subtitulo-lateral {
+    font-size: 1rem;
+}
+
+.finalizar-cadastro-descricao-box {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.finalizar-cadastro-descricao-texto {
+    line-height: 1.6;
+}
+

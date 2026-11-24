@@ -52,22 +52,24 @@ O Shield recusa (`AuthorizationException`) qualquer permissão atribuída a um u
 
 ### 1. Na rota, com o filtro `permission` (principal)
 
-O filtro é registrado pelo Shield. Sem login, redireciona para `/login`. Sem a permissão, redireciona para `Auth::$redirects['permission_denied']` (hoje, `/`) com a mensagem na chave `error`.
+Proteja cada rota restrita do Hub e dos módulos integrados com os filtros do Shield, inclusive endpoints de formulário, AJAX e API. Use o autenticador apropriado (nas rotas web do Hub, `session`) e a permissão específica da ação quando exigida. No fluxo web, o filtro `permission` redireciona para `/login` sem login e, sem a permissão, para `Auth::$redirects['permission_denied']` (hoje, `/`) com a mensagem na chave `error`.
 
 ```php
-// app/Config/Routes.php (exemplo para a issue que criar a tela de contas)
-$routes->get('contas', 'ContaController::index', ['filter' => 'permission:contas.consultar']);
-$routes->post('contas', 'ContaController::salvar', ['filter' => 'permission:contas.criar']);
+// app/Config/Routes.php (exemplo)
+$routes->group('', ['filter' => 'session'], static function (\CodeIgniter\Router\RouteCollection $routes): void {
+    $routes->get('contas', 'ContaController::index', ['filter' => 'permission:contas.consultar']);
+    $routes->post('contas', 'ContaController::salvar', ['filter' => 'permission:contas.criar']);
+});
 ```
 
-Com mais de uma permissão (`permission:contas.consultar,contas.criar`), basta o usuário ter **uma** delas.
+Com mais de uma permissão (`permission:contas.consultar,contas.criar`), basta o usuário ter **uma** delas. Não use esse formato se a operação exigir todas: verifique cada permissão requerida no back-end.
 
 ### 2. No Service, em operação sensível
 
-Esconder o botão não protege nada: repita a checagem no back-end (regra 4 de `seguranca.md`) e devolva o retorno padronizado (manual 6.10.2).
+Em operações sensíveis, valide novamente no Service **antes de executar a regra de negócio ou escrever dados**. Use a permissão efetiva do Shield com `can()`: o usuário pode recebê-la pela matriz do grupo ou por concessão individual, desde que ela esteja no catálogo ativo. Não substitua essa verificação por uma checagem de nome de grupo, dado enviado pelo cliente ou flag da interface. Devolva o retorno padronizado (manual 6.10.2).
 
 ```php
-if (! auth()->user()->can('acessos.administrar')) {
+if (! auth()->user()?->can('acessos.administrar')) {
     return [
         'sucesso'  => false,
         'tipo'     => 'permissao',
@@ -77,9 +79,11 @@ if (! auth()->user()->can('acessos.administrar')) {
 }
 ```
 
+Permissão para a ação não garante acesso a todos os registros. Quando houver escopo por usuário, vínculo ou módulo, confira-o no servidor antes de consultar, alterar, excluir ou devolver o registro. Em ações que administram acessos, confira também se o ator pode alterar o alvo e conceder ou revogar os grupos e permissões solicitados; não permita autoelevação nem concessões além do escopo autorizado.
+
 ### 3. Na View, só para exibir ou esconder
 
-O Controller decide e entrega o resultado pronto. A View só usa `if` (manual 9.4).
+O Controller entrega o resultado pronto para apresentação. A View só usa `if` (manual 9.4). Ocultar menu, botão ou formulário não protege a operação contra requisições diretas.
 
 ```php
 // Controller
@@ -114,5 +118,5 @@ Todas as permissões são gerenciadas e versionadas de forma controlada pelo sis
 4. Conceda aos grupos em `$matrix`, explicitamente e pelo menor privilégio.
 5. Execute o seeder (`php spark db:seed PermissoesSeeder`) para atualizar a tabela local (a listagem em `/admin/permissoes` também reconcilia automaticamente permissões de código ausentes na base).
 6. Proteja a rota com `permission:` e repita a checagem no Service quando a operação for sensível.
-7. Teste (automatizado e manual) e atualize a tabela deste documento.
+7. Teste (automatizado e manual), inclusive acesso direto negado, conforme o [roteiro de testes](validacao-e-testes.md), e atualize a tabela deste documento.
 8. Na descrição da entrega, marque "Altera permissões ou regras de acesso" e informe quais grupos receberam a permissão.
