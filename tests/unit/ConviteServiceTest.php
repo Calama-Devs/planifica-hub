@@ -344,6 +344,9 @@ final class ConviteServiceTest extends CIUnitTestCase
 
     public function testPreservaConviteQuandoTransporteLancaExcecao(): void
     {
+        $arquivoLog = WRITEPATH . 'logs/log-' . date('Y-m-d') . '.log';
+        $tamanhoLogInicial = is_file($arquivoLog) ? filesize($arquivoLog) : 0;
+
         $mensagem = '';
         $this->configurarEmail(true, $mensagem, static function (): void {
             throw new RuntimeException('Falha simulada no transporte de e-mail.');
@@ -355,6 +358,13 @@ final class ConviteServiceTest extends CIUnitTestCase
         $this->assertSame('CONVITE_ENVIO_FALHOU', $resultado['codigo']);
         $this->assertSame('pendente', $convite['status']);
         $this->assertSame(1, model(EventoAuditoriaModel::class)->countAllResults());
+        $conteudoLog = file_get_contents($arquivoLog);
+        $this->assertIsString($conteudoLog);
+        $log = substr($conteudoLog, $tamanhoLogInicial);
+        $this->assertStringContainsString('Operador ' . $this->operadorId, $log);
+        $this->assertStringContainsString(RuntimeException::class, $log);
+        $this->assertStringNotContainsString('transporte-excecao@ifro.edu.br', $log);
+        $this->assertStringNotContainsString($convite['token_hash'], $log);
     }
 
     public function testNaoPersisteConviteNemAuditoriaQuandoPersistenciaFalha(): void
