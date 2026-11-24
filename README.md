@@ -8,6 +8,11 @@ diretórios e namespaces, as convenções e a política de uso seletivo do templ
 oficial. O desenvolvimento usa `develop`, a homologação usa `homolog` e a
 produção usa `main`.
 
+## Execução e uso local
+
+Consulte o [guia de execução e uso](docs/guia-operacao-local.md) para preparar o
+ambiente local, acessar as telas autenticadas e executar os testes.
+
 ## Desenvolvimento local com Docker no Linux
 
 Siga o [guia de instalação e execução local com Docker no Linux](docs/ambiente/docker-linux.md).
@@ -58,6 +63,12 @@ Filters de autenticação e autorização. O catálogo de permissões, a conven�
 de nomes e os exemplos de checagem estão em `docs/padroes/permissoes.md`.
 Links mágicos e outros fluxos por e-mail exigem configurar o remetente e o
 transporte de e-mail no `.env` antes de utilizá-los.
+
+Desativar uma conta invalida todas as sessões anteriores, inclusive de
+dispositivos que só voltarem a acessar após a reativação. Reativar permite um
+novo login, mas não restaura sessões. A migration que adiciona `versao_sessao`
+à tabela de usuários deve estar aplicada antes de usar esse código. Sessões
+existentes sem essa versão exigem novo login uma vez.
 
 ### Verificações no Windows
 

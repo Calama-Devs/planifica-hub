@@ -16,6 +16,15 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
     $routes->get('perfil', 'PerfilController::index', ['as' => 'perfil']);
     $routes->post('perfil', 'PerfilController::atualizar', ['as' => 'perfil.atualizar']);
 
+    $routes->post('admin/contas/(:segment)/desativar', 'EstadoContaController::desativar/$1', [
+        'as' => 'contas.desativar',
+        'filter' => 'permission:contas.desativar',
+    ]);
+    $routes->post('admin/contas/(:segment)/reativar', 'EstadoContaController::reativar/$1', [
+        'as' => 'contas.reativar',
+        'filter' => 'permission:contas.reativar',
+    ]);
+
     $routes->group('admin/permissoes', ['filter' => 'permission:acessos.administrar'], static function (RouteCollection $routes): void {
         $routes->get('/', 'PermissaoController::index', ['as' => 'permissoes.index']);
     });
@@ -25,7 +34,25 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
         $routes->get('/', 'AcessoController::index', ['as' => 'acessos.index']);
         $routes->get('listar', 'AcessoController::listar', ['as' => 'acessos.listar']);
     });
+
+    // A área de acessos consome estes endpoints JSON; Controller e Service repetem a autorização.
+    $routes->get('admin/contas/(:num)', 'ContaController::consultar/$1', [
+        'as' => 'contas.consultar',
+        'filter' => 'permissao-json:contas.editar',
+    ]);
+    $routes->post('admin/contas/(:num)', 'ContaController::atualizar/$1', [
+        'as' => 'contas.atualizar',
+        'filter' => 'permissao-json:contas.editar',
+    ]);
 });
+
+// Confirmação pública por link enviada ao novo endereço; o GET só mostra o formulário.
+$routes->get('confirmar-troca-email', 'ConfirmacaoEmailContaController::formulario', [
+    'as' => 'contas.email.confirmar.form',
+]);
+$routes->post('confirmar-troca-email', 'ConfirmacaoEmailContaController::confirmar', [
+    'as' => 'contas.email.confirmar',
+]);
 
 service('auth')->routes($routes, ['except' => ['logout']]);
 $routes->post('logout', '\CodeIgniter\Shield\Controllers\LoginController::logoutAction', ['as' => 'logout']);
