@@ -51,6 +51,12 @@ O catálogo de permissões, a convenção de nomes e os exemplos de checagem est
 Links mágicos e outros fluxos por e-mail exigem configurar o remetente e o
 transporte de e-mail no `.env` antes de utilizá-los.
 
+Desativar uma conta invalida todas as sessões anteriores, inclusive de
+dispositivos que só voltarem a acessar após a reativação. Reativar permite um
+novo login, mas não restaura sessões. A migration que adiciona `versao_sessao`
+à tabela de usuários deve estar aplicada antes de usar esse código. Sessões
+existentes sem essa versão exigem novo login uma vez.
+
 ### Verificações no Windows
 
 ```powershell

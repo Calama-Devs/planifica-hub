@@ -43,6 +43,8 @@ O Shield recusa (`AuthorizationException`) qualquer permissão atribuída a um u
 | `contas.consultar` | Consultar a lista e os dados das contas de usuário | `superadmin`, `admin` |
 | `contas.criar` | Criar novas contas de usuário | `superadmin`, `admin` |
 | `contas.editar` | Editar nome de outras contas e solicitar troca excepcional de e-mail com justificativa e confirmação no novo endereço | `superadmin`, `admin` |
+| `contas.desativar` | Desativar contas de usuário | `superadmin` |
+| `contas.reativar` | Reativar contas de usuário | `superadmin` |
 | `acessos.administrar` | Conceder e remover grupos e permissões das contas de usuário | `superadmin` |
 
 - `acessos.administrar` fica num contexto separado de `contas` para que uma concessão a `contas` nunca libere, por engano, a administração de acessos.

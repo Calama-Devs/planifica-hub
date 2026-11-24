@@ -8,6 +8,7 @@ use App\Services\RedefinirSenhaService;
 use App\Services\PerfilService;
 use App\Services\AcessoService;
 use App\Services\PermissaoService;
+use App\Services\EstadoContaService;
 use App\Services\EdicaoContaService;
 use App\Services\ConfirmacaoOperacaoService;
 use App\Services\ConfirmacaoEmailContaService;
@@ -30,6 +31,15 @@ use App\Services\FinalizarCadastroService;
  */
 class Services extends BaseService
 {
+    public static function estadoContaService(bool $getShared = true): EstadoContaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('estadoContaService');
+        }
+
+        return new EstadoContaService();
+    }
+
     public static function confirmacaoEmailContaService(bool $getShared = true): ConfirmacaoEmailContaService
     {
         if ($getShared) {

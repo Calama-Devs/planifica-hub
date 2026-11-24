@@ -33,8 +33,7 @@ Execute o comando abaixo, substituindo `nome-de-usuario` e `email@exemplo.com` p
 php spark shield:user create -n nome-de-usuario -e email@exemplo.com -g superadmin
 ```
 
-O comando pedirá a senha interativamente; informe-a no terminal e não a passe como argumento. 
-Ainda assim, siga as políticas locais de terminal e auditoria do ambiente. O grupo `superadmin` é o único com a permissão `acessos.administrar`, necessária para gerenciar outros acessos.
+O comando pede a senha e a confirmação no terminal; não informe a senha como argumento. No Shield 1.4.1, `create` cria a conta com `active = 0`, mesmo com `-g superadmin`. O grupo concede permissões, mas não ativa o login.
 
 Se preferir criar a conta sem grupo e atribuí-lo depois:
 
@@ -43,19 +42,30 @@ php spark shield:user create -n nome-de-usuario -e email@exemplo.com
 php spark shield:user addgroup -e email@exemplo.com -g superadmin
 ```
 
+**Nas duas formas de criação**, ative a conta recém-criada antes do primeiro login:
+
+```bash
+php spark shield:user activate -e email@exemplo.com
+```
+
+Confira o nome de usuário exibido e confirme com `y`. A ativação vale somente para a conta indicada.
+
 ---
 
 ## 3. Verificar o grupo administrativo
 
-Após criar a conta, confirme que ela existe e possui o grupo correto:
+O comando `shield:user list` identifica a conta por ID, nome e e-mail; ele não mostra o estado nem os grupos. Para verificar ambos no banco do ambiente, consulte o nome de usuário exato:
 
-```bash
-php spark shield:user list
+```sql
+SELECT u.active, gu.`group`
+FROM users AS u
+LEFT JOIN auth_groups_users AS gu ON gu.user_id = u.id
+WHERE u.username = 'nome-de-usuario' AND u.deleted_at IS NULL;
 ```
 
-Localize o usuário na lista e confirme que o grupo `superadmin` aparece associado a ele.
+Para a conta inicial, espere `active = 1` e uma linha com o grupo `superadmin`. Entre com o e-mail e a senha em uma nova sessão e abra `/admin/permissoes`: o catálogo deve ser exibido.
 
-Em seguida, acesse o sistema pelo navegador com as credenciais criadas e verifique que o login funciona normalmente.
+**Transição de um ambiente existente:** antes de passar a exigir `active = 1` no login, confira se há pelo menos um administrador operacional. Se a conta inicial criada pela CLI estiver com `active = 0`, confirme com o responsável que ela deve continuar em uso e que não foi suspensa. Só nesse caso execute o `activate` da seção 2 para essa conta e valide o acesso. Se o motivo da inatividade for desconhecido, preserve o estado até esclarecê-lo. Não ative contas em lote nem por pertencerem ao grupo `superadmin`.
 
 ---
 
