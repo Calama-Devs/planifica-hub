@@ -11,10 +11,11 @@ class ConviteController extends BaseController
     public function emitir(): ResponseInterface
     {
         $grupos = $this->request->getPost('grupos');
+        $email  = trim((string) $this->request->getPost('email'));
 
         if (
             (! is_null($grupos) && ! is_array($grupos))
-            || ! $this->validate(['email' => 'required|valid_email|max_length[254]'])
+            || ! $this->validateData(['email' => $email], ['email' => 'required|valid_email|max_length[254]'])
         ) {
             return $this->responder([
                 'sucesso'  => false,
@@ -25,8 +26,7 @@ class ConviteController extends BaseController
         }
 
         $resultado = service('conviteService')->emitirConvite(
-            (string) $this->request->getPost('email'),
-            (int) auth()->id(),
+            $email,
             is_array($grupos) ? $grupos : []
         );
 
