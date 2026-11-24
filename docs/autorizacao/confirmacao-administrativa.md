@@ -63,6 +63,7 @@ A modal de confirmação da área Gerenciamento de Usuários envia a senha **jun
 | CSRF | Obrigatório. O jQuery envia o cabeçalho `X-CSRF-TOKEN` a partir da meta tag; o token é regenerado a cada envio |
 | Resposta | JSON com `sucesso`, `tipo`, `codigo`, `mensagem`, o novo token em `csrf` (`nome` e `hash`) e o mesmo `hash` em `csrf_hash` |
 | Cache | `Cache-Control: no-store` em todas as respostas |
+| Exceção | O `GET /admin/contas/{id}` (consulta) devolve só `sucesso` e `conta` quando dá certo: leitura não regenera o token CSRF, então não há token novo a devolver. As recusas dele seguem o formato padrão |
 | Status | Sucesso é 200. Toda recusa sai com 4xx ou 5xx, nunca com 2xx ou 3xx: a modal não confia só no status HTTP |
 | Limite excedido | HTTP 429 com `espera_segundos` no JSON e o cabeçalho `Retry-After` |
 | A senha | Nunca volta na resposta |
@@ -80,6 +81,7 @@ A modal de confirmação da área Gerenciamento de Usuários envia a senha **jun
 
 **Comportamento da modal** (`public/assets/js/acesso/index.js`):
 
+- A troca de e-mail exige `justificativa` (15 a 500 caracteres) no servidor. A modal repassa o campo quando ele existir em `dadosExtras`; enquanto a tela não tiver esse campo, o servidor recusa a troca e a modal mostra a mensagem dele.
 - A mensagem do servidor aparece no alerta da própria modal, sempre com `.text()`. Sucesso usa `alert-success`; recusa usa `alert-danger`. Só `sucesso === true` no JSON conclui a operação: uma resposta 2xx sem isso é tratada como recusa.
 - O campo de senha é limpo assim que a tentativa é enviada e quando a modal fecha.
 - **Cancelar ou fechar a modal não envia nada ao servidor**, então nenhuma alteração é persistida. Durante o envio, a modal não fecha.
