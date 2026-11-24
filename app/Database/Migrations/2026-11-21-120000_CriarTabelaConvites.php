@@ -20,7 +20,7 @@ class CriarTabelaConvites extends Migration
             'email' => ['type' => 'VARCHAR', 'constraint' => 254],
             'email_pendente' => ['type' => 'VARCHAR', 'constraint' => 254, 'null' => true],
             'token_hash' => ['type' => 'CHAR', 'constraint' => 64],
-            'status' => ['type' => 'ENUM', 'constraint' => ['enviado', 'expirado', 'consumido']],
+            'status' => ['type' => 'ENUM', 'constraint' => ['pendente', 'expirado', 'consumido']],
             'expira_em' => ['type' => 'DATETIME'],
             'utilizado_em' => ['type' => 'DATETIME', 'null' => true],
             'created_at' => ['type' => 'DATETIME', 'null' => true],
