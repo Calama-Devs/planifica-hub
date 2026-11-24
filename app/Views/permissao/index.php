@@ -4,7 +4,7 @@
 
 <?= $this->section('estilos') ?>
 <link rel="stylesheet" href="<?= esc(base_url('assets/vendor/datatables.net-bs4/dataTables.bootstrap4.css'), 'attr') ?>">
-<link rel="stylesheet" href="<?= esc(base_url('assets/css/permissao/index.css'), 'attr') ?>?v=<?= filemtime(FCPATH . 'assets/css/permissao/index.css') ?>">
+<link rel="stylesheet" href="<?= esc(base_url('assets/css/permissao/index.css'), 'attr') ?>?v=<?= esc($versaoCss, 'attr') ?>">
 <?= $this->endSection() ?>
 
 <?= $this->section('conteudo') ?>
@@ -77,5 +77,5 @@
 <?= $this->section('scripts') ?>
 <script src="<?= esc(base_url('assets/vendor/datatables.net/jquery.dataTables.js'), 'attr') ?>"></script>
 <script src="<?= esc(base_url('assets/vendor/datatables.net-bs4/dataTables.bootstrap4.js'), 'attr') ?>"></script>
-<script src="<?= esc(base_url('assets/js/permissao/index.js'), 'attr') ?>?v=<?= filemtime(FCPATH . 'assets/js/permissao/index.js') ?>"></script>
+<script src="<?= esc(base_url('assets/js/permissao/index.js'), 'attr') ?>?v=<?= esc($versaoJs, 'attr') ?>"></script>
 <?= $this->endSection() ?>

@@ -25,20 +25,15 @@ class PermissaoController extends BaseController
         return view('permissao/index', [
             'urlListar'         => url_to('permissoes.grupos.listar'),
             'destinoCriarGrupo' => site_url('admin/permissoes/grupos/novo'),
+            'versaoCss'         => $this->versaoAsset('assets/css/permissao/index.css'),
+            'versaoJs'          => $this->versaoAsset('assets/js/permissao/index.js'),
         ]);
     }
 
     public function listarGrupos(): ResponseInterface
     {
-        $searchParam = $this->request->getGet('search');
-        $pesquisa    = '';
-
-        if (is_array($searchParam) && array_key_exists('value', $searchParam)) {
-            if (! is_string($searchParam['value'])) {
-                return $this->erroValidacaoListagem();
-            }
-            $pesquisa = $searchParam['value'];
-        } elseif ($searchParam !== null) {
+        $pesquisa = $this->extrairTermoBusca();
+        if ($pesquisa === null) {
             return $this->erroValidacaoListagem();
         }
 
@@ -105,6 +100,43 @@ class PermissaoController extends BaseController
                 'mensagem' => 'Não foi possível carregar os grupos. Tente novamente.',
             ]);
         }
+    }
+
+    private function extrairTermoBusca(): ?string
+    {
+        $searchParam = $this->request->getGet('search');
+
+        if (is_array($searchParam)) {
+            if (! array_key_exists('value', $searchParam)) {
+                return '';
+            }
+
+            return is_string($searchParam['value']) ? $searchParam['value'] : null;
+        }
+
+        if ($searchParam !== null) {
+            return null;
+        }
+
+        $buscaDireta = $this->request->getGet('search[value]');
+        if ($buscaDireta === null) {
+            return '';
+        }
+
+        return is_string($buscaDireta) ? $buscaDireta : null;
+    }
+
+    private function versaoAsset(string $caminhoRelativo): string
+    {
+        $caminho = FCPATH . $caminhoRelativo;
+
+        if (! is_file($caminho)) {
+            return '1';
+        }
+
+        $mtime = filemtime($caminho);
+
+        return $mtime !== false ? (string) $mtime : '1';
     }
 
     private function erroValidacaoListagem(): ResponseInterface
