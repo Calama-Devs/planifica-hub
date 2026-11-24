@@ -20,11 +20,7 @@ final class AutenticacaoTest extends CIUnitTestCase
     use DatabaseTestTrait;
     use FeatureTestTrait;
 
-    protected $namespace = [
-        'CodeIgniter\Shield',
-        'CodeIgniter\Settings',
-        'App',
-    ];
+    protected $namespace = null;
 
     private string $senha;
 

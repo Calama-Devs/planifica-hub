@@ -20,14 +20,13 @@ final class PermissoesAdministrativasTest extends CIUnitTestCase
     private const PERMISSOES_ADMINISTRATIVAS = [
         'contas.consultar',
         'contas.criar',
+        'contas.editar',
+        'contas.desativar',
+        'contas.reativar',
         'acessos.administrar',
     ];
 
-    protected $namespace = [
-        'CodeIgniter\Shield',
-        'CodeIgniter\Settings',
-        'App',
-    ];
+    protected $namespace = null;
 
     private AuthGroups $configuracao;
 
@@ -101,12 +100,15 @@ final class PermissoesAdministrativasTest extends CIUnitTestCase
         }
     }
 
-    public function testAdminConsultaECriaContasSemAdministrarAcessos(): void
+    public function testAdminConsultaCriaEEditaContasSemGerenciarSituacaoOuAcessos(): void
     {
         $usuario = $this->criarUsuario('admin');
 
         $this->assertTrue($usuario->can('contas.consultar'));
         $this->assertTrue($usuario->can('contas.criar'));
+        $this->assertTrue($usuario->can('contas.editar'));
+        $this->assertFalse($usuario->can('contas.desativar'));
+        $this->assertFalse($usuario->can('contas.reativar'));
         $this->assertFalse($usuario->can('acessos.administrar'));
     }
 

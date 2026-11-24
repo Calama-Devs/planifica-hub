@@ -34,7 +34,25 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
         $routes->get('/', 'AcessoController::index', ['as' => 'acessos.index']);
         $routes->get('listar', 'AcessoController::listar', ['as' => 'acessos.listar']);
     });
+
+    // A área de acessos consome estes endpoints JSON; Controller e Service repetem a autorização.
+    $routes->get('admin/contas/(:num)', 'ContaController::consultar/$1', [
+        'as' => 'contas.consultar',
+        'filter' => 'permissao-json:contas.editar',
+    ]);
+    $routes->post('admin/contas/(:num)', 'ContaController::atualizar/$1', [
+        'as' => 'contas.atualizar',
+        'filter' => 'permissao-json:contas.editar',
+    ]);
 });
+
+// Confirmação pública por link enviada ao novo endereço; o GET só mostra o formulário.
+$routes->get('confirmar-troca-email', 'ConfirmacaoEmailContaController::formulario', [
+    'as' => 'contas.email.confirmar.form',
+]);
+$routes->post('confirmar-troca-email', 'ConfirmacaoEmailContaController::confirmar', [
+    'as' => 'contas.email.confirmar',
+]);
 
 service('auth')->routes($routes, ['except' => ['logout']]);
 $routes->post('logout', '\CodeIgniter\Shield\Controllers\LoginController::logoutAction', ['as' => 'logout']);
@@ -47,3 +65,8 @@ $routes->get('recuperar-senha/verificar', 'RedefinirSenhaController::verificar',
 $routes->get('reset-password', 'RedefinirSenhaController::redefinir');
 $routes->post('reset-password', 'RedefinirSenhaController::atualizar');
 $routes->post('reset-password/cancelar', 'RedefinirSenhaController::cancelar');
+
+// Finalização de cadastro por convite.
+$routes->get('finalizar-cadastro', 'FinalizarCadastroController::index', ['as' => 'finalizar_cadastro']);
+$routes->post('finalizar-cadastro', 'FinalizarCadastroController::concluir', ['as' => 'finalizar_cadastro.concluir', 'filter' => 'auth-rates']);
+$routes->get('convite/finalizar', 'FinalizarCadastroController::index', ['as' => 'convite.finalizar']);

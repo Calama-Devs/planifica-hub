@@ -16,11 +16,7 @@ final class PerfilTest extends CIUnitTestCase
     use FeatureTestTrait;
     use AuthenticationTesting;
 
-    protected $namespace = [
-        'CodeIgniter\Shield',
-        'CodeIgniter\Settings',
-        'App',
-    ];
+    protected $namespace = null;
 
     private string $senha;
 
@@ -32,6 +28,17 @@ final class PerfilTest extends CIUnitTestCase
         parent::setUp();
 
         $this->senha = bin2hex(random_bytes(24));
+
+        $banco = db_connect();
+        $tabelaUsuarios = $banco->prefixTable(config('Auth')->tables['users']);
+
+        if (! $banco->fieldExists('nome_completo', $tabelaUsuarios)) {
+            $banco->query(
+                'ALTER TABLE '
+                . $banco->escapeIdentifiers($tabelaUsuarios)
+                . ' ADD COLUMN nome_completo VARCHAR(255) NULL',
+            );
+        }
     }
 
     public function testBloqueiaVisitanteSemSessao(): void
@@ -53,6 +60,18 @@ final class PerfilTest extends CIUnitTestCase
         $resposta->assertSee('perfil1@example.com');
     }
 
+    public function testExibeNomeCompletoComFallbackParaUsername(): void
+    {
+        $usuario = $this->criarUsuario('usuario.nome');
+        $this->db->table('users')->where('id', $usuario->id)->update(['nome_completo' => 'Nome Completo Atual']);
+        auth()->login(model(UserModel::class)->findById($usuario->id));
+
+        $resposta = $this->withSession($_SESSION)->get('perfil');
+
+        $resposta->assertOK();
+        $resposta->assertSee('Nome Completo Atual');
+    }
+
     public function testExibePerfilComNomeAtualEProtecaoCsrf(): void
     {
         $usuario = $this->criarUsuario('usuario.teste');
@@ -67,24 +86,21 @@ final class PerfilTest extends CIUnitTestCase
         $resposta->assertSeeElement('input[name=' . csrf_token() . ']');
     }
 
-    public function testAtualizaNomeDaContaAutenticadaMesmoComIdDeOutraContaNoFormulario(): void
+    public function testAtualizaNomeDaContaAutenticadaSemAlterarIdentidadeOuOutraConta(): void
     {
         $usuarioAtual = $this->criarUsuario('usuario.atual');
         $outroUsuario = $this->criarUsuario('usuario.outro');
         auth()->login($usuarioAtual);
 
         $resposta = $this->enviarFormulario([
-            'nome'        => 'nome.atualizado',
-            'id'          => (string) $outroUsuario->id,
-            'email'       => 'adulterado@example.com',
-            'groups'      => ['admin'],
-            'permissions' => ['acessos.administrar'],
+            'nome'        => 'José da Silva',
         ]);
 
         $resposta->assertRedirect();
         $this->seeInDatabase('users', [
             'id'       => $usuarioAtual->id,
-            'username' => 'nome.atualizado',
+            'username' => 'usuario.atual',
+            'nome_completo' => 'José da Silva',
         ]);
         $this->seeInDatabase('users', [
             'id'       => $outroUsuario->id,
@@ -94,9 +110,125 @@ final class PerfilTest extends CIUnitTestCase
             'user_id' => $usuarioAtual->id,
             'secret'  => 'perfil1@example.com',
         ]);
+        auth()->logout();
+        $usuarioAtualizado = model(UserModel::class)->findById($usuarioAtual->id);
+        $paginaPerfil      = $this->actingAs($usuarioAtualizado)->get('perfil');
+        $paginaPerfil->assertOK();
+        $this->assertStringContainsString('>Jos&eacute; da Silva</span>', $paginaPerfil->getBody());
+    }
+
+    public function testRejeitaEmailEnviadoDiretamenteNoMeuPerfil(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
+        $resposta = $this->enviarFormulario(['email' => 'adulterado@example.com']);
+
+        $resposta->assertRedirect();
+        $resposta->assertSessionHas('errors');
+        $this->seeInDatabase('users', ['id' => $usuario->id, 'nome_completo' => null]);
+        $this->seeInDatabase('auth_identities', [
+            'user_id' => $usuario->id,
+            'type' => 'email_password',
+            'secret' => 'perfil1@example.com',
+        ]);
         $this->dontSeeInDatabase('auth_identities', [
-            'user_id' => $usuarioAtual->id,
-            'secret'  => 'adulterado@example.com',
+            'user_id' => $usuario->id,
+            'secret' => 'adulterado@example.com',
+        ]);
+    }
+
+    public function testRejeitaEmailComNomeValidoSemAlterarDadosDoPerfil(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
+        $resposta = $this->enviarFormulario([
+            'nome' => 'Nome nao deve ser salvo',
+            'email' => 'adulterado@example.com',
+        ]);
+
+        $resposta->assertRedirect();
+        $resposta->assertSessionHas('errors');
+        $this->seeInDatabase('users', ['id' => $usuario->id, 'nome_completo' => null]);
+        $this->seeInDatabase('auth_identities', [
+            'user_id' => $usuario->id,
+            'type' => 'email_password',
+            'secret' => 'perfil1@example.com',
+        ]);
+    }
+
+    public function testRejeitaCampoExtraNoPerfilSemAtualizarNome(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
+        $camposSensiveis = [
+            ['groups' => ['admin']],
+            ['active' => '0'],
+            ['status' => 'banned'],
+            ['status_message' => 'Bloqueado'],
+            ['permissions' => ['contas.editar']],
+            ['username' => 'outro.usuario'],
+            ['password' => 'senha-nao-permitida'],
+            ['Password' => 'senha-nao-permitida'],
+            ['PASSWORD' => 'senha-nao-permitida'],
+            ['EMAIL' => 'outro@ifro.edu.br'],
+            ['Permissions' => ['contas.editar']],
+            ['permissions[]' => 'contas.editar'],
+            ['campo_extra' => 'valor nao permitido'],
+        ];
+
+        foreach ($camposSensiveis as $campoSensivel) {
+            $resposta = $this->enviarFormulario([
+                'nome' => 'Nome nao deve ser salvo',
+                ...$campoSensivel,
+            ]);
+
+            $resposta->assertRedirect();
+            $resposta->assertSessionHas('errors');
+            $this->seeInDatabase('users', [
+                'id' => $usuario->id,
+                'nome_completo' => null,
+                'username' => 'usuario.teste',
+                'active' => 1,
+                'status' => null,
+                'status_message' => null,
+            ]);
+        }
+
+        $this->dontSeeInDatabase('auth_groups_users', ['user_id' => $usuario->id, 'group' => 'admin']);
+        $this->dontSeeInDatabase('auth_permissions_users', [
+            'user_id' => $usuario->id,
+            'permission' => 'contas.editar',
+        ]);
+    }
+
+    public function testIgnoraCamposAuxiliaresInofensivosAoAtualizarNome(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
+        $resposta = $this->enviarFormulario([
+            'nome' => 'Nome Atualizado',
+            '_method' => 'POST',
+            'botao_salvar' => 'Salvar nome',
+        ]);
+
+        $resposta->assertRedirect();
+        $resposta->assertSessionHas('success');
+        $this->seeInDatabase('users', [
+            'id' => $usuario->id,
+            'username' => 'usuario.teste',
+            'nome_completo' => 'Nome Atualizado',
+            'active' => 1,
+            'status' => null,
+            'status_message' => null,
+        ]);
+        $this->seeInDatabase('auth_identities', [
+            'user_id' => $usuario->id,
+            'type' => 'email_password',
+            'secret' => 'perfil1@example.com',
         ]);
     }
 
@@ -105,7 +237,7 @@ final class PerfilTest extends CIUnitTestCase
         $usuario = $this->criarUsuario('usuario.teste');
         auth()->login($usuario);
 
-        $resposta = $this->enviarFormulario(['nome' => 'ab']);
+        $resposta = $this->enviarFormulario(['nome' => 'a']);
 
         $resposta->assertRedirect();
         $resposta->assertSessionHas('errors');
@@ -115,23 +247,29 @@ final class PerfilTest extends CIUnitTestCase
         ]);
     }
 
-    public function testRejeitaNomeQueJaPertenceAOutroUsuario(): void
+    public function testAceitaNomeQueJaPertenceAOutroUsuario(): void
     {
         $usuarioAtual = $this->criarUsuario('usuario.atual');
         $outroUsuario = $this->criarUsuario('usuario.existente');
         auth()->login($usuarioAtual);
 
-        $resposta = $this->enviarFormulario(['nome' => 'usuario.existente']);
+        model(\App\Models\UsuarioAutenticacaoModel::class)->update(
+            $outroUsuario->id,
+            ['nome_completo' => 'Nome Compartilhado'],
+        );
+        $resposta = $this->enviarFormulario(['nome' => 'Nome Compartilhado']);
 
         $resposta->assertRedirect();
-        $resposta->assertSessionHas('errors');
+        $resposta->assertSessionHas('success');
         $this->seeInDatabase('users', [
             'id'       => $usuarioAtual->id,
             'username' => 'usuario.atual',
+            'nome_completo' => 'Nome Compartilhado',
         ]);
         $this->seeInDatabase('users', [
             'id'       => $outroUsuario->id,
             'username' => 'usuario.existente',
+            'nome_completo' => 'Nome Compartilhado',
         ]);
     }
 
@@ -147,21 +285,23 @@ final class PerfilTest extends CIUnitTestCase
         $this->seeInDatabase('users', [
             'id'       => $usuario->id,
             'username' => 'usuario.teste',
+            'nome_completo' => null,
         ]);
     }
 
-    public function testRejeitaNomeAtualComEspacosExtras(): void
+    public function testRemoveEspacosExtrasEmNomeAtualizado(): void
     {
         $usuario = $this->criarUsuario('usuario.teste');
         auth()->login($usuario);
 
-        $resposta = $this->enviarFormulario(['nome' => ' usuario.teste ']);
+        $resposta = $this->enviarFormulario(['nome' => ' José da Silva ']);
 
         $resposta->assertRedirect();
-        $resposta->assertSessionHas('errors');
+        $resposta->assertSessionHas('success');
         $this->seeInDatabase('users', [
             'id'       => $usuario->id,
             'username' => 'usuario.teste',
+            'nome_completo' => 'José da Silva',
         ]);
     }
 
@@ -170,12 +310,13 @@ final class PerfilTest extends CIUnitTestCase
         $usuario = $this->criarUsuario('usuario.teste');
         auth()->login($usuario);
 
-        $resposta = $this->enviarFormulario(['nome' => ' nome.atualizado ']);
+        $resposta = $this->enviarFormulario(['nome' => ' Maria de Souza ']);
 
         $resposta->assertRedirect();
         $this->seeInDatabase('users', [
             'id'       => $usuario->id,
-            'username' => 'nome.atualizado',
+            'username' => 'usuario.teste',
+            'nome_completo' => 'Maria de Souza',
         ]);
     }
 
@@ -194,26 +335,19 @@ final class PerfilTest extends CIUnitTestCase
         ]);
     }
 
-    public function testAceitaRegrasConfiguradasComClosures(): void
+    public function testAceitaNomeComAcentos(): void
     {
         $usuario = $this->criarUsuario('usuario.teste');
         auth()->login($usuario);
 
-        $configuracaoAuth = config('Auth');
-        $regrasOriginais   = $configuracaoAuth->usernameValidationRules;
-        $configuracaoAuth->usernameValidationRules['rules'][] = static fn ($valor): bool => is_string($valor);
+        $resposta = $this->enviarFormulario(['nome' => 'João D’Ávila']);
 
-        try {
-            $resposta = $this->enviarFormulario(['nome' => 'nome.dinamico']);
-
-            $resposta->assertRedirect();
-            $this->seeInDatabase('users', [
-                'id'       => $usuario->id,
-                'username' => 'nome.dinamico',
-            ]);
-        } finally {
-            $configuracaoAuth->usernameValidationRules = $regrasOriginais;
-        }
+        $resposta->assertRedirect();
+        $this->seeInDatabase('users', [
+            'id' => $usuario->id,
+            'username' => 'usuario.teste',
+            'nome_completo' => 'João D’Ávila',
+        ]);
     }
 
     private function criarUsuario(string $nome): User

@@ -21,9 +21,10 @@ Você trabalha **junto com um estudante**, que é o autor e o responsável pela 
 |---|---|
 | Controllers, Services, Models, Filters, Helpers, Libraries, rotas | `docs/padroes/arquitetura-backend.md` |
 | Migrations, seeds, consultas, tabelas | `docs/padroes/banco-de-dados.md` |
+| Criação, atualização ou exclusão de dados no Hub e nos módulos integrados | `docs/auditoria.md` |
 | Views, CSS, JavaScript, formulários, AJAX | `docs/padroes/frontend.md` |
 | Qualquer código (nomes, estilo, comentários, configs) | `docs/padroes/escrita-de-codigo.md` |
-| Login, permissões, uploads, dados pessoais, entradas externas | `docs/padroes/seguranca.md` |
+| Login, permissões, uploads, dados pessoais, entradas externas | `docs/padroes/seguranca.md`; para autorização no Shield, também `docs/padroes/permissoes.md` |
 | Validação, testes, checklist de entrega | `docs/padroes/validacao-e-testes.md` |
 | Commits, branches, descrição da entrega | `docs/padroes/git-e-entrega.md` |
 | Pedido de revisão de código | `docs/padroes/revisao-de-codigo.md` |
@@ -37,6 +38,7 @@ Você trabalha **junto com um estudante**, que é o autor e o responsável pela 
 - **Nunca** armazenar senha sem `password_hash()`.
 - **Nunca** aceitar upload sem validar tipo, MIME e tamanho, sem renomear o arquivo ou salvando em `public/` sem justificativa.
 - **Nunca** devolver um registro sem conferir se ele pertence ao escopo do usuário (troca de `id` na URL não pode dar acesso a dados de outra pessoa).
+- **Nunca** confirmar uma criação, atualização ou exclusão nova ou alterada sem o evento obrigatório da auditoria centralizada na mesma transação.
 - **Nunca** registrar senhas, tokens ou dados pessoais em log, nem mostrar detalhes técnicos de erro ao usuário.
 - **Nunca** colocar credenciais, tokens, chaves ou dados pessoais reais no código, em commits, em seeds ou em testes. Não leia nem exiba o conteúdo do `.env`; use o `.env.example`.
 - **Nunca** alterar estrutura de banco sem migration.
@@ -46,7 +48,9 @@ Você trabalha **junto com um estudante**, que é o autor e o responsável pela 
 
 ## Padrões essenciais (resumo)
 
-**Arquitetura (manual 6 e 7):** Controller recebe e valida, Service faz a regra de negócio, Model acessa dados, View só apresenta. Filters cuidam de autenticação e autorização. Helpers são funções pequenas e genéricas.
+**Arquitetura (manual 6 e 7):** novas funcionalidades e alterações de operações de CRUD no Hub e nos módulos integrados usam a camada Service; reaproveite Services existentes quando adequado. Controller recebe e valida, Service executa a regra de negócio, Model acessa dados, View só apresenta. Helpers são funções pequenas e genéricas. Consulte `docs/padroes/arquitetura-backend.md`.
+
+**Auditoria e autorização:** proteja rotas restritas com os Filters do Shield e confira a permissão efetiva e o escopo no Service para operações sensíveis, quando aplicável. O Service registra eventos pelo `AuditoriaService`; Controller e View não gravam auditoria. Siga `docs/padroes/permissoes.md` e `docs/auditoria.md`.
 
 **Models:** `$returnType = 'array'`; acesso como `$aluno['nome']`. Query Builder por padrão.
 
@@ -55,7 +59,7 @@ Você trabalha **junto com um estudante**, que é o autor e o responsável pela 
 - Métodos e variáveis: camelCase (`buscarPorEmail`, `$totalAlunos`).
 - Constantes: `MAIUSCULAS_COM_UNDERSCORE`.
 - Helpers, Views, tabelas e campos: snake_case (`padronizar_cpf`, `cadastrar.php`, `usuario_permissoes`).
-- Tabelas no plural; chave estrangeira `<entidade>_id`; auditoria com `created_at`, `updated_at`, `deleted_at` (e `created_by` etc. quando aplicável).
+- Tabelas no plural; chave estrangeira `<entidade>_id`; campos de data e autoria `created_at`, `updated_at`, `deleted_at` (e `created_by` etc. quando aplicável) não substituem a auditoria centralizada.
 
 **Estilo:** PSR-12, tipos declarados em parâmetros e retornos, métodos curtos, sem código de depuração (`dd`, `var_dump`, `console.log`) nem código comentado.
 
@@ -63,7 +67,7 @@ Você trabalha **junto com um estudante**, que é o autor e o responsável pela 
 
 **Front-end:** Bootstrap primeiro, CSS e JS em `public/assets/`, evitando estilo e evento inline, `label` em todo campo, `csrf_field()` em todo formulário.
 
-**Testes (manual 16.1.7):** toda regra nova ou alterada em Services e Helpers vem com teste PHPUnit na mesma entrega. Controllers e telas: teste manual descrito na entrega.
+**Testes (manual 16.1.7):** toda regra nova ou alterada em Services e Helpers vem com teste PHPUnit na mesma entrega. Para escritas novas ou alteradas, cubra autorização, auditoria e falhas conforme `docs/padroes/validacao-e-testes.md`. Controllers e telas: teste manual descrito na entrega.
 
 ## Fluxo de trabalho do estudante (DevCore)
 
