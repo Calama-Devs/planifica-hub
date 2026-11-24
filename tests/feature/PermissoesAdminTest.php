@@ -19,11 +19,7 @@ final class PermissoesAdminTest extends CIUnitTestCase
     use FeatureTestTrait;
     use AuthenticationTesting;
 
-    protected $namespace = [
-        'CodeIgniter\Shield',
-        'CodeIgniter\Settings',
-        'App',
-    ];
+    protected $namespace = null;
 
     private UserModel $userModel;
 
@@ -54,11 +50,11 @@ final class PermissoesAdminTest extends CIUnitTestCase
     {
         $usuarioComum = $this->criarUsuario('user');
 
-        $resposta = $this->actingAs($usuarioComum)->get('admin/permissoes');
+        $resposta = $this->actingAs($usuarioComum)->withSession()->get('admin/permissoes');
         $resposta->assertRedirectTo(rtrim(site_url('/'), '/'));
         $resposta->assertSessionHas('error');
 
-        $this->actingAs($usuarioComum)->get('admin/permissoes/listar')
+        $this->withSession()->get('admin/permissoes/listar')
             ->assertRedirectTo(rtrim(site_url('/'), '/'));
     }
 
@@ -66,7 +62,7 @@ final class PermissoesAdminTest extends CIUnitTestCase
     {
         $superadmin = $this->criarUsuario('superadmin');
 
-        $resposta = $this->actingAs($superadmin)->get('admin/permissoes');
+        $resposta = $this->actingAs($superadmin)->withSession()->get('admin/permissoes');
 
         $resposta->assertOK();
         $resposta->assertSee('Grupos e permissões');
@@ -128,7 +124,9 @@ final class PermissoesAdminTest extends CIUnitTestCase
         $this->assertSame(1, $jsonNome['recordsFiltered']);
         $this->assertSame('developer', $jsonNome['data'][0]['identificador']);
 
-        $porDescricao = $this->actingAs($superadmin)->get('admin/permissoes/listar?search[value]=criar%20contas');
+        $porDescricao = $this->actingAs($superadmin)->get(
+            'admin/permissoes/listar?search[value]=editar%20dados%20de%20contas'
+        );
         $porDescricao->assertOK();
         $jsonDescricao = json_decode($porDescricao->getJSON(), true);
         $this->assertSame(1, $jsonDescricao['recordsFiltered']);
@@ -214,7 +212,7 @@ final class PermissoesAdminTest extends CIUnitTestCase
     {
         $this->userModel->save(new User([
             'username' => 'usuario.' . $grupo . '.' . bin2hex(random_bytes(4)),
-            'active'   => 1,
+            'active'   => true,
         ]));
 
         /** @var User $usuario */

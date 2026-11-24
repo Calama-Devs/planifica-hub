@@ -2,23 +2,21 @@
 
 namespace App\Services;
 
+use App\Models\IdentidadeRecuperacaoModel;
 use CodeIgniter\Shield\Authentication\Authenticators\Session;
 use CodeIgniter\Shield\Authentication\Passwords;
 use CodeIgniter\Shield\Entities\User;
-use CodeIgniter\Shield\Models\UserIdentityModel;
 use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\I18n\Time;
 use Throwable;
 
 class RedefinirSenhaService
 {
-    private const TIPO_TOKEN_REDEFINICAO = 'magic-link-reset';
+    private IdentidadeRecuperacaoModel $modeloIdentidade;
 
-    private UserIdentityModel $modeloIdentidade;
-
-    public function __construct(?UserIdentityModel $modeloIdentidade = null)
+    public function __construct(?IdentidadeRecuperacaoModel $modeloIdentidade = null)
     {
-        $this->modeloIdentidade = $modeloIdentidade ?? model(UserIdentityModel::class);
+        $this->modeloIdentidade = $modeloIdentidade ?? model(IdentidadeRecuperacaoModel::class);
     }
 
     /**
@@ -92,14 +90,15 @@ class RedefinirSenhaService
                 return;
             }
 
-            $this->modeloIdentidade->deleteIdentitiesByType($usuario, self::TIPO_TOKEN_REDEFINICAO);
+            $this->modeloIdentidade->deleteIdentitiesByType($usuario, IdentidadeRecuperacaoModel::TIPO_TOKEN);
 
             helper('text');
             $token = random_string('crypto', 20);
             $this->modeloIdentidade->insert([
                 'user_id' => $usuario->id,
-                'type'    => self::TIPO_TOKEN_REDEFINICAO,
+                'type'    => IdentidadeRecuperacaoModel::TIPO_TOKEN,
                 'secret'  => $token,
+                'extra'   => (string) $usuario->versao_sessao,
                 'expires' => Time::now()->addSeconds(setting('Auth.magicLinkLifetime')),
             ]);
 
@@ -116,7 +115,7 @@ class RedefinirSenhaService
 
             if ($emailRedefinicao->send(false) === false) {
                 log_message('error', '[RedefinirSenhaService::solicitarRedefinicao] Falha ao enviar e-mail.');
-                $this->modeloIdentidade->deleteIdentitiesByType($usuario, self::TIPO_TOKEN_REDEFINICAO);
+                $this->modeloIdentidade->deleteIdentitiesByType($usuario, IdentidadeRecuperacaoModel::TIPO_TOKEN);
             }
 
             $emailRedefinicao->clear();
@@ -135,13 +134,11 @@ class RedefinirSenhaService
     public function validarTokenRedefinicao(?string $token): array
     {
         try {
-            $identidade = $this->modeloIdentidade->getIdentityBySecret(self::TIPO_TOKEN_REDEFINICAO, $token);
+            $identidade = $this->modeloIdentidade->getIdentityBySecret(IdentidadeRecuperacaoModel::TIPO_TOKEN, $token);
 
-            if ($identidade === null) {
+            if ($identidade === null || ! $this->modeloIdentidade->consumirToken((int) $identidade->id)) {
                 return $this->erro('validacao', 'TOKEN_INVALIDO', 'Token de redefinição inválido ou expirado.');
             }
-
-            $this->modeloIdentidade->delete($identidade->id);
 
             if (Time::now()->isAfter($identidade->expires)) {
                 return $this->erro('validacao', 'TOKEN_EXPIRADO', 'Token de redefinição inválido ou expirado.');
@@ -151,7 +148,10 @@ class RedefinirSenhaService
             $modeloUsuario = model(UserModel::class);
             $usuario       = $modeloUsuario->findById($identidade->user_id);
 
-            if ($usuario === null || (int) $usuario->active !== 1) {
+            if (
+                $usuario === null || (int) $usuario->active !== 1 || (int) $usuario->versao_sessao < 1
+                || $identidade->extra !== (string) $usuario->versao_sessao
+            ) {
                 return $this->erro('permissao', 'USUARIO_INDISPONIVEL', 'Não foi possível concluir a redefinição.');
             }
 
@@ -227,10 +227,11 @@ class RedefinirSenhaService
                 return $this->erro('inesperado', 'HASH_NAO_GERADO', 'Erro ao redefinir senha.');
             }
 
-            $atualizado = $this->modeloIdentidade->update($identidade->id, [
-                'secret2'     => $hashSenha,
-                'force_reset' => 0,
-            ]);
+            $atualizado = $this->modeloIdentidade->atualizarSenhaDaContaAtiva(
+                $usuario,
+                (int) $identidade->id,
+                $hashSenha
+            );
 
             if ($atualizado === false) {
                 log_message(
