@@ -147,6 +147,7 @@ final class ConviteControllerTest extends CIUnitTestCase
     {
         $operador = $this->criarUsuario('admin');
         model(ConviteModel::class)->insert([
+            'emissor_id'    => (int) $operador->id,
             'email'          => 'pendente@ifro.edu.br',
             'email_pendente' => 'pendente@ifro.edu.br',
             'token_hash'      => hash('sha256', 'token-pendente'),
@@ -168,6 +169,24 @@ final class ConviteControllerTest extends CIUnitTestCase
             'codigo'  => 'CONVITE_PENDENTE',
         ]);
         $this->assertSame(1, model(ConviteModel::class)->countAllResults());
+    }
+
+    public function testEndpointNormalizaEspacosDoEmailAntesDaValidacao(): void
+    {
+        $operador = $this->criarUsuario('admin');
+        $this->configurarEmail(true);
+
+        $resposta = $this->actingAs($operador)
+            ->withSession($_SESSION)
+            ->post('admin/convites', [
+                'email'     => '  normalizado@ifro.edu.br  ',
+                csrf_token() => csrf_hash(),
+            ]);
+
+        $resposta->assertStatus(201);
+        $convite = model(ConviteModel::class)->where('email', 'normalizado@ifro.edu.br')->first();
+        $this->assertNotNull($convite);
+        $this->assertSame((int) $operador->id, (int) $convite['emissor_id']);
     }
 
     public function testEndpointRegistraFalhaQuandoTransporteRecusaEmail(): void
