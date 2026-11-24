@@ -14,6 +14,7 @@ class ConviteModel extends Model
     protected $returnType       = 'array';
     protected $protectFields    = true;
     protected $allowedFields    = [
+        'emissor_id',
         'email',
         'email_pendente',
         'token_hash',
@@ -24,6 +25,7 @@ class ConviteModel extends Model
     ];
 
     protected $validationRules = [
+        'emissor_id'    => 'required|is_natural_no_zero',
         'email'          => 'required|valid_email|max_length[254]',
         'email_pendente' => 'permit_empty|valid_email|max_length[254]',
         'token_hash'     => 'required|regex_match[/^[a-f0-9]{64}$/]',
