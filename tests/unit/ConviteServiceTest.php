@@ -297,22 +297,28 @@ final class ConviteServiceTest extends CIUnitTestCase
     public function testPermiteNovoConviteAposExpiracao(): void
     {
         $agora = date('Y-m-d H:i:s');
+        $email = 'expirado@ifro.edu.br';
+        $tokenHash = hash('sha256', 'expirado');
+        $expiraEm = date('Y-m-d H:i:s', strtotime('-1 minute'));
         $this->conviteModel->insert([
-            'email'          => 'expirado@ifro.edu.br',
-            'email_pendente' => 'expirado@ifro.edu.br',
-            'token_hash'      => hash('sha256', 'expirado'),
+            'email'          => $email,
+            'email_pendente' => $email,
+            'token_hash'      => $tokenHash,
             'status'         => 'enviado',
-            'expira_em'      => date('Y-m-d H:i:s', strtotime('-1 minute')),
+            'expira_em'      => $expiraEm,
         ]);
         $mensagem = '';
         $this->configurarEmail(true, $mensagem);
 
-        $resultado = (new ConviteService())->emitirConvite('expirado@ifro.edu.br', $this->operadorId);
+        $resultado = (new ConviteService())->emitirConvite($email, $this->operadorId);
         $convites  = $this->conviteModel->orderBy('id')->findAll();
 
         $this->assertTrue($resultado['sucesso']);
         $this->assertSame('expirado', $convites[0]['status']);
         $this->assertNull($convites[0]['email_pendente']);
+        $this->assertSame($email, $convites[0]['email']);
+        $this->assertSame($tokenHash, $convites[0]['token_hash']);
+        $this->assertSame($expiraEm, $convites[0]['expira_em']);
         $this->assertSame('enviado', $convites[1]['status']);
         $this->assertGreaterThanOrEqual(strtotime($agora), strtotime($convites[1]['expira_em']) - 1800);
     }
