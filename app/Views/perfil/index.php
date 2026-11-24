@@ -204,6 +204,6 @@
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
-<script src="<?= esc(base_url('assets/js/alterar-senha.js')) ?>"></script>
-<script src="<?= esc(base_url('assets/js/perfil.js')) ?>"></script>
+<script src="<?= esc(base_url('assets/js/alterar-senha.js'), 'attr') ?>?v=<?= filemtime(FCPATH . 'assets/js/alterar-senha.js') ?>"></script>
+<script src="<?= esc(base_url('assets/js/perfil.js'), 'attr') ?>?v=<?= filemtime(FCPATH . 'assets/js/perfil.js') ?>"></script>
 <?= $this->endSection() ?>

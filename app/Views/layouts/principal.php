@@ -7,8 +7,8 @@
     <title><?= $this->renderSection('titulo') ?> | PlanIFica Hub</title>
 
     <link rel="stylesheet" href="<?= esc(base_url('assets/vendor/mdi/css/materialdesignicons.min.css')) ?>">
-    <link rel="stylesheet" href="<?= base_url('assets/css/modern-vertical/style.css') ?>">
-    <link rel="stylesheet" href="<?= base_url('assets/css/custom.css') ?>">
+    <link rel="stylesheet" href="<?= esc(base_url('assets/css/modern-vertical/style.css'), 'attr') ?>?v=<?= filemtime(FCPATH . 'assets/css/modern-vertical/style.css') ?>">
+    <link rel="stylesheet" href="<?= esc(base_url('assets/css/custom.css'), 'attr') ?>?v=<?= filemtime(FCPATH . 'assets/css/custom.css') ?>">
     <?= $this->renderSection('estilos') ?>
 
     <link rel="shortcut icon" href="<?= base_url('assets/images/logo-ifro-mini.png') ?>">

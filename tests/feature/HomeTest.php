@@ -97,7 +97,8 @@ final class HomeTest extends CIUnitTestCase
             foreach ($referencias[1] as $url) {
                 $prefixo = base_url('assets/');
                 $this->assertStringStartsWith($prefixo, $url);
-                $this->assertFileExists(FCPATH . 'assets/' . substr($url, strlen($prefixo)));
+                $caminho = strtok(substr($url, strlen($prefixo)), '?');
+                $this->assertFileExists(FCPATH . 'assets/' . $caminho);
             }
         }
 
