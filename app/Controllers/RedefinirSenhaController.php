@@ -10,6 +10,8 @@ use CodeIgniter\Shield\Models\UserModel;
 
 class RedefinirSenhaController extends BaseController
 {
+    private const AUTORIZACAO_REDEFINICAO = 'autorizacaoRedefinicaoSenha';
+
     private RedefinirSenhaService $redefinirSenhaService;
 
     public function __construct()
@@ -55,8 +57,8 @@ class RedefinirSenhaController extends BaseController
         /** @var \CodeIgniter\Shield\Entities\User $usuario */
         $usuario = $resultado['usuario'];
         session()->setTempdata(
-            'redefinicaoSenhaUsuarioId',
-            (int) $usuario->id,
+            self::AUTORIZACAO_REDEFINICAO,
+            ['usuario_id' => (int) $usuario->id, 'versao_sessao' => (int) $usuario->versao_sessao],
             setting('Auth.magicLinkLifetime')
         );
 
@@ -76,7 +78,7 @@ class RedefinirSenhaController extends BaseController
 
     public function cancelar(): RedirectResponse
     {
-        if (session()->getTempdata('redefinicaoSenhaUsuarioId') === null) {
+        if (session()->getTempdata(self::AUTORIZACAO_REDEFINICAO) === null) {
             return redirect()->to(site_url('/'));
         }
 
@@ -171,9 +173,11 @@ class RedefinirSenhaController extends BaseController
 
     private function buscarUsuarioRedefinicao(): ?User
     {
-        $usuarioId = session()->getTempdata('redefinicaoSenhaUsuarioId');
+        $autorizacao = session()->getTempdata(self::AUTORIZACAO_REDEFINICAO);
+        $usuarioId = $autorizacao['usuario_id'] ?? null;
+        $versao = $autorizacao['versao_sessao'] ?? null;
 
-        if (! is_int($usuarioId) || $usuarioId < 1) {
+        if (! is_int($usuarioId) || $usuarioId < 1 || ! is_int($versao) || $versao < 1) {
             return null;
         }
 
@@ -182,7 +186,7 @@ class RedefinirSenhaController extends BaseController
 
         $usuario = $modeloUsuario->findById($usuarioId);
 
-        if ($usuario === null || (int) $usuario->active !== 1) {
+        if ($usuario === null || (int) $usuario->active !== 1 || (int) $usuario->versao_sessao !== $versao) {
             return null;
         }
 
@@ -191,6 +195,6 @@ class RedefinirSenhaController extends BaseController
 
     private function removerAutorizacaoTemporaria(): void
     {
-        session()->removeTempdata('redefinicaoSenhaUsuarioId');
+        session()->removeTempdata(self::AUTORIZACAO_REDEFINICAO);
     }
 }

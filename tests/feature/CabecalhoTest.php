@@ -91,7 +91,7 @@ final class CabecalhoTest extends CIUnitTestCase
 
     private function corpoDaPagina(User $usuario, string $uri = self::PAGINA_INTERNA): string
     {
-        $resultado = $this->actingAs($usuario)->get($uri);
+        $resultado = $this->actingAs($usuario)->withSession()->get($uri);
 
         $resultado->assertOK();
 
