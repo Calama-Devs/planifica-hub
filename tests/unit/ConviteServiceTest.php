@@ -7,6 +7,7 @@ namespace Tests\Unit;
 use Closure;
 use App\Models\ConviteModel;
 use App\Models\EventoAuditoriaModel;
+use App\Models\UsuarioAutenticacaoModel;
 use App\Services\AuditoriaService;
 use App\Services\ConviteService;
 use Config\Auth;
@@ -199,9 +200,10 @@ final class ConviteServiceTest extends CIUnitTestCase
         $this->assertSame(0, $this->conviteModel->countAllResults());
     }
 
-    public function testMantemProviderPadraoDoShieldParaAutenticacao(): void
+    public function testUsaProviderDeAutenticacaoCompativelComShield(): void
     {
-        $this->assertSame(UserModel::class, config(Auth::class)->userProvider);
+        $this->assertSame(UsuarioAutenticacaoModel::class, config(Auth::class)->userProvider);
+        $this->assertInstanceOf(UsuarioAutenticacaoModel::class, auth()->getProvider());
         $this->assertInstanceOf(UserModel::class, auth()->getProvider());
     }
 
@@ -440,7 +442,7 @@ final class ConviteServiceTest extends CIUnitTestCase
     private function criarUsuario(string $grupo): int
     {
         $usuarios = model(UserModel::class);
-        $usuarios->save(new User(['username' => 'usuario.' . bin2hex(random_bytes(8))]));
+        $usuarios->save(new User(['username' => 'usuario.' . bin2hex(random_bytes(8)), 'active' => true]));
         $usuarioId = (int) $usuarios->getInsertID();
         $usuario   = $usuarios->findById($usuarioId);
         $usuario->addGroup($grupo);
