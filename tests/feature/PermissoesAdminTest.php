@@ -80,8 +80,8 @@ final class PermissoesAdminTest extends CIUnitTestCase
         $this->assertStringContainsString('id="tabela-grupos"', $html);
         $this->assertStringContainsString('id="alerta-erro-grupos"', $html);
         $this->assertStringContainsString('data-url="' . url_to('permissoes.grupos.listar') . '"', $html);
+        $this->assertStringContainsString('href="' . site_url('admin/permissoes/grupos/novo') . '"', $html);
         $this->assertStringContainsString('data-destino="' . site_url('admin/permissoes/grupos/novo') . '"', $html);
-        $this->assertStringContainsString('disabled aria-disabled="true"', $html);
     }
 
     public function testListagemServerSideRetornaGruposComUsuariosVinculadosEDestinos(): void

@@ -42,14 +42,14 @@
 }
 
 .link-integrantes {
-    color: #9ba3c0;
+    color: #58a6ff;
     text-decoration: none;
     font-size: 0.875rem;
 }
 
-.link-integrantes:disabled {
-    color: #9ba3c0;
-    opacity: 0.9;
+.link-integrantes:hover {
+    color: #79c0ff;
+    text-decoration: underline;
 }
 
 .dataTables_wrapper .dataTables_filter {
@@ -114,9 +114,10 @@
 }
 
 /* Foco visível para navegação por teclado */
+.tabela-grupos a:focus-visible,
 .tabela-grupos button:focus-visible,
 .tabela-grupos [tabindex="0"]:focus-visible,
-.acoes-cabecalho [tabindex="0"]:focus-visible {
+.acoes-cabecalho a:focus-visible {
     outline: 2px solid #58a6ff;
     outline-offset: 2px;
     border-radius: 4px;

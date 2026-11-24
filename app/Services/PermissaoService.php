@@ -33,8 +33,7 @@ class PermissaoService
      *         usuarios_vinculados: int,
      *         situacao: string,
      *         ativo: bool,
-     *         protegido: bool,
-     *         destinos: array{editar: string, integrantes: string}
+     *         protegido: bool
      *     }>,
      *     total: int,
      *     filtrados: int
@@ -68,10 +67,6 @@ class PermissaoService
                 'situacao'            => 'ativo',
                 'ativo'               => true,
                 'protegido'           => in_array($slug, $gruposProtegidos, true),
-                'destinos'            => [
-                    'editar'      => site_url('admin/permissoes/grupos/' . rawurlencode($slug) . '/editar'),
-                    'integrantes' => site_url('admin/permissoes/grupos/' . rawurlencode($slug) . '/integrantes'),
-                ],
             ];
         }
 

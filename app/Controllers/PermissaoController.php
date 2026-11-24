@@ -74,12 +74,24 @@ class PermissaoController extends BaseController
             $termo     = trim((string) ($validados['pesquisa'] ?? ''));
 
             $listagem = $this->permissaoService->listarGrupos($inicio, $limite, $termo);
+            $grupos   = array_map(
+                static function (array $grupo): array {
+                    $slug              = rawurlencode($grupo['identificador']);
+                    $grupo['destinos'] = [
+                        'editar'      => site_url('admin/permissoes/grupos/' . $slug . '/editar'),
+                        'integrantes' => site_url('admin/permissoes/grupos/' . $slug . '/integrantes'),
+                    ];
+
+                    return $grupo;
+                },
+                $listagem['grupos'],
+            );
 
             return $this->response->setJSON([
                 'draw'            => $draw,
                 'recordsTotal'    => $listagem['total'],
                 'recordsFiltered' => $listagem['filtrados'],
-                'data'            => $listagem['grupos'],
+                'data'            => $grupos,
             ]);
         } catch (Throwable $erro) {
             log_message('error', 'Falha ao listar grupos na página de permissões ({tipo}).', [

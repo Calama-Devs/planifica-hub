@@ -28,14 +28,13 @@
             <div class="card-body acoes-cabecalho">
                 <h4 class="card-title">Ações</h4>
                 <div class="d-flex flex-wrap gap-2">
-                    <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" title="Criar grupo">
-                        <button type="button" class="btn btn-primary btn-icon-text"
-                                disabled aria-disabled="true"
-                                data-destino="<?= esc($destinoCriarGrupo, 'attr') ?>">
-                            <i class="mdi mdi-account-multiple-plus btn-icon-prepend" aria-hidden="true"></i>
-                            Criar grupo
-                        </button>
-                    </span>
+                    <a href="<?= esc($destinoCriarGrupo, 'attr') ?>"
+                       class="btn btn-primary btn-icon-text"
+                       data-destino="<?= esc($destinoCriarGrupo, 'attr') ?>"
+                       data-bs-toggle="tooltip" title="Criar grupo">
+                        <i class="mdi mdi-account-multiple-plus btn-icon-prepend" aria-hidden="true"></i>
+                        Criar grupo
+                    </a>
                 </div>
             </div>
         </div>
