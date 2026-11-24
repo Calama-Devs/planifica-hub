@@ -83,6 +83,10 @@ class PermissaoController extends BaseController
             );
 
             return $this->response->setJSON([
+                'sucesso'         => true,
+                'tipo'            => 'sucesso',
+                'codigo'          => 'LISTAGEM_GRUPOS_OK',
+                'mensagem'        => 'Grupos listados com sucesso.',
                 'draw'            => $draw,
                 'recordsTotal'    => $listagem['total'],
                 'recordsFiltered' => $listagem['filtrados'],

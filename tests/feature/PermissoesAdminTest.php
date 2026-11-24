@@ -154,7 +154,7 @@ final class PermissoesAdminTest extends CIUnitTestCase
     {
         $superadmin = $this->criarUsuario('superadmin');
 
-        $this->actingAs($superadmin)->get('admin/permissoes/listar', $parametros)
+        $this->actingAs($superadmin)->get('admin/permissoes/listar?' . http_build_query($parametros))
             ->assertStatus(422);
     }
 
