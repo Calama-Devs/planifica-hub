@@ -19,9 +19,9 @@ class ConviteService
     }
 
     /** @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string} */
-    public function emitirConvite(string $emailInformado, int $emissorId, array $gruposInformados = []): array
+    public function emitirConvite(string $emailInformado, array $gruposInformados = []): array
     {
-        $usuario = auth()->getProvider()->findById($emissorId);
+        $usuario = auth()->user();
         if ($usuario === null || ! $usuario->can('contas.criar')) {
             return [
                 'sucesso'  => false,
@@ -106,6 +106,7 @@ class ConviteService
             }
 
             $conviteId = $convites->insert([
+                'emissor_id'    => (int) auth()->id(),
                 'email'          => $email,
                 'email_pendente' => $email,
                 'token_hash'      => hash('sha256', $token),
