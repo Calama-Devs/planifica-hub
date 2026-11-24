@@ -17,6 +17,11 @@ class CriarTabelaConvites extends Migration
                 'unsigned'       => true,
                 'auto_increment' => true,
             ],
+            'emissor_id' => [
+                'type'       => 'INT',
+                'constraint' => 11,
+                'unsigned'   => true,
+            ],
             'email' => ['type' => 'VARCHAR', 'constraint' => 254],
             'email_pendente' => ['type' => 'VARCHAR', 'constraint' => 254, 'null' => true],
             'token_hash' => ['type' => 'CHAR', 'constraint' => 64],
@@ -26,6 +31,7 @@ class CriarTabelaConvites extends Migration
             'created_at' => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addPrimaryKey('id');
+        $this->forge->addForeignKey('emissor_id', 'users', 'id', onUpdate: 'CASCADE', onDelete: 'RESTRICT');
         $this->forge->addUniqueKey('email_pendente');
         $this->forge->addKey(['email', 'expira_em']);
         $this->forge->createTable('convites', true);
