@@ -179,7 +179,7 @@ final class MensagensTest extends CIUnitTestCase
     {
         $usuario = $this->criarUsuario();
 
-        $resposta = $this->actingAs($usuario)->get('sobre');
+        $resposta = $this->actingAs($usuario)->withSession()->get('sobre');
 
         $resposta->assertOK();
         $resposta->assertSee('Exemplo Funcional de Validação e Mensagens');
@@ -262,6 +262,7 @@ final class MensagensTest extends CIUnitTestCase
     {
         $users = model(UserModel::class);
         $user  = new User([
+            'active'   => true,
             'username' => 'usuario.mensagens',
             'email'    => 'mensagens@example.com',
             'password' => 'SenhaForte123!',

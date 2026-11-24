@@ -165,7 +165,7 @@ final class PerfilTest extends CIUnitTestCase
 
         $camposSensiveis = [
             ['groups' => ['admin']],
-            ['active' => '1'],
+            ['active' => '0'],
             ['status' => 'banned'],
             ['status_message' => 'Bloqueado'],
             ['permissions' => ['contas.editar']],
@@ -191,7 +191,7 @@ final class PerfilTest extends CIUnitTestCase
                 'id' => $usuario->id,
                 'nome_completo' => null,
                 'username' => 'usuario.teste',
-                'active' => 0,
+                'active' => 1,
                 'status' => null,
                 'status_message' => null,
             ]);
@@ -221,7 +221,7 @@ final class PerfilTest extends CIUnitTestCase
             'id' => $usuario->id,
             'username' => 'usuario.teste',
             'nome_completo' => 'Nome Atualizado',
-            'active' => 0,
+            'active' => 1,
             'status' => null,
             'status_message' => null,
         ]);
@@ -353,7 +353,7 @@ final class PerfilTest extends CIUnitTestCase
     private function criarUsuario(string $nome): User
     {
         $usuarios = model(UserModel::class);
-        $usuario  = new User(['username' => $nome]);
+        $usuario  = new User(['username' => $nome, 'active' => true]);
         $usuarios->save($usuario);
 
         /** @var User $usuario */

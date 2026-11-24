@@ -41,7 +41,7 @@ final class HomeTest extends CIUnitTestCase
     {
         $usuario = $this->criarUsuario();
 
-        $resposta = $this->actingAs($usuario)->get('/');
+        $resposta = $this->actingAs($usuario)->withSession()->get('/');
 
         $resposta->assertOK();
         $resposta->assertSee('PlanIFica Hub');
@@ -55,7 +55,7 @@ final class HomeTest extends CIUnitTestCase
     {
         $usuario = $this->criarUsuario();
 
-        $resposta = $this->actingAs($usuario)->get('sobre');
+        $resposta = $this->actingAs($usuario)->withSession()->get('sobre');
 
         $resposta->assertOK();
         $resposta->assertSee('Sobre o PlanIFica Hub');
@@ -77,9 +77,10 @@ final class HomeTest extends CIUnitTestCase
     public function testUsaAssetsExistentesNoLayoutDasPaginasAutenticadas(): void
     {
         $usuario = $this->criarUsuario();
+        $this->actingAs($usuario);
 
         foreach (['/', 'sobre'] as $rota) {
-            $resposta = $this->actingAs($usuario)->get($rota);
+            $resposta = $this->withSession()->get($rota);
 
             $resposta->assertOK();
             $resposta->assertSeeElement('div[id=modal-alterar-senha]');
@@ -129,6 +130,7 @@ final class HomeTest extends CIUnitTestCase
     {
         $users = model(UserModel::class);
         $user  = new User([
+            'active'   => true,
             'username' => 'usuario.layout',
             'email'    => 'layout@example.com',
             'password' => 'SenhaForte123!',
