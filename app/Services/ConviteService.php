@@ -85,6 +85,7 @@ class ConviteService
         $expiraEm = date('Y-m-d H:i:s', strtotime("+{$validadeMinutos} minutes"));
         $token    = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
         $db       = db_connect();
+        $etapaEnvio = false;
 
         $db->transException(true)->transBegin();
 
@@ -108,7 +109,7 @@ class ConviteService
                 'email'          => $email,
                 'email_pendente' => $email,
                 'token_hash'      => hash('sha256', $token),
-                'status'         => 'enviado',
+                'status'         => 'pendente',
                 'expira_em'      => $expiraEm,
                 'grupos'         => json_encode($grupos, JSON_THROW_ON_ERROR),
             ], true);
@@ -127,34 +128,12 @@ class ConviteService
             ]);
 
             if (! $db->transCommit()) {
-                throw new \RuntimeException('Não foi possível preparar o convite.');
+                throw new \RuntimeException('Não foi possível confirmar a emissão do convite.');
             }
-        } catch (Throwable) {
-            $db->transRollback();
+            $etapaEnvio    = true;
+            $linkFinalizacao = site_url('finalizar-cadastro?token=' . rawurlencode($token));
+            $emailService     = service('email');
 
-            if ($convites->buscarPendenteValidoPorEmail($email, $agora) !== null) {
-                return [
-                    'sucesso'  => false,
-                    'tipo'     => 'regra_negocio',
-                    'codigo'   => 'CONVITE_PENDENTE',
-                    'mensagem' => 'Já existe um convite válido para este e-mail.',
-                ];
-            }
-
-            log_message('error', 'Não foi possível preparar a emissão de convite.');
-
-            return [
-                'sucesso'  => false,
-                'tipo'     => 'inesperado',
-                'codigo'   => 'CONVITE_PREPARO_FALHOU',
-                'mensagem' => 'Não foi possível emitir o convite.',
-            ];
-        }
-
-        $linkFinalizacao = site_url('finalizar-cadastro?token=' . rawurlencode($token));
-        $emailService     = service('email');
-
-        try {
             $emailService->clear();
             $emailService->setMailType('html');
             $emailService->setFrom($remetenteEmail, $remetenteNome);
@@ -171,60 +150,49 @@ class ConviteService
             );
 
             $envioAceito = $emailService->send();
+            if (! $envioAceito) {
+                throw new \RuntimeException('Resultado do transporte de e-mail não confirmado.');
+            }
         } catch (Throwable $erro) {
-            log_message('error', 'Falha operacional no envio do convite: {tipo}', [
-                'tipo' => $erro::class,
-            ]);
-            $envioAceito = false;
-        }
-
-        if ($envioAceito) {
-            return [
-                'sucesso'  => true,
-                'tipo'     => 'sucesso',
-                'codigo'   => 'CONVITE_ENVIO_ACEITO',
-                'mensagem' => 'Convite enviado com sucesso.',
-            ];
-        }
-
-        $db->transException(true)->transBegin();
-
-        try {
-            if (! $convites->delete((int) $conviteId)) {
-                throw new \RuntimeException('Falha ao remover o convite não enviado.');
+            if (! $etapaEnvio) {
+                $db->transRollback();
             }
 
-            $this->auditoria->registrar([
-                'modulo'        => 'convites',
-                'acao'          => 'emitir_convite',
-                'entidade_tipo' => 'convite',
-                'entidade_id'   => (string) $conviteId,
-                'descricao'     => 'Falha no envio do convite.',
-                'resultado'     => 'erro',
+            if (! $etapaEnvio && $convites->buscarPendenteValidoPorEmail($email, $agora) !== null) {
+                return [
+                    'sucesso'  => false,
+                    'tipo'     => 'regra_negocio',
+                    'codigo'   => 'CONVITE_PENDENTE',
+                    'mensagem' => 'Já existe um convite válido para este e-mail.',
+                ];
+            }
+
+            log_message('error', 'Falha na emissão do convite: {tipo}', [
+                'tipo' => $erro::class,
             ]);
 
-            if (! $db->transCommit()) {
-                throw new \RuntimeException('Falha ao confirmar a remoção do convite não enviado.');
+            if ($etapaEnvio) {
+                return [
+                    'sucesso'  => false,
+                    'tipo'     => 'inesperado',
+                    'codigo'   => 'CONVITE_ENVIO_FALHOU',
+                    'mensagem' => 'Não foi possível confirmar o envio do convite.',
+                ];
             }
 
             return [
                 'sucesso'  => false,
                 'tipo'     => 'inesperado',
-                'codigo'   => 'CONVITE_ENVIO_FALHOU',
-                'mensagem' => 'Não foi possível enviar o convite.',
+                'codigo'   => 'CONVITE_PREPARO_FALHOU',
+                'mensagem' => 'Não foi possível emitir o convite.',
             ];
-        } catch (Throwable $erro) {
-            $db->transRollback();
-            log_message('error', 'Falha ao registrar a falha de envio do convite: {erro}', [
-                'erro' => $erro->getMessage(),
-            ]);
         }
 
         return [
-            'sucesso'  => false,
-            'tipo'     => 'inesperado',
-            'codigo'   => 'CONVITE_STATUS_FALHOU',
-            'mensagem' => 'Não foi possível concluir a emissão do convite.',
+            'sucesso'  => true,
+            'tipo'     => 'sucesso',
+            'codigo'   => 'CONVITE_ENVIO_ACEITO',
+            'mensagem' => 'Convite enviado com sucesso.',
         ];
     }
 
