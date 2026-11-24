@@ -226,7 +226,9 @@ body {
     border-color: #495057;
 }
 
-.login-2 .form-control:-webkit-autofill {
+.login-2 .form-control:-webkit-autofill,
+#formulario-perfil .form-control:-webkit-autofill,
+#formulario-trocar-senha .form-control:-webkit-autofill {
     -webkit-box-shadow: 0 0 0 1000px #2a3038 inset !important;
     -webkit-text-fill-color: #fff !important;
 }
