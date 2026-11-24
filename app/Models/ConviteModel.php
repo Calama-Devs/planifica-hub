@@ -20,7 +20,6 @@ class ConviteModel extends Model
         'status',
         'expira_em',
         'enviado_em',
-        'falhou_em',
         'grupos',
     ];
 
@@ -28,10 +27,9 @@ class ConviteModel extends Model
         'email'          => 'required|valid_email|max_length[254]',
         'email_pendente' => 'permit_empty|valid_email|max_length[254]',
         'token_hash'     => 'required|regex_match[/^[a-f0-9]{64}$/]',
-        'status'         => 'required|in_list[preparado,enviado,falha_envio,expirado]',
+        'status'         => 'required|in_list[enviado,expirado,consumido]',
         'expira_em'      => 'required|valid_date[Y-m-d H:i:s]',
         'enviado_em'     => 'permit_empty|valid_date[Y-m-d H:i:s]',
-        'falhou_em'      => 'permit_empty|valid_date[Y-m-d H:i:s]',
         'grupos'         => 'permit_empty',
     ];
 
@@ -55,7 +53,7 @@ class ConviteModel extends Model
     public function buscarPendenteValidoPorEmail(string $email, string $agora): ?array
     {
         return $this->where('email_pendente', $email)
-            ->whereIn('status', ['preparado', 'enviado'])
+            ->where('status', 'enviado')
             ->where('expira_em >', $agora)
             ->first();
     }
@@ -64,29 +62,12 @@ class ConviteModel extends Model
     {
         return $this->builder()
             ->where('email_pendente', $email)
-            ->whereIn('status', ['preparado', 'enviado'])
+            ->where('status', 'enviado')
             ->where('expira_em <=', $agora)
             ->update([
                 'status'         => 'expirado',
                 'email_pendente' => null,
                 'updated_at'     => $agora,
             ]);
-    }
-
-    public function marcarEnvioAceito(int $conviteId, string $agora): bool
-    {
-        return $this->update($conviteId, [
-            'status'     => 'enviado',
-            'enviado_em' => $agora,
-        ]);
-    }
-
-    public function marcarFalhaEnvio(int $conviteId, string $agora): bool
-    {
-        return $this->update($conviteId, [
-            'status'         => 'falha_envio',
-            'falhou_em'      => $agora,
-            'email_pendente' => null,
-        ]);
     }
 }
