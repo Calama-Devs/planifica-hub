@@ -488,22 +488,151 @@ $(document).ready(function () {
         );
     });
 
-    // Submissão do Formulário de Confirmação com Senha de Admin
-    // Sem simulação de sucesso: exibe estado explícito até integração com endpoint real.
-    $('#form-confirmar-senha-admin').on('submit', function (e) {
-        e.preventDefault();
-        var senhaAdmin = $('#admin-password-confirm').val();
+    // Confirmação de senha: a senha viaja no mesmo POST que executa a operação. O servidor confere a sessão, a
+    // permissão, a senha do próprio operador e o limite de tentativas; só depois altera algo. Cancelar a modal
+    // não envia nada.
+    var modalConfirmacao = $('#modal-confirmar-senha-admin');
+    var campoSenhaAdmin = $('#admin-password-confirm');
+    var enviandoConfirmacao = false;
 
-        if (!senhaAdmin || senhaAdmin.trim() === '') {
-            $('#admin-password-confirm').addClass('is-invalid');
+    // Endpoint de cada tipo de ação da modal. Tipos sem endpoint ainda não existem no servidor: a senha não é enviada.
+    function montarRequisicao(acao) {
+        var base = String(tableElement.data('url-contas')).replace(/\/+$/, '') + '/' + encodeURIComponent(acao.userId);
+
+        if (acao.tipo === 'desativar' || acao.tipo === 'reativar') {
+            return { url: base + '/' + acao.tipo, dados: {} };
+        }
+
+        if (acao.tipo === 'atualizar' && acao.dadosExtras) {
+            return { url: base, dados: { nome: acao.dadosExtras.nome, email: acao.dadosExtras.email } };
+        }
+
+        return null;
+    }
+
+    function exibirAlertaConfirmacao(classe, mensagem) {
+        $('#alerta-confirmar-senha')
+            .removeClass('d-none alert-danger alert-success alert-warning')
+            .addClass(classe)
+            .text(mensagem);
+    }
+
+    function definirEnvioConfirmacao(emAndamento) {
+        enviandoConfirmacao = emAndamento;
+        $('#btn-executar-confirmacao').prop('disabled', emAndamento);
+        $('#btn-cancelar-confirmacao').prop('disabled', emAndamento);
+        $('#spinner-confirmar-senha').toggleClass('d-none', !emAndamento);
+    }
+
+    // O token CSRF é regenerado a cada envio: a meta tag e os campos ocultos precisam do valor novo.
+    function atualizarCsrf(resposta) {
+        var csrf = resposta && resposta.csrf ? resposta.csrf : null;
+        var hash = csrf ? csrf.hash : (resposta ? resposta.csrf_hash : null);
+
+        if (!hash) {
             return;
         }
-        $('#admin-password-confirm').removeClass('is-invalid').val('');
 
-        $('#alerta-confirmar-senha')
-            .removeClass('d-none alert-danger alert-success')
-            .addClass('alert-warning')
-            .text('Esta ação administrativa ainda aguarda integração com o servidor. Nenhuma alteração foi realizada.');
+        var nome = csrf && csrf.nome ? csrf.nome : $('#form-confirmar-senha-admin input[type="hidden"]').first().attr('name');
+
+        $('meta[name="X-CSRF-TOKEN"]').attr('content', hash);
+        $('input[type="hidden"]').filter(function () {
+            return this.name === nome;
+        }).val(hash);
+    }
+
+    function aoConcluirConfirmacao(resposta) {
+        exibirAlertaConfirmacao('alert-success', resposta.mensagem || 'Operação concluída.');
+        $('#btn-cancelar-confirmacao').text('Fechar');
+
+        if ($.fn.DataTable && $.fn.DataTable.isDataTable(tableElement)) {
+            tableElement.DataTable().ajax.reload(null, false);
+        }
+    }
+
+    function aoFalharConfirmacao(requisicao, situacao) {
+        var resposta = requisicao.responseJSON;
+        atualizarCsrf(resposta);
+
+        // Sessão encerrada: o servidor indica o destino; sem JSON, a página protegida leva ao login.
+        if (resposta && resposta.redirecionamento) {
+            window.location.assign(resposta.redirecionamento);
+            return;
+        }
+
+        if (requisicao.status === 401 || situacao === 'parsererror') {
+            window.location.reload();
+            return;
+        }
+
+        exibirAlertaConfirmacao(
+            'alert-danger',
+            resposta && resposta.mensagem ? resposta.mensagem : 'Não foi possível concluir. Recarregue a página e tente novamente.'
+        );
+    }
+
+    $('#form-confirmar-senha-admin').on('submit', function (e) {
+        e.preventDefault();
+        if (enviandoConfirmacao) {
+            return;
+        }
+
+        var senhaAdmin = campoSenhaAdmin.val();
+
+        if (!senhaAdmin || senhaAdmin.trim() === '') {
+            campoSenhaAdmin.addClass('is-invalid');
+            return;
+        }
+        campoSenhaAdmin.removeClass('is-invalid').val('');
+
+        var requisicao = acaoPendente.tipo ? montarRequisicao(acaoPendente) : null;
+
+        if (!requisicao) {
+            senhaAdmin = null;
+            exibirAlertaConfirmacao('alert-warning', 'Esta operação ainda não está disponível. Nenhuma alteração foi realizada.');
+            return;
+        }
+
+        $('#alerta-confirmar-senha').addClass('d-none').text('');
+        definirEnvioConfirmacao(true);
+        var concluida = false;
+
+        $.ajax({
+            url: requisicao.url,
+            type: 'POST',
+            data: $.extend({ senha_admin: senhaAdmin }, requisicao.dados),
+            dataType: 'json'
+        }).done(function (resposta) {
+            concluida = true;
+            atualizarCsrf(resposta);
+            aoConcluirConfirmacao(resposta);
+        }).fail(aoFalharConfirmacao).always(function () {
+            senhaAdmin = null;
+            campoSenhaAdmin.val('');
+            definirEnvioConfirmacao(false);
+
+            if (concluida) {
+                $('#btn-executar-confirmacao').prop('disabled', true);
+            } else {
+                campoSenhaAdmin.trigger('focus');
+            }
+        });
+    });
+
+    modalConfirmacao.on('shown.bs.modal', function () {
+        campoSenhaAdmin.trigger('focus');
+    }).on('hide.bs.modal', function (evento) {
+        if (enviandoConfirmacao) {
+            evento.preventDefault();
+        }
+    }).on('hidden.bs.modal', function () {
+        // Cancelar ou fechar não envia nada ao servidor: só limpa o campo e o contexto da ação pendente.
+        campoSenhaAdmin.val('').removeClass('is-invalid');
+        $('#alerta-confirmar-senha').addClass('d-none').text('');
+        $('#btn-cancelar-confirmacao').text('Cancelar');
+        acaoPendente.tipo = null;
+        acaoPendente.userId = null;
+        acaoPendente.dadosExtras = null;
     });
 
     // Adicionar Usuário (Modal de Convite)

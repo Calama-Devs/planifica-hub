@@ -67,6 +67,7 @@
                     <table class="table table-hover align-middle mb-0 tabela-acessos" id="tabela-usuarios"
                            aria-label="Listagem e gerenciamento de usuários"
                            data-url="<?= esc(url_to('acessos.listar'), 'attr') ?>"
+                           data-url-contas="<?= esc(site_url('admin/contas'), 'attr') ?>"
                            data-situacao="<?= esc($situacao, 'attr') ?>"
                            data-traducao="<?= esc(base_url('assets/js/traducao-dataTable/pt_br.json'), 'attr') ?>">
                         <thead>
