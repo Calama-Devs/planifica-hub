@@ -23,7 +23,12 @@ class ConviteService
     {
         $usuario = auth()->getProvider()->findById($emissorId);
         if ($usuario === null || ! $usuario->can('contas.criar')) {
-            return $this->resultado('permissao', 'CONTAS_SEM_PERMISSAO', 'Sem permissão para emitir convites.');
+            return [
+                'sucesso'  => false,
+                'tipo'     => 'permissao',
+                'codigo'   => 'CONTAS_SEM_PERMISSAO',
+                'mensagem' => 'Sem permissão para emitir convites.',
+            ];
         }
 
         $grupos = $this->resolverGrupos($gruposInformados, $usuario->can('acessos.administrar'));
@@ -37,19 +42,21 @@ class ConviteService
             || ! str_ends_with($email, '@ifro.edu.br')
             || substr_count($email, '@') !== 1
         ) {
-            return $this->resultado(
-                'validacao',
-                'CONVITE_EMAIL_INVALIDO',
-                'Informe um e-mail institucional @ifro.edu.br válido.'
-            );
+            return [
+                'sucesso'  => false,
+                'tipo'     => 'validacao',
+                'codigo'   => 'CONVITE_EMAIL_INVALIDO',
+                'mensagem' => 'Informe um e-mail institucional @ifro.edu.br válido.',
+            ];
         }
 
         if (auth()->getProvider()->findByCredentials(['email' => $email]) !== null) {
-            return $this->resultado(
-                'regra_negocio',
-                'CONVITE_CONTA_EXISTENTE',
-                'Já existe uma conta cadastrada para este e-mail.'
-            );
+            return [
+                'sucesso'  => false,
+                'tipo'     => 'regra_negocio',
+                'codigo'   => 'CONVITE_CONTA_EXISTENTE',
+                'mensagem' => 'Já existe uma conta cadastrada para este e-mail.',
+            ];
         }
 
         return $this->registrarEEnviar($email, config('Convite')->validadeMinutos, $grupos);
@@ -65,11 +72,12 @@ class ConviteService
         if (filter_var($remetenteEmail, FILTER_VALIDATE_EMAIL) === false) {
             log_message('error', 'Configuração do remetente de e-mail ausente ou inválida.');
 
-            return $this->resultado(
-                'inesperado',
-                'CONVITE_REMETENTE_INVALIDO',
-                'Não foi possível enviar o convite. Verifique a configuração de e-mail.'
-            );
+            return [
+                'sucesso'  => false,
+                'tipo'     => 'inesperado',
+                'codigo'   => 'CONVITE_REMETENTE_INVALIDO',
+                'mensagem' => 'Não foi possível enviar o convite. Verifique a configuração de e-mail.',
+            ];
         }
 
         $convites = model(ConviteModel::class);
@@ -88,39 +96,59 @@ class ConviteService
             if ($convites->buscarPendenteValidoPorEmail($email, $agora) !== null) {
                 $db->transRollback();
 
-                return $this->resultado(
-                    'regra_negocio',
-                    'CONVITE_PENDENTE',
-                    'Já existe um convite válido para este e-mail.'
-                );
+                return [
+                    'sucesso'  => false,
+                    'tipo'     => 'regra_negocio',
+                    'codigo'   => 'CONVITE_PENDENTE',
+                    'mensagem' => 'Já existe um convite válido para este e-mail.',
+                ];
             }
 
             $conviteId = $convites->insert([
                 'email'          => $email,
                 'email_pendente' => $email,
                 'token_hash'      => hash('sha256', $token),
-                'status'         => 'preparado',
+                'status'         => 'enviado',
                 'expira_em'      => $expiraEm,
                 'grupos'         => json_encode($grupos, JSON_THROW_ON_ERROR),
             ], true);
 
-            if ($conviteId === false || ! $db->transCommit()) {
+            if ($conviteId === false) {
+                throw new \RuntimeException('Não foi possível preparar o convite.');
+            }
+
+            $this->auditoria->registrar([
+                'modulo'        => 'convites',
+                'acao'          => 'emitir_convite',
+                'entidade_tipo' => 'convite',
+                'entidade_id'   => (string) $conviteId,
+                'descricao'     => 'Convite registrado para envio.',
+                'resultado'     => 'concluida',
+            ]);
+
+            if (! $db->transCommit()) {
                 throw new \RuntimeException('Não foi possível preparar o convite.');
             }
         } catch (Throwable) {
             $db->transRollback();
 
             if ($convites->buscarPendenteValidoPorEmail($email, $agora) !== null) {
-                return $this->resultado(
-                    'regra_negocio',
-                    'CONVITE_PENDENTE',
-                    'Já existe um convite válido para este e-mail.'
-                );
+                return [
+                    'sucesso'  => false,
+                    'tipo'     => 'regra_negocio',
+                    'codigo'   => 'CONVITE_PENDENTE',
+                    'mensagem' => 'Já existe um convite válido para este e-mail.',
+                ];
             }
 
             log_message('error', 'Não foi possível preparar a emissão de convite.');
 
-            return $this->resultado('inesperado', 'CONVITE_PREPARO_FALHOU', 'Não foi possível emitir o convite.');
+            return [
+                'sucesso'  => false,
+                'tipo'     => 'inesperado',
+                'codigo'   => 'CONVITE_PREPARO_FALHOU',
+                'mensagem' => 'Não foi possível emitir o convite.',
+            ];
         }
 
         $linkFinalizacao = site_url('finalizar-cadastro?token=' . rawurlencode($token));
@@ -150,79 +178,54 @@ class ConviteService
             $envioAceito = false;
         }
 
-        $momentoResultado = date('Y-m-d H:i:s');
-
         if ($envioAceito) {
-            $db->transException(true)->transBegin();
-
-            try {
-                if (! $convites->marcarEnvioAceito((int) $conviteId, $momentoResultado)) {
-                    throw new \RuntimeException('Falha ao atualizar o estado do convite.');
-                }
-
-                $this->registrarAuditoriaEmissao((int) $conviteId, 'concluida', 'Convite emitido com sucesso.');
-
-                if (! $db->transCommit()) {
-                    throw new \RuntimeException('Falha ao confirmar o estado do convite.');
-                }
-
-                return $this->resultado('sucesso', 'CONVITE_ENVIO_ACEITO', 'Convite enviado com sucesso.', true);
-            } catch (Throwable $erro) {
-                $db->transRollback();
-                log_message('error', 'Falha ao registrar auditoria da emissao do convite: {erro}', [
-                    'erro' => $erro->getMessage(),
-                ]);
-
-                if ($convites->marcarFalhaEnvio((int) $conviteId, $momentoResultado)) {
-                    return $this->resultado(
-                        'inesperado',
-                        'CONVITE_STATUS_FALHOU',
-                        'Não foi possível concluir a emissão do convite.'
-                    );
-                }
-            }
-        } elseif ($convites->marcarFalhaEnvio((int) $conviteId, $momentoResultado)) {
-            try {
-                $this->registrarAuditoriaEmissao((int) $conviteId, 'erro', 'Falha no envio do convite.');
-            } catch (Throwable $erro) {
-                log_message('error', 'Falha ao registrar auditoria da tentativa de envio do convite: {tipo}', [
-                    'tipo' => $erro::class,
-                ]);
-            }
-
-            return $this->resultado('inesperado', 'CONVITE_ENVIO_FALHOU', 'Não foi possível enviar o convite.');
+            return [
+                'sucesso'  => true,
+                'tipo'     => 'sucesso',
+                'codigo'   => 'CONVITE_ENVIO_ACEITO',
+                'mensagem' => 'Convite enviado com sucesso.',
+            ];
         }
 
-        log_message('error', 'Não foi possível atualizar o estado do envio do convite.');
+        $db->transException(true)->transBegin();
 
-        return $this->resultado(
-            'inesperado',
-            'CONVITE_STATUS_FALHOU',
-            'Não foi possível concluir a emissão do convite.'
-        );
-    }
+        try {
+            if (! $convites->delete((int) $conviteId)) {
+                throw new \RuntimeException('Falha ao remover o convite não enviado.');
+            }
 
-    /** @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string} */
-    private function resultado(string $tipo, string $codigo, string $mensagem, bool $sucesso = false): array
-    {
+            $this->auditoria->registrar([
+                'modulo'        => 'convites',
+                'acao'          => 'emitir_convite',
+                'entidade_tipo' => 'convite',
+                'entidade_id'   => (string) $conviteId,
+                'descricao'     => 'Falha no envio do convite.',
+                'resultado'     => 'erro',
+            ]);
+
+            if (! $db->transCommit()) {
+                throw new \RuntimeException('Falha ao confirmar a remoção do convite não enviado.');
+            }
+
+            return [
+                'sucesso'  => false,
+                'tipo'     => 'inesperado',
+                'codigo'   => 'CONVITE_ENVIO_FALHOU',
+                'mensagem' => 'Não foi possível enviar o convite.',
+            ];
+        } catch (Throwable $erro) {
+            $db->transRollback();
+            log_message('error', 'Falha ao registrar a falha de envio do convite: {erro}', [
+                'erro' => $erro->getMessage(),
+            ]);
+        }
+
         return [
-            'sucesso'  => $sucesso,
-            'tipo'     => $tipo,
-            'codigo'   => $codigo,
-            'mensagem' => $mensagem,
+            'sucesso'  => false,
+            'tipo'     => 'inesperado',
+            'codigo'   => 'CONVITE_STATUS_FALHOU',
+            'mensagem' => 'Não foi possível concluir a emissão do convite.',
         ];
-    }
-
-    private function registrarAuditoriaEmissao(int $conviteId, string $resultado, string $descricao): void
-    {
-        $this->auditoria->registrar([
-            'modulo'        => 'convites',
-            'acao'          => 'emitir_convite',
-            'entidade_tipo' => 'convite',
-            'entidade_id'   => (string) $conviteId,
-            'descricao'     => $descricao,
-            'resultado'     => $resultado,
-        ]);
     }
 
     /** @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string}|list<string> */
@@ -232,7 +235,12 @@ class ConviteService
 
         foreach ($gruposInformados as $grupo) {
             if (! is_string($grupo) || trim($grupo) === '') {
-                return $this->resultado('validacao', 'CONVITE_GRUPO_INVALIDO', 'Informe grupos válidos.');
+                return [
+                    'sucesso'  => false,
+                    'tipo'     => 'validacao',
+                    'codigo'   => 'CONVITE_GRUPO_INVALIDO',
+                    'mensagem' => 'Informe grupos válidos.',
+                ];
             }
 
             $grupos[] = trim($grupo);
@@ -244,16 +252,22 @@ class ConviteService
         $gruposDisponiveis = config(AuthGroups::class)->groups;
         foreach ($grupos as $grupo) {
             if (! array_key_exists($grupo, $gruposDisponiveis)) {
-                return $this->resultado('validacao', 'CONVITE_GRUPO_INVALIDO', 'Informe grupos válidos.');
+                return [
+                    'sucesso'  => false,
+                    'tipo'     => 'validacao',
+                    'codigo'   => 'CONVITE_GRUPO_INVALIDO',
+                    'mensagem' => 'Informe grupos válidos.',
+                ];
             }
         }
 
         if (! $podeAdministrarAcessos && $grupos !== ['user']) {
-            return $this->resultado(
-                'permissao',
-                'CONVITE_GRUPOS_SEM_PERMISSAO',
-                'Sem permissão para definir grupos no convite.'
-            );
+            return [
+                'sucesso'  => false,
+                'tipo'     => 'permissao',
+                'codigo'   => 'CONVITE_GRUPOS_SEM_PERMISSAO',
+                'mensagem' => 'Sem permissão para definir grupos no convite.',
+            ];
         }
 
         return $grupos;
