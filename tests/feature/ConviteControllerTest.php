@@ -150,7 +150,7 @@ final class ConviteControllerTest extends CIUnitTestCase
             'email'          => 'pendente@ifro.edu.br',
             'email_pendente' => 'pendente@ifro.edu.br',
             'token_hash'      => hash('sha256', 'token-pendente'),
-            'status'         => 'preparado',
+            'status'         => 'enviado',
             'expira_em'      => date('Y-m-d H:i:s', time() + 1800),
             'grupos'         => json_encode(['user'], JSON_THROW_ON_ERROR),
         ]);
@@ -190,12 +190,10 @@ final class ConviteControllerTest extends CIUnitTestCase
             'sucesso' => false,
             'codigo'  => 'CONVITE_ENVIO_FALHOU',
         ]);
-        $this->assertSame('falha_envio', $convite['status']);
-        $this->assertNull($convite['email_pendente']);
-        $this->assertNotNull($convite['falhou_em']);
+        $this->assertNull($convite);
     }
 
-    public function testEndpointInvalidaConviteQuandoAuditoriaEstaIndisponivel(): void
+    public function testEndpointImpedeEnvioQuandoAuditoriaEstaIndisponivel(): void
     {
         $operador = $this->criarUsuario('admin');
         $this->configurarEmail(true);
@@ -218,10 +216,9 @@ final class ConviteControllerTest extends CIUnitTestCase
         $resposta->assertStatus(500);
         $resposta->assertJSONFragment([
             'sucesso' => false,
-            'codigo'  => 'CONVITE_STATUS_FALHOU',
+            'codigo'  => 'CONVITE_PREPARO_FALHOU',
         ]);
-        $this->assertSame('falha_envio', $convite['status']);
-        $this->assertNull($convite['email_pendente']);
+        $this->assertNull($convite);
         $this->assertSame(0, model(EventoAuditoriaModel::class)->countAllResults());
     }
 
