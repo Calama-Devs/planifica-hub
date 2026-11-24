@@ -61,6 +61,7 @@ A modal de confirmação da área Gerenciamento de Usuários envia a senha **jun
 | CSRF | Obrigatório. O jQuery envia o cabeçalho `X-CSRF-TOKEN` a partir da meta tag; o token é regenerado a cada envio |
 | Resposta | JSON com `sucesso`, `tipo`, `codigo`, `mensagem`, o novo token em `csrf` (`nome` e `hash`) e o mesmo `hash` em `csrf_hash` |
 | Cache | `Cache-Control: no-store` em todas as respostas |
+| Status | Sucesso é 200. Toda recusa sai com 4xx ou 5xx, nunca com 2xx ou 3xx: a modal não confia só no status HTTP |
 | Limite excedido | HTTP 429 com `espera_segundos` no JSON e o cabeçalho `Retry-After` |
 | A senha | Nunca volta na resposta |
 
@@ -77,7 +78,7 @@ A modal de confirmação da área Gerenciamento de Usuários envia a senha **jun
 
 **Comportamento da modal** (`public/assets/js/acesso/index.js`):
 
-- A mensagem do servidor aparece no alerta da própria modal, sempre com `.text()`. Sucesso usa `alert-success`; recusa usa `alert-danger`.
+- A mensagem do servidor aparece no alerta da própria modal, sempre com `.text()`. Sucesso usa `alert-success`; recusa usa `alert-danger`. Só `sucesso === true` no JSON conclui a operação: uma resposta 2xx sem isso é tratada como recusa.
 - O campo de senha é limpo assim que a tentativa é enviada e quando a modal fecha.
 - **Cancelar ou fechar a modal não envia nada ao servidor**, então nenhuma alteração é persistida. Durante o envio, a modal não fecha.
 - Sessão revogada (JSON com `redirecionamento`), HTTP 401 ou resposta que não é JSON levam ao login. Quando o token CSRF some junto com a sessão, o servidor responde 403 sem JSON e a modal pede para recarregar a página.
@@ -101,7 +102,8 @@ O limite usa o `Throttler` do CodeIgniter (cache), com uma chave por operador (`
 
 ## 6. Dados Sensíveis
 
-- **Rastros de exceção:** todo método que recebe a senha como parâmetro leva `#[\SensitiveParameter]`. Sem o atributo, uma exceção lançada mais abaixo na pilha pode gravar a senha em claro no log do CodeIgniter. Isso vale para Controllers, Services e qualquer método da cadeia que receba a senha.
+- **Rastros de exceção:** todo método que recebe a senha como **parâmetro** leva `#[\SensitiveParameter]`, inclusive os privados. O rastro de uma exceção registra os argumentos de cada chamada da pilha; sem o atributo, uma exceção lançada mais abaixo pode gravar a senha em claro no log do CodeIgniter. Isso vale para Controllers, Services e qualquer método da cadeia.
+- **Variável local não entra no rastro:** a senha lida no Controller com `getPost()` e guardada em uma variável local não aparece na pilha, porque só os argumentos das chamadas aparecem. O atributo passa a ser obrigatório no instante em que a senha vira parâmetro de um método. O teste `testSenhaNaoApareceNoRastroDeExcecaoLancadaDentroDaOperacao` percorre a cadeia Controller, Service e confirmação.
 - **Origem da senha no Controller:** só `$this->request->getPost('senha_admin')`, nunca `getPostGet()` nem `getGet()`.
 - **Auditoria:** o evento da operação não inclui a senha. A confirmação em si não grava dados de negócio; cada operação audita a própria escrita.
 
