@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Database;
 
 use App\Services\ConfirmacaoAdministrativaService;
+use CodeIgniter\Shield\Authentication\Passwords;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
@@ -12,6 +13,7 @@ use CodeIgniter\Test\Mock\MockCache;
 use CodeIgniter\Test\TestLogger;
 use CodeIgniter\Throttle\Throttler;
 use Config\ConfirmacaoAdministrativa;
+use Config\Services;
 use ReflectionProperty;
 use RuntimeException;
 use Tests\Support\Traits\CriaContasTrait;
@@ -298,21 +300,38 @@ final class ConfirmacaoAdministrativaServiceTest extends CIUnitTestCase
     public function testSenhaNaoApareceNoRastroDeExcecaoDaConfirmacao(): void
     {
         $anterior = ini_set('zend.exception_ignore_args', '0');
-        $rastro = '';
-        $limitador = $this->createMock(Throttler::class);
-        $limitador->method('check')->willReturnCallback(static function () use (&$rastro): bool {
-            $rastro = (new RuntimeException())->getTraceAsString();
+        // O serviço de senhas do Shield é trocado por um que registra o rastro no ponto mais fundo da conferência.
+        // O parâmetro dele também leva o atributo. Só entram os quadros do código do aplicativo: os da infraestrutura
+        // de teste (como o helper confirmar() desta classe) recebem a senha em claro por serem do próprio teste.
+        $senhas = new class (config('Auth')) extends Passwords {
+            /** @var list<array<string, mixed>> */
+            public array $quadros = [];
 
-            return true;
-        });
+            public function verify(#[\SensitiveParameter] string $password, string $hash): bool
+            {
+                $this->quadros = array_values(array_filter(
+                    (new RuntimeException())->getTrace(),
+                    static fn (array $quadro): bool => str_starts_with($quadro['class'] ?? '', 'App\\'),
+                ));
+
+                return true;
+            }
+        };
+        Services::injectMock('passwords', $senhas);
 
         try {
-            $servico = new ConfirmacaoAdministrativaService($this->config, $limitador);
-            $servico->confirmar('desativar_conta', (int) $this->alvo->id, $this->senhaDoOperador);
+            $resultado = $this->confirmar('desativar_conta', $this->senhaDoOperador);
         } finally {
             ini_set('zend.exception_ignore_args', $anterior === false ? '1' : $anterior);
         }
 
+        self::assertInstanceOf(User::class, $resultado);
+        $rastro = print_r($senhas->quadros, true);
+        self::assertSame(
+            ['senhaConfere', 'conferirSenha', 'confirmar'],
+            array_column($senhas->quadros, 'function'),
+            'O rastro deveria atravessar os três métodos que recebem a senha.',
+        );
         self::assertStringContainsString('SensitiveParameterValue', $rastro);
         self::assertStringNotContainsString($this->senhaDoOperador, $rastro);
     }

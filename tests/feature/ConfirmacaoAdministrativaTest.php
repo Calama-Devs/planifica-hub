@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Controllers\EstadoContaController;
+use App\Services\ConfirmacaoAdministrativaService;
+use App\Services\EstadoContaService;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
@@ -13,6 +16,7 @@ use CodeIgniter\Test\TestLogger;
 use CodeIgniter\Test\TestResponse;
 use Config\ConfirmacaoAdministrativa;
 use Config\Services;
+use RuntimeException;
 use Tests\Support\Traits\CriaContasTrait;
 
 /**
@@ -219,6 +223,41 @@ final class ConfirmacaoAdministrativaTest extends CIUnitTestCase
                 self::assertFalse(TestLogger::didLog($nivel, $senha, false), 'A senha apareceu em log.');
             }
         }
+    }
+
+    public function testSenhaNaoApareceNoRastroDeExcecaoLancadaDentroDaOperacao(): void
+    {
+        $conta = $this->criarConta('conta.afetada', 'user');
+        // Confirmação que falha por exceção, com o mesmo atributo do serviço real: o rastro atravessa o Controller,
+        // o Service da operação e a confirmação.
+        $confirmacao = new class extends ConfirmacaoAdministrativaService {
+            public function confirmar(string $acao, int $alvoId, #[\SensitiveParameter] string $senha): User|array
+            {
+                throw new RuntimeException('Falha simulada na confirmação.');
+            }
+        };
+        Services::injectMock('estadoContaService', new EstadoContaService(null, null, null, $confirmacao));
+        $anterior = ini_set('zend.exception_ignore_args', '0');
+        $quadros = [];
+
+        try {
+            $this->desativarPelaRota($conta, $this->senha);
+        } catch (RuntimeException $erro) {
+            // Só os quadros do código do aplicativo: os do teste e do FeatureTestTrait recebem a senha do teste.
+            $quadros = array_values(array_filter(
+                $erro->getTrace(),
+                static fn (array $quadro): bool => str_starts_with($quadro['class'] ?? '', 'App\\'),
+            ));
+        } finally {
+            ini_set('zend.exception_ignore_args', $anterior === false ? '1' : $anterior);
+        }
+
+        $rastro = print_r($quadros, true);
+        $classes = array_column($quadros, 'class');
+        self::assertContains(EstadoContaController::class, $classes, 'A exceção deveria passar pelo Controller.');
+        self::assertContains(EstadoContaService::class, $classes, 'A exceção deveria passar pelo Service.');
+        self::assertStringContainsString('SensitiveParameterValue', $rastro);
+        self::assertStringNotContainsString($this->senha, $rastro);
     }
 
     private function desativarPelaRota(User $conta, string $senha): TestResponse
