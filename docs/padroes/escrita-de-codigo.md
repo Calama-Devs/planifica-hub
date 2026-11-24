@@ -57,9 +57,9 @@ Evitar abreviações obscuras (`$qtd2`, `$aux`, `$tmp`) e nomes genéricos (`Man
 
 ## Logs (manual 10.6)
 
-- Registrar erros relevantes com contexto (causa, recurso, usuário) via `log_message()`.
-- Nunca registrar senhas, tokens ou dados sensíveis.
-- Diferenciar log técnico de log de ação do usuário.
+- Registrar erros relevantes via `log_message()` com contexto técnico seguro, como código de erro e operação.
+- Nunca registrar senhas, tokens, dados pessoais ou outras informações sensíveis em logs técnicos.
+- Para rastrear operações de escrita, use a [auditoria centralizada](../auditoria.md), não o log técnico.
 
 ## Verificação local antes da entrega (manual 10.2)
 
