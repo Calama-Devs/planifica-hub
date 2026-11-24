@@ -512,6 +512,13 @@ $(document).ready(function () {
                 dados.email = email.trim();
             }
 
+            // A troca de e-mail exige justificativa no servidor (15 a 500 caracteres); a modal repassa quando houver.
+            var justificativa = acao.dadosExtras.justificativa;
+
+            if (typeof justificativa === 'string' && justificativa.trim() !== '') {
+                dados.justificativa = justificativa.trim();
+            }
+
             return { url: base, dados: dados };
         }
 
