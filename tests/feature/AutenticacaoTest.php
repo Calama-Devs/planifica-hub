@@ -12,6 +12,7 @@ use CodeIgniter\I18n\Time;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserIdentityModel;
 use CodeIgniter\Shield\Models\UserModel;
+use CodeIgniter\Shield\Models\RememberModel;
 
 final class AutenticacaoTest extends CIUnitTestCase
 {
@@ -171,6 +172,31 @@ final class AutenticacaoTest extends CIUnitTestCase
         $resposta->assertRedirectTo('/login');
         $resposta->assertSessionHas('error');
         $this->assertFalse(auth()->loggedIn());
+    }
+
+    public function testRememberMeNaoAutenticaContaDesativada(): void
+    {
+        $usuario   = $this->criarUsuario();
+        $selector  = bin2hex(random_bytes(12));
+        $validator = bin2hex(random_bytes(20));
+
+        model(RememberModel::class)->insert([
+            'user_id'         => $usuario->id,
+            'selector'        => $selector,
+            'hashedValidator' => hash('sha256', $validator),
+            'expires'         => Time::now()->addDays(1),
+        ]);
+
+        $usuario->deactivate();
+        $nomeCookie = setting('Cookie.prefix') . setting('Auth.sessionConfig')['rememberCookieName'];
+        service('superglobals')->setCookie($nomeCookie, $selector . ':' . $validator);
+
+        $resposta = $this->get('/');
+
+        $resposta->assertRedirectTo('/login');
+        $resposta->assertSessionHas('error');
+        $this->assertFalse(auth()->loggedIn());
+        $this->dontSeeInDatabase('auth_remember_tokens', ['selector' => $selector]);
     }
 
     public function testMagicLinkNaoAutenticaContaDesativada(): void

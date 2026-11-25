@@ -32,4 +32,15 @@ class SessaoAutenticador extends Session
 
         parent::login($user);
     }
+
+    public function loggedIn(): bool
+    {
+        if (! parent::loggedIn()) {
+            return false;
+        }
+
+        $usuario = parent::getUser();
+
+        return $usuario instanceof User && $usuario->active;
+    }
 }

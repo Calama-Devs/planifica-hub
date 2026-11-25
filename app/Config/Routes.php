@@ -30,7 +30,10 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
     });
 });
 
-service('auth')->routes($routes, ['except' => ['logout']]);
+service('auth')->routes($routes, ['except' => ['logout', 'magic-link']]);
+$routes->get('login/magic-link', '\\CodeIgniter\\Shield\\Controllers\\MagicLinkController::loginView', ['as' => 'magic-link']);
+$routes->post('login/magic-link', '\\CodeIgniter\\Shield\\Controllers\\MagicLinkController::loginAction');
+$routes->get('login/verify-magic-link', '\\App\\Controllers\\MagicLinkController::verify', ['as' => 'verify-magic-link']);
 $routes->post('logout', '\CodeIgniter\Shield\Controllers\LoginController::logoutAction', ['as' => 'logout']);
 
 // Recuperação de senha por link temporário.
