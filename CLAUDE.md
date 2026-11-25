@@ -3,6 +3,7 @@
 ## Claude Code
 
 - As instruções do time estão no `AGENTS.md`, importado acima; os padrões detalhados ficam em `docs/padroes/`. Leia o arquivo de padrão da área antes de editar.
+- Para novas funcionalidades ou alterações de CRUD, siga as referências de Services, auditoria e autorização indicadas no `AGENTS.md`. Na revisão local dessas alterações, use também o roteiro obrigatório de `docs/padroes/revisao-de-codigo.md`.
 - Consulte `docs/estrutura-inicial.md` para o mapa de diretórios, namespaces e política do template; para telas e componentes, siga `docs/padroes/layout-e-dashboard.md`.
 - Para revisar uma alteração, use a skill `/revisar-padroes`; para fechar a tarefa, `/preparar-entrega` (ambas em `.claude/skills/`).
 - Não leia nem exiba o conteúdo de `.env`; consulte `.env.example`.

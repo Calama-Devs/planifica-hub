@@ -8,6 +8,9 @@ diretórios e namespaces, as convenções e a política de uso seletivo do templ
 oficial. O desenvolvimento usa `develop`, a homologação usa `homolog` e a
 produção usa `main`.
 
+Para preparar o ambiente local, abrir as telas autenticadas e executar os testes,
+consulte o [guia de execução e uso](docs/guia-operacao-local.md).
+
 ## Autenticação com CodeIgniter Shield
 
 O projeto utiliza o Shield `^1.4`, instalado via Composer. A configuração segue a
@@ -47,6 +50,12 @@ O catálogo de permissões, a convenção de nomes e os exemplos de checagem est
 `docs/padroes/permissoes.md`.
 Links mágicos e outros fluxos por e-mail exigem configurar o remetente e o
 transporte de e-mail no `.env` antes de utilizá-los.
+
+Desativar uma conta invalida todas as sessões anteriores, inclusive de
+dispositivos que só voltarem a acessar após a reativação. Reativar permite um
+novo login, mas não restaura sessões. A migration que adiciona `versao_sessao`
+à tabela de usuários deve estar aplicada antes de usar esse código. Sessões
+existentes sem essa versão exigem novo login uma vez.
 
 ### Verificações no Windows
 

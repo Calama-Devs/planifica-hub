@@ -56,7 +56,7 @@
                         <input type="text" id="campo-nome" name="nome"
                                class="form-control <?= erro_campo('nome') ?>"
                                value="<?= old('nome') ?? esc($nomeAtual) ?>"
-                               <?= $comprimentoMaximo !== null ? 'maxlength="' . esc((string) $comprimentoMaximo) . '"' : '' ?>
+                               maxlength="255"
                                required>
                         <?= view('partials/erros_validacao', ['campo' => 'nome']) ?>
                     </div>
