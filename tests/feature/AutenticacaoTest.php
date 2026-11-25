@@ -9,7 +9,6 @@ use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
 use CodeIgniter\Test\TestResponse;
 use CodeIgniter\I18n\Time;
-use CodeIgniter\Shield\Authentication\AuthenticationException;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserIdentityModel;
 use CodeIgniter\Shield\Models\UserModel;
@@ -188,12 +187,14 @@ final class AutenticacaoTest extends CIUnitTestCase
         $usuario->deactivate();
         auth()->logout();
 
-        try {
-            $this->get('login/verify-magic-link?token=' . rawurlencode($token));
-            $this->fail('Era esperado que o Shield recusasse o login da conta desativada.');
-        } catch (AuthenticationException) {
-            $this->assertFalse(auth()->loggedIn());
-        }
+        $resposta = $this->get('login/verify-magic-link?token=' . rawurlencode($token));
+
+        $resposta->assertRedirectTo('/login/magic-link');
+        $resposta->assertSessionHas('error');
+        $this->assertFalse(auth()->loggedIn());
+        $this->assertNull(
+            model(UserIdentityModel::class)->getIdentityBySecret('magic-link', $token)
+        );
     }
 
     public function testRecusaSenhaIncorreta(): void
@@ -906,14 +907,17 @@ final class AutenticacaoTest extends CIUnitTestCase
         }
     }
 
-    public function testPerfilRecusaUsuarioDesativado(): void
+    public function testFiltroGlobalBloqueiaRotaDeSessaoForaDoGrupo(): void
     {
+        $this->assertContains('conta-ativa', config(\Config\Filters::class)->required['before']);
+
         $usuario = $this->cadastrarUsuario();
         $usuario->active = 0;
         $this->db->table('users')->where('id', $usuario->id)->update(['active' => 0]);
         $hashAnterior = $this->buscarHashDaSenha();
 
-        $resposta = $this->executarAlteracaoPeloPerfil($this->senha, 'NovaSenha@123', 'NovaSenha@123');
+        $resposta = $this->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])
+            ->executarAlteracaoPeloPerfil($this->senha, 'NovaSenha@123', 'NovaSenha@123');
 
         $resposta->assertStatus(403);
         $resposta->assertJSONFragment(['codigo' => 'USUARIO_INDISPONIVEL']);

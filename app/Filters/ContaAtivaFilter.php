@@ -14,16 +14,13 @@ class ContaAtivaFilter implements FilterInterface
     /** @return ResponseInterface|null */
     public function before(RequestInterface $request, $arguments = null)
     {
-        $filtroSessao = new \CodeIgniter\Shield\Filters\SessionAuth();
-        $resposta     = $filtroSessao->before($request, $arguments);
-
-        if ($resposta instanceof ResponseInterface) {
-            return $resposta;
+        if (! $request instanceof IncomingRequest) {
+            return null;
         }
 
         /** @var Session $autenticador */
         $autenticador = auth('session')->getAuthenticator();
-        $usuario      = $autenticador->getUser();
+        $usuario      = $autenticador->getUser() ?? $autenticador->getPendingUser();
 
         if (! $usuario instanceof User) {
             return null;
@@ -40,7 +37,7 @@ class ContaAtivaFilter implements FilterInterface
 
         $autenticador->logout();
 
-        if ($request instanceof IncomingRequest && $request->isAJAX()) {
+        if ($request->isAJAX()) {
             session()->setFlashdata('error', $mensagem);
 
             return service('response')

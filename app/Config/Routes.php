@@ -10,7 +10,7 @@ $routes->post('perfil/alterar-senha', 'RedefinirSenhaController::atualizarPeloPe
     'filter' => 'session',
 ]);
 
-$routes->group('', ['filter' => 'conta-ativa'], static function (RouteCollection $routes): void {
+$routes->group('', ['filter' => 'session'], static function (RouteCollection $routes): void {
     $routes->get('/', 'Home::index', ['as' => 'dashboard']);
     $routes->get('sobre', 'Home::sobre', ['as' => 'sobre']);
 
@@ -23,7 +23,7 @@ $routes->group('', ['filter' => 'conta-ativa'], static function (RouteCollection
         $routes->get('/', 'PermissaoController::index', ['as' => 'permissoes.index']);
     });
 
-    // Gerenciamento de usuários: o filtro do grupo (session) soma com o permission da rota.
+    // Gerenciamento de usuários: o filtro session do grupo soma com permission da rota.
     $routes->group('admin/acessos', ['filter' => 'permission:acessos.administrar'], static function (RouteCollection $routes): void {
         $routes->get('/', 'AcessoController::index', ['as' => 'acessos.index']);
         $routes->get('listar', 'AcessoController::listar', ['as' => 'acessos.listar']);
