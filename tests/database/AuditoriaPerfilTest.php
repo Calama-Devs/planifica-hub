@@ -16,7 +16,8 @@ use RuntimeException;
 use Tests\Support\Traits\CriaContasTrait;
 
 /**
- * Falhas da escrita e da auditoria nas alterações do Meu Perfil: nada é confirmado sem o evento.
+ * Falhas da escrita e da auditoria nas alterações do Meu Perfil e na redefinição de senha:
+ * nada é confirmado sem o evento.
  */
 final class AuditoriaPerfilTest extends CIUnitTestCase
 {
@@ -100,6 +101,20 @@ final class AuditoriaPerfilTest extends CIUnitTestCase
         $servico = new RedefinirSenhaService($identidades);
 
         $resultado = $servico->alterarPeloPerfil($this->usuario, $this->senha, 'NovaSenha@123', 'NovaSenha@123');
+
+        $this->assertFalse($resultado['sucesso']);
+        $this->assertSame('inesperado', $resultado['tipo']);
+        $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
+        $this->seeNumRecords(0, 'eventos_auditoria', []);
+    }
+
+    public function testNaoConfirmaRedefinicaoPorLinkQuandoAuditoriaFalha(): void
+    {
+        auth()->logout();
+        $hashAnterior = $this->buscarHashDaSenha();
+        $servico      = new RedefinirSenhaService(null, $this->auditoriaComFalha());
+
+        $resultado = $servico->redefinir($this->usuario, 'NovaSenha@123', 'NovaSenha@123');
 
         $this->assertFalse($resultado['sucesso']);
         $this->assertSame('inesperado', $resultado['tipo']);

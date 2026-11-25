@@ -191,15 +191,23 @@ class RedefinirSenhaService
      */
     public function redefinir(User $usuario, string $senha, string $confirmacao): array
     {
-        return $this->gravarNovaSenha($usuario, $senha, $confirmacao, null);
+        // Sem sessão autenticada, o responsável fica nulo; a conta afetada é identificada em entidade_id.
+        return $this->gravarNovaSenha($usuario, $senha, $confirmacao, [
+            'modulo'        => 'autenticacao',
+            'acao'          => 'redefinir_senha',
+            'entidade_tipo' => 'usuario',
+            'entidade_id'   => (string) $usuario->id,
+            'descricao'     => 'Senha redefinida pelo link de recuperação enviado por e-mail.',
+            'resultado'     => 'concluida',
+        ]);
     }
 
     /**
-     * @param array<string, string>|null $eventoAuditoria Evento gravado na mesma transação da nova senha.
+     * @param array<string, string> $eventoAuditoria Evento gravado na mesma transação da nova senha.
      *
      * @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string}
      */
-    private function gravarNovaSenha(User $usuario, string $senha, string $confirmacao, ?array $eventoAuditoria): array
+    private function gravarNovaSenha(User $usuario, string $senha, string $confirmacao, array $eventoAuditoria): array
     {
         $validacao = $this->validarSenha($usuario, $senha, $confirmacao);
 
@@ -286,15 +294,15 @@ class RedefinirSenhaService
     }
 
     /**
-     * Grava a credencial e, quando houver, o evento de auditoria na mesma transação.
+     * Grava a credencial e o evento de auditoria na mesma transação: sem o evento, a senha não muda.
      *
-     * @param array<string, string>|null $eventoAuditoria
+     * @param array<string, string> $eventoAuditoria
      */
     private function salvarCredencial(
         User $usuario,
         int $identidadeId,
         string $hashSenha,
-        ?array $eventoAuditoria
+        array $eventoAuditoria
     ): bool {
         $banco = db_connect();
 
@@ -307,9 +315,7 @@ class RedefinirSenhaService
                 throw new RuntimeException('A nova senha não foi gravada.');
             }
 
-            if ($eventoAuditoria !== null) {
-                $this->auditoria->registrar($eventoAuditoria);
-            }
+            $this->auditoria->registrar($eventoAuditoria);
 
             if ($banco->transStatus() === false || ! $banco->transCommit()) {
                 throw new RuntimeException('Falha na transação.');

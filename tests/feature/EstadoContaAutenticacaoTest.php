@@ -57,6 +57,14 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
         $this->servico = new EstadoContaService($this->contas);
     }
 
+    protected function tearDown(): void
+    {
+        // A migration da auditoria bloqueia o rollback com eventos gravados, como a redefinição de senha.
+        $this->db->table('eventos_auditoria')->emptyTable();
+
+        parent::tearDown();
+    }
+
     public function testConfiguraIntegracaoDaSessaoComOEstadoAdministrativo(): void
     {
         $this->assertSame(SessionAuth::class, config('Filters')->aliases['session']);
