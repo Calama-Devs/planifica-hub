@@ -933,10 +933,8 @@ final class AutenticacaoTest extends CIUnitTestCase
         }
     }
 
-    public function testFiltroGlobalBloqueiaRotaDeSessaoForaDoGrupo(): void
+    public function testFiltroContaAtivaBloqueiaRotaProtegidaForaDoGrupo(): void
     {
-        $this->assertContains('conta-ativa', config(\Config\Filters::class)->required['before']);
-
         $usuario = $this->cadastrarUsuario();
         $usuario->active = 0;
         $this->db->table('users')->where('id', $usuario->id)->update(['active' => 0]);

@@ -54,7 +54,6 @@ class Filters extends BaseFilters
     public array $required = [
         'before' => [
             'forcehttps', // Force Global Secure Requests
-            'conta-ativa', // Bloqueia contas inativas em todas as rotas
             'pagecache',  // Web Page Caching
         ],
         'after' => [

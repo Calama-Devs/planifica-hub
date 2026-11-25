@@ -7,10 +7,10 @@ use CodeIgniter\Router\RouteCollection;
  */
 $routes->post('perfil/alterar-senha', 'RedefinirSenhaController::atualizarPeloPerfil', [
     'as'     => 'atualizar-senha-perfil',
-    'filter' => 'session',
+    'filter' => ['conta-ativa', 'session'],
 ]);
 
-$routes->group('', ['filter' => 'session'], static function (RouteCollection $routes): void {
+$routes->group('', ['filter' => ['conta-ativa', 'session']], static function (RouteCollection $routes): void {
     $routes->get('/', 'Home::index', ['as' => 'dashboard']);
     $routes->get('sobre', 'Home::sobre', ['as' => 'sobre']);
 
