@@ -11,7 +11,7 @@ use Throwable;
 /**
  * Gerenciamento de Usuários (listagem server-side e preparação das ações administrativas).
  *
- * A rota exige `session` e `permission:acessos.administrar`.
+ * A rota exige `session` e uma das permissões de convite ou administração de acessos.
  */
 class AcessoController extends BaseController
 {
@@ -32,12 +32,15 @@ class AcessoController extends BaseController
             $situacao = 'ativos';
         }
 
-        $operador = auth()->user();
+        $operador                 = auth()->user();
+        $podeAdministrarAcessos = $operador !== null && $operador->can('acessos.administrar');
 
         return view('acesso/index', [
-            'situacao'          => $situacao,
-            'gruposDisponiveis' => $this->acessoService->gruposDisponiveis(),
-            'podeCriarConta'    => $operador !== null && $operador->can('contas.criar'),
+            'situacao'                => $situacao,
+            'gruposDisponiveis'       => $podeAdministrarAcessos ? $this->acessoService->gruposDisponiveis() : [],
+            'podeCriarConta'          => $operador !== null && $operador->can('contas.criar'),
+            'podeAdministrarAcessos' => $podeAdministrarAcessos,
+            'formularioEmModal'       => true,
         ]);
     }
 
