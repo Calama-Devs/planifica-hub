@@ -248,6 +248,23 @@ $(document).ready(function () {
         modalOrigem: null
     };
 
+    var configuracaoContas = $('#configuracao-contas');
+
+    function urlConta(template, userId) {
+        return template.replace('__ID__', encodeURIComponent(userId));
+    }
+
+    function exibirAlerta(selector, mensagem, sucesso) {
+        $(selector).removeClass('d-none alert-success alert-danger')
+            .addClass(sucesso ? 'alert-success' : 'alert-danger').text(mensagem);
+    }
+
+    function atualizarTokenCsrf(resposta) {
+        if (resposta && resposta.csrf_hash) {
+            $('meta[name="X-CSRF-TOKEN"]').attr('content', resposta.csrf_hash);
+        }
+    }
+
     function fecharModalPorId(modalId) {
         var el = document.getElementById(modalId);
         if (el) {
@@ -299,13 +316,35 @@ $(document).ready(function () {
     tableElement.on('click', '.btn-editar-usuario', function () {
         var btn = $(this);
         var userId = btn.data('user-id');
-        var username = btn.data('username');
-        var email = btn.data('email');
-
         $('#editar-usuario-id').val(userId);
-        $('#editar-usuario-nome').val(username).removeClass('is-invalid');
-        $('#editar-usuario-email').val(email).removeClass('is-invalid');
+        $('#editar-usuario-nome, #editar-usuario-email, #editar-usuario-justificativa').val('').removeClass('is-invalid');
+        $('#grupo-justificativa-email').addClass('d-none');
         $('#alerta-atualizar-usuario').addClass('d-none').text('');
+
+        $.ajax({
+            url: urlConta(configuracaoContas.data('consultar-url'), userId),
+            type: 'GET',
+            dataType: 'json'
+        }).done(function (resposta) {
+            if (!resposta.sucesso || !resposta.conta) {
+                exibirAlerta('#alerta-atualizar-usuario', resposta.mensagem || 'Não foi possível carregar os dados da conta.', false);
+                return;
+            }
+
+            $('#editar-usuario-nome').val(resposta.conta.nome);
+            $('#editar-usuario-email').val(resposta.conta.email).data('email-original', resposta.conta.email);
+        }).fail(function (xhr) {
+            exibirAlerta('#alerta-atualizar-usuario', (xhr.responseJSON || {}).mensagem || 'Não foi possível carregar os dados da conta.', false);
+        });
+    });
+
+    $('#editar-usuario-email').on('input', function () {
+        var emailOriginal = String($(this).data('email-original') || '').trim().toLowerCase();
+        var alterado = $(this).val().trim().toLowerCase() !== emailOriginal;
+        $('#grupo-justificativa-email').toggleClass('d-none', !alterado);
+        if (!alterado) {
+            $('#editar-usuario-justificativa').val('').removeClass('is-invalid');
+        }
     });
 
     $('#form-atualizar-usuario').on('submit', function (e) {
@@ -335,6 +374,13 @@ $(document).ready(function () {
         var userId = $('#editar-usuario-id').val();
         var nome = nomeInput.val().trim();
         var email = emailInput.val().trim();
+        var justificativa = $('#editar-usuario-justificativa').val().trim();
+
+        if (email.toLowerCase() !== String(emailInput.data('email-original') || '').trim().toLowerCase()
+            && (justificativa.length < 15 || justificativa.length > 500)) {
+            $('#editar-usuario-justificativa').addClass('is-invalid');
+            return;
+        }
 
         abrirConfirmacaoAdmin(
             'atualizar',
@@ -343,7 +389,7 @@ $(document).ready(function () {
             email,
             'Salvar alterações cadastrais do usuário (nome completo e e-mail).',
             'modal-atualizar-usuario',
-            { nome: nome, email: email }
+            { nome: nome, email: email, justificativa: justificativa }
         );
     });
 
@@ -498,7 +544,36 @@ $(document).ready(function () {
             $('#admin-password-confirm').addClass('is-invalid');
             return;
         }
-        $('#admin-password-confirm').removeClass('is-invalid').val('');
+        $('#admin-password-confirm').removeClass('is-invalid');
+        if (acaoPendente.tipo === 'atualizar') {
+            var botao = $('#btn-executar-confirmacao');
+            var dados = $.extend({}, acaoPendente.dadosExtras, { senha_admin: senhaAdmin });
+            botao.prop('disabled', true);
+            $('#spinner-confirmar-senha').removeClass('d-none');
+
+            $.ajax({
+                url: urlConta(configuracaoContas.data('atualizar-url'), acaoPendente.userId),
+                type: 'POST',
+                data: dados,
+                dataType: 'json'
+            }).done(function (resposta) {
+                atualizarTokenCsrf(resposta);
+                exibirAlerta('#alerta-confirmar-senha', resposta.mensagem || 'Não foi possível atualizar a conta.', resposta.sucesso);
+                if (resposta.sucesso) {
+                    tableElement.DataTable().ajax.reload(null, false);
+                }
+            }).fail(function (xhr) {
+                var resposta = xhr.responseJSON || {};
+                atualizarTokenCsrf(resposta);
+                exibirAlerta('#alerta-confirmar-senha', resposta.mensagem || 'Não foi possível atualizar a conta.', false);
+            }).always(function () {
+                $('#admin-password-confirm').val('');
+                $('#spinner-confirmar-senha').addClass('d-none');
+                botao.prop('disabled', false);
+            });
+            return;
+        }
+        $('#admin-password-confirm').val('');
 
         $('#alerta-confirmar-senha')
             .removeClass('d-none alert-danger alert-success')

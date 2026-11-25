@@ -27,6 +27,12 @@
                                placeholder="email@exemplo.com" required>
                         <div class="invalid-feedback">Informe um e-mail válido.</div>
                     </div>
+                    <div class="mb-3 d-none" id="grupo-justificativa-email">
+                        <label for="editar-usuario-justificativa" class="form-label">Justificativa para troca de e-mail <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="editar-usuario-justificativa" name="justificativa"
+                                  minlength="15" maxlength="500" rows="3"></textarea>
+                        <div class="invalid-feedback">Informe uma justificativa entre 15 e 500 caracteres.</div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
