@@ -11,12 +11,14 @@
 <?php if ($podeCriarConta) : ?>
     <?= $this->include('acesso/modals/modal-adicionar-usuario') ?>
 <?php endif ?>
+<?php if ($podeAdministrarAcessos) : ?>
 <?= $this->include('acesso/modals/modal-atualizar-usuario') ?>
 <?= $this->include('acesso/modals/modal-resetar-senha') ?>
 <?= $this->include('acesso/modals/modal-desativar-usuario') ?>
 <?= $this->include('acesso/modals/modal-reativar-usuario') ?>
 <?= $this->include('acesso/modals/modal-alterar-grupos') ?>
 <?= $this->include('acesso/modals/modal-confirmar-senha-admin') ?>
+<?php endif ?>
 
 <div class="page-header mb-3">
     <h3 class="page-title">Gerenciamento de Usuários</h3>
@@ -44,14 +46,16 @@
                         </button>
                     <?php endif ?>
 
-                    <?php if ($situacao === 'inativos') : ?>
-                        <a href="<?= esc(url_to('acessos.index'), 'attr') ?>?situacao=ativos" class="btn btn-secondary btn-icon-text">
-                            <i class="mdi mdi-account-check btn-icon-prepend" aria-hidden="true"></i> Usuários Ativos
-                        </a>
-                    <?php else : ?>
-                        <a href="<?= esc(url_to('acessos.index'), 'attr') ?>?situacao=inativos" class="btn btn-secondary btn-icon-text">
-                            <i class="mdi mdi-account-off btn-icon-prepend" aria-hidden="true"></i> Usuários Inativos
-                        </a>
+                    <?php if ($podeAdministrarAcessos) : ?>
+                        <?php if ($situacao === 'inativos') : ?>
+                            <a href="<?= esc(url_to('acessos.index'), 'attr') ?>?situacao=ativos" class="btn btn-secondary btn-icon-text">
+                                <i class="mdi mdi-account-check btn-icon-prepend" aria-hidden="true"></i> Usuários Ativos
+                            </a>
+                        <?php else : ?>
+                            <a href="<?= esc(url_to('acessos.index'), 'attr') ?>?situacao=inativos" class="btn btn-secondary btn-icon-text">
+                                <i class="mdi mdi-account-off btn-icon-prepend" aria-hidden="true"></i> Usuários Inativos
+                            </a>
+                        <?php endif ?>
                     <?php endif ?>
                 </div>
             </div>
@@ -59,6 +63,7 @@
     </div>
 </div>
 
+<?php if ($podeAdministrarAcessos) : ?>
 <div class="row">
     <div class="col-12 grid-margin stretch-card">
         <div class="card">
@@ -85,10 +90,13 @@
         </div>
     </div>
 </div>
+<?php endif ?>
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
+<?php if ($podeAdministrarAcessos) : ?>
 <script src="<?= esc(base_url('assets/vendor/datatables.net/jquery.dataTables.js'), 'attr') ?>"></script>
 <script src="<?= esc(base_url('assets/vendor/datatables.net-bs4/dataTables.bootstrap4.js'), 'attr') ?>"></script>
+<?php endif ?>
 <script src="<?= esc(base_url('assets/js/acesso/index.js'), 'attr') ?>?v=<?= filemtime(FCPATH . 'assets/js/acesso/index.js') ?>"></script>
 <?= $this->endSection() ?>
