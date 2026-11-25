@@ -497,10 +497,17 @@ $(document).ready(function () {
 
     // Endpoint de cada tipo de ação da modal. Tipos sem endpoint ainda não existem no servidor: a senha não é enviada.
     function montarRequisicao(acao) {
-        var base = String(tableElement.data('url-contas')).replace(/\/+$/, '') + '/' + encodeURIComponent(acao.userId);
+        // A view entrega a URL de cada operação, gerada pela rota nomeada, com um marcador no lugar da conta.
+        var modelo = tableElement.data('url-' + acao.tipo);
+
+        if (!modelo) {
+            return null;
+        }
+
+        var url = String(modelo).replace(String(tableElement.data('marcador-conta')), encodeURIComponent(acao.userId));
 
         if (acao.tipo === 'desativar' || acao.tipo === 'reativar') {
-            return { url: base + '/' + acao.tipo, dados: {} };
+            return { url: url, dados: {} };
         }
 
         if (acao.tipo === 'atualizar' && acao.dadosExtras) {
@@ -519,7 +526,7 @@ $(document).ready(function () {
                 dados.justificativa = justificativa.trim();
             }
 
-            return { url: base, dados: dados };
+            return { url: url, dados: dados };
         }
 
         return null;

@@ -72,7 +72,10 @@
                     <table class="table table-hover align-middle mb-0 tabela-acessos" id="tabela-usuarios"
                            aria-label="Listagem e gerenciamento de usuários"
                            data-url="<?= esc(url_to('acessos.listar'), 'attr') ?>"
-                           data-url-contas="<?= esc(site_url('admin/contas'), 'attr') ?>"
+                           data-marcador-conta="999999999"
+                           data-url-atualizar="<?= esc(url_to('contas.atualizar', 999999999), 'attr') ?>"
+                           data-url-desativar="<?= esc(url_to('contas.desativar', 999999999), 'attr') ?>"
+                           data-url-reativar="<?= esc(url_to('contas.reativar', 999999999), 'attr') ?>"
                            data-situacao="<?= esc($situacao, 'attr') ?>"
                            data-traducao="<?= esc(base_url('assets/js/traducao-dataTable/pt_br.json'), 'attr') ?>">
                         <thead>
