@@ -487,6 +487,18 @@ final class PerfilTest extends CIUnitTestCase
         $this->seeInDatabase('users', ['id' => $usuario->id, 'nome_completo' => 'Luna']);
     }
 
+    public function testAceitaNomeCompletoComEspacosRepetidosNormalizados(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
+        $resposta = $this->enviarFormulario(['nome' => " Ana   Maria\tde Souza "]);
+
+        $resposta->assertRedirectTo(url_to('perfil'));
+        $resposta->assertSessionHas('success');
+        $this->seeInDatabase('users', ['id' => $usuario->id, 'nome_completo' => 'Ana Maria de Souza']);
+    }
+
     public function testRejeitaNomeComMenosDeQuatroCaracteresDesconsiderandoEspacos(): void
     {
         $usuario = $this->criarUsuario('usuario.teste');
@@ -508,7 +520,7 @@ final class PerfilTest extends CIUnitTestCase
         $usuario = $this->criarUsuario('usuario.teste');
         auth()->login($usuario);
 
-        foreach (['Maria123', '<script>alerta</script>', 'Ana  Maria', str_repeat('a', 256)] as $nome) {
+        foreach (['Maria123', '<script>alerta</script>', 'Ana_Maria', str_repeat('a', 256)] as $nome) {
             $resposta = $this->enviarFormulario(['nome' => $nome]);
 
             $resposta->assertRedirect();

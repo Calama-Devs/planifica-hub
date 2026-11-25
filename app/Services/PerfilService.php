@@ -75,7 +75,8 @@ class PerfilService
      */
     public function atualizarNome(User $usuario, string $nome): array
     {
-        $nome = trim($nome);
+        // Espaços repetidos entre as palavras são reduzidos a um, para não recusar um nome válido por digitação.
+        $nome = trim((string) preg_replace('/\s+/u', ' ', $nome));
 
         $nomeAtual = (string) ($usuario->nome_completo ?? $usuario->username);
 
