@@ -4,7 +4,7 @@
 
 O sistema oferece dois fluxos distintos para definir uma nova senha.
 
-No perfil, o usuário autenticado acessa `/perfil/alterar-senha`, informa a senha atual, a nova senha e a confirmação. A senha atual é validada antes da alteração e a sessão é encerrada somente após a troca ser concluída com sucesso.
+No perfil, o usuário autenticado acessa `/perfil/alterar-senha`, informa a senha atual, a nova senha e a confirmação. A senha atual é validada antes da alteração e a sessão é encerrada somente após a troca ser concluída com sucesso. A nova senha e o evento de auditoria (`perfil`, `alterar_senha`, com a descrição sem valores de senha) são gravados na mesma transação; se o evento falhar, a senha não é alterada. A redefinição por link de recuperação ainda não registra evento de auditoria.
 
 Quando não possui acesso à conta, o usuário solicita a recuperação em `/recuperar-senha`. O sistema envia um link temporário de uso único (`magic-link-reset`), separado do Magic Link nativo do Shield. O link é vinculado à `versao_sessao` da conta no momento da emissão. Após a validação, o servidor guarda o ID do usuário e essa versão em `tempdata`, exclusivamente para a redefinição. Esse acesso não autentica o usuário; após definir a senha, ele retorna ao login.
 
@@ -40,7 +40,8 @@ O Magic Link nativo do Shield mantém o tipo `magic-link` e o redirecionamento n
 | `public/assets/css/recuperacao-senha.css` | Estilos das telas de recuperação de senha. |
 | `tests/feature/AutenticacaoTest.php` | Testes automatizados do fluxo de autenticação e redefinição. |
 | `tests/feature/HomeTest.php` | Testa a opção do perfil e o acesso ao formulário de alteração de senha. |
-| `tests/feature/PerfilTest.php` | Testa que a troca de senha pelo perfil não altera nome, e-mail, grupos, permissões nem outra conta. |
+| `tests/feature/PerfilTest.php` | Testa que a troca de senha pelo perfil não altera nome, e-mail, grupos, permissões nem outra conta, e que registra o evento de auditoria. |
+| `tests/database/AuditoriaPerfilTest.php` | Testa que a troca de nome e de senha pelo perfil é desfeita quando a gravação ou a auditoria falha. |
 
 ## Validação realizada
 
