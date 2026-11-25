@@ -135,6 +135,7 @@ final class HomeTest extends CIUnitTestCase
         $users = model(UserModel::class);
         $user  = new User([
             'username' => 'usuario.layout',
+            'active'   => true,
             'email'    => 'layout@example.com',
             'password' => 'SenhaForte123!',
         ]);

@@ -5,13 +5,16 @@ use CodeIgniter\Router\RouteCollection;
 /**
  * @var RouteCollection $routes
  */
-$routes->group('', ['filter' => 'session'], static function (RouteCollection $routes): void {
+$routes->post('perfil/alterar-senha', 'RedefinirSenhaController::atualizarPeloPerfil', [
+    'as'     => 'atualizar-senha-perfil',
+    'filter' => 'session',
+]);
+
+$routes->group('', ['filter' => 'conta-ativa'], static function (RouteCollection $routes): void {
     $routes->get('/', 'Home::index', ['as' => 'dashboard']);
     $routes->get('sobre', 'Home::sobre', ['as' => 'sobre']);
 
     // Alteração de senha pelo perfil autenticado.
-    $routes->post('perfil/alterar-senha', 'RedefinirSenhaController::atualizarPeloPerfil', ['as' => 'atualizar-senha-perfil']);
-
     $routes->post('sobre', 'Home::testarValidacao', ['as' => 'sobre.testar']);
     $routes->get('perfil', 'PerfilController::index', ['as' => 'perfil']);
     $routes->post('perfil', 'PerfilController::atualizar', ['as' => 'perfil.atualizar']);

@@ -125,7 +125,10 @@ final class PermissoesAdminTest extends CIUnitTestCase
 
     private function criarUsuario(string $grupo): User
     {
-        $this->userModel->save(new User(['username' => 'usuario.' . $grupo . '.' . bin2hex(random_bytes(4))]));
+        $this->userModel->save(new User([
+            'username' => 'usuario.' . $grupo . '.' . bin2hex(random_bytes(4)),
+            'active'   => true,
+        ]));
 
         /** @var User $usuario */
         $usuario = $this->userModel->findById($this->userModel->getInsertID());

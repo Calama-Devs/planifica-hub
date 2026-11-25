@@ -9,6 +9,7 @@ use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
 use CodeIgniter\Test\TestResponse;
 use CodeIgniter\I18n\Time;
+use CodeIgniter\Shield\Authentication\AuthenticationException;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserIdentityModel;
 use CodeIgniter\Shield\Models\UserModel;
@@ -143,6 +144,58 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->assertTrue(auth()->loggedIn());
     }
 
+    public function testRecusaLoginDeContaDesativada(): void
+    {
+        $usuario = $this->criarUsuario();
+        $usuario->deactivate();
+        auth()->logout();
+
+        $resposta = $this->enviarFormulario('login', [
+            'email'    => 'teste@example.com',
+            'password' => $this->senha,
+        ]);
+
+        $resposta->assertRedirectTo('/login');
+        $resposta->assertSessionHas('error');
+        $this->assertFalse(auth()->loggedIn());
+    }
+
+    public function testEncerraSessaoQuandoContaEDesativada(): void
+    {
+        $usuario = $this->criarUsuario();
+        auth()->login($usuario);
+
+        $usuario->deactivate();
+
+        $resposta = $this->withSession($_SESSION)->get('/');
+
+        $resposta->assertRedirectTo('/login');
+        $resposta->assertSessionHas('error');
+        $this->assertFalse(auth()->loggedIn());
+    }
+
+    public function testMagicLinkNaoAutenticaContaDesativada(): void
+    {
+        $usuario = $this->criarUsuario();
+        $token = bin2hex(random_bytes(32));
+
+        model(UserIdentityModel::class)->insert([
+            'user_id' => $usuario->id,
+            'type'    => 'magic-link',
+            'secret'  => $token,
+            'expires' => Time::now()->addHours(1),
+        ]);
+        $usuario->deactivate();
+        auth()->logout();
+
+        try {
+            $this->get('login/verify-magic-link?token=' . rawurlencode($token));
+            $this->fail('Era esperado que o Shield recusasse o login da conta desativada.');
+        } catch (AuthenticationException) {
+            $this->assertFalse(auth()->loggedIn());
+        }
+    }
+
     public function testRecusaSenhaIncorreta(): void
     {
         $this->criarUsuario();
@@ -190,7 +243,7 @@ final class AutenticacaoTest extends CIUnitTestCase
     private function criarUsuario(string $email = 'teste@example.com', string $nomeUsuario = 'usuario.teste'): User
     {
         $usuarios = model(UserModel::class);
-        $usuario  = new User(['username' => $nomeUsuario]);
+        $usuario  = new User(['username' => $nomeUsuario, 'active' => true]);
         $usuarios->save($usuario);
 
         /** @var User $usuario */

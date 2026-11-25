@@ -130,6 +130,7 @@ class MenuPermissoesTest extends CIUnitTestCase
         $usuarios = model(UserModel::class);
         $usuarios->save(new User([
             'username' => 'menu.' . $grupo . '.' . uniqid(),
+            'active'   => true,
         ]));
 
         /** @var User $usuario */
