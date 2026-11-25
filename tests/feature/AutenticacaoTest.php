@@ -434,6 +434,21 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->assertSame(rtrim(site_url('/'), '/'), rtrim($redirecionamento, '/'));
     }
 
+    public function testLimitaVerificacoesDeMagicLinkPorIp(): void
+    {
+        service('throttler')->remove(md5(service('request')->getIPAddress()));
+
+        for ($tentativa = 1; $tentativa <= 10; $tentativa++) {
+            $resposta = $this->get('login/verify-magic-link?token=token-invalido-' . $tentativa);
+
+            $resposta->assertRedirectTo('/login/magic-link');
+        }
+
+        $resposta = $this->get('login/verify-magic-link?token=token-invalido-11');
+
+        $resposta->assertStatus(429);
+    }
+
     public function testValidaEConsomeTokenDeRedefinicaoSemAfetarMagicLink(): void
     {
         $usuario = $this->criarUsuario();
