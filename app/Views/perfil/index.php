@@ -56,8 +56,14 @@
                         <input type="text" id="campo-nome" name="nome"
                                class="form-control <?= erro_campo('nome') ?>"
                                value="<?= old('nome') ?? esc($nomeAtual) ?>"
-                               maxlength="255"
+                               minlength="<?= esc((string) $comprimentoMinimo) ?>"
+                               maxlength="<?= esc((string) $comprimentoMaximo) ?>"
+                               aria-describedby="ajuda-nome"
                                required>
+                        <small id="ajuda-nome" class="form-text text-muted">
+                            Use seu nome, nome completo ou apelido, com <?= esc((string) $comprimentoMinimo) ?> a
+                            <?= esc((string) $comprimentoMaximo) ?> caracteres: letras, acentos e espaços.
+                        </small>
                         <?= view('partials/erros_validacao', ['campo' => 'nome']) ?>
                     </div>
 

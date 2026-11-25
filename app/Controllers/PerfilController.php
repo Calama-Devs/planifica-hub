@@ -24,6 +24,7 @@ class PerfilController extends BaseController
             'emailAtual'         => $usuario->email ?? '',
             'grupos'             => $perfilService->listarGrupos($usuario),
             'permissoesEfetivas' => $perfilService->listarPermissoesEfetivas($usuario),
+            'comprimentoMinimo'  => $perfilService->obterComprimentoMinimoNome(),
             'comprimentoMaximo'  => $perfilService->obterComprimentoMaximoNome(),
         ]);
     }
