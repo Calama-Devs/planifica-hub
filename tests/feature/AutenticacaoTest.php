@@ -35,6 +35,8 @@ final class AutenticacaoTest extends CIUnitTestCase
     protected function tearDown(): void
     {
         service('settings')->forget('Auth.validFields');
+        // A migration da auditoria bloqueia o rollback com eventos gravados, como a troca de senha pelo perfil.
+        $this->db->table('eventos_auditoria')->emptyTable();
 
         parent::tearDown();
     }

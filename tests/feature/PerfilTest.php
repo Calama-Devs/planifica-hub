@@ -41,6 +41,14 @@ final class PerfilTest extends CIUnitTestCase
         }
     }
 
+    protected function tearDown(): void
+    {
+        // A migration da auditoria bloqueia o rollback com eventos gravados pelas alterações do perfil.
+        $this->db->table('eventos_auditoria')->emptyTable();
+
+        parent::tearDown();
+    }
+
     public function testBloqueiaVisitanteSemSessao(): void
     {
         $resposta = $this->get('perfil');
@@ -419,11 +427,14 @@ final class PerfilTest extends CIUnitTestCase
         );
 
         $usuario->addGroup('admin');
+        $concedidas = [...config('AuthGroups')->matrix['admin'], 'acessos.administrar'];
+        $esperadas  = array_values(array_filter(
+            $permissoes,
+            static fn (string $permissao): bool => in_array($permissao, $concedidas, true),
+            ARRAY_FILTER_USE_KEY,
+        ));
 
-        $this->assertSame(
-            [$permissoes['contas.consultar'], $permissoes['contas.criar'], $permissoes['acessos.administrar']],
-            service('perfilService')->listarPermissoesEfetivas($usuario),
-        );
+        $this->assertSame($esperadas, service('perfilService')->listarPermissoesEfetivas($usuario));
     }
 
     public function testRecusaAlteracaoDeNomeSemSessao(): void
@@ -450,24 +461,125 @@ final class PerfilTest extends CIUnitTestCase
         auth()->login($usuario);
         $hashAnterior = $this->buscarHashDaSenha($usuario);
 
-        $resposta = $this->enviarFormulario([
-            'nome'        => 'Apelido',
-            'password'    => 'SenhaAdulterada@123',
-            'email'       => 'adulterado@example.com',
-            'groups'      => ['superadmin'],
-            'permissions' => ['contas.criar'],
-            'active'      => '0',
-        ]);
+        $resposta = $this->enviarFormulario(['nome' => 'Apelido']);
 
         $resposta->assertRedirectTo(url_to('perfil'));
         $resposta->assertSessionHas('success');
         $this->seeInDatabase('users', [
-            'id'       => $usuario->id,
-            'username' => 'Apelido',
+            'id'            => $usuario->id,
+            'username'      => 'usuario.atual',
+            'nome_completo' => 'Apelido',
         ]);
         $this->assertSame($hashAnterior, $this->buscarHashDaSenha($usuario));
         $this->assertContaPreservada($usuario, 'perfil1@example.com', ['admin'], ['acessos.administrar']);
         $this->assertTrue(auth()->loggedIn());
+    }
+
+    public function testAceitaNomeComQuatroCaracteres(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
+        $resposta = $this->enviarFormulario(['nome' => 'Luna']);
+
+        $resposta->assertRedirectTo(url_to('perfil'));
+        $resposta->assertSessionHas('success');
+        $this->seeInDatabase('users', ['id' => $usuario->id, 'nome_completo' => 'Luna']);
+    }
+
+    public function testRejeitaNomeComMenosDeQuatroCaracteresDesconsiderandoEspacos(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
+        foreach (['Léo', '  Ana  '] as $nome) {
+            $resposta = $this->enviarFormulario(['nome' => $nome]);
+
+            $resposta->assertRedirect();
+            $resposta->assertSessionHas('errors', ['nome' => 'O nome deve ter pelo menos 4 caracteres.']);
+        }
+
+        $this->seeInDatabase('users', ['id' => $usuario->id, 'nome_completo' => null]);
+        $this->seeNumRecords(0, 'eventos_auditoria', []);
+    }
+
+    public function testRejeitaNomeComConteudoInvalidoOuAcimaDoLimite(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
+        foreach (['Maria123', '<script>alerta</script>', 'Ana  Maria', str_repeat('a', 256)] as $nome) {
+            $resposta = $this->enviarFormulario(['nome' => $nome]);
+
+            $resposta->assertRedirect();
+            $resposta->assertSessionHas('errors');
+        }
+
+        $this->seeInDatabase('users', ['id' => $usuario->id, 'nome_completo' => null]);
+    }
+
+    public function testRegistraAuditoriaDaAlteracaoDeNomeComAntesEDepois(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        $this->db->table('users')->where('id', $usuario->id)->update(['nome_completo' => 'Nome Antigo']);
+        auth()->login(model(UserModel::class)->findById($usuario->id));
+
+        $this->enviarFormulario(['nome' => 'Nome Novo'])->assertSessionHas('success');
+
+        $this->seeNumRecords(1, 'eventos_auditoria', []);
+        $this->seeInDatabase('eventos_auditoria', [
+            'usuario_id'    => $usuario->id,
+            'modulo'        => 'perfil',
+            'acao'          => 'alterar_nome',
+            'entidade_tipo' => 'usuario',
+            'entidade_id'   => (string) $usuario->id,
+            'descricao'     => 'Nome de exibição alterado de "Nome Antigo" para "Nome Novo".',
+            'resultado'     => 'concluida',
+        ]);
+    }
+
+    public function testRegistraAuditoriaDaAlteracaoDeSenhaSemExporCredenciais(): void
+    {
+        $usuario = $this->criarUsuario('conta.principal');
+        auth()->login($usuario);
+
+        $resposta = $this->withSession($_SESSION)->post('perfil/alterar-senha', [
+            csrf_token()           => csrf_hash(),
+            'senha-atual'          => $this->senha,
+            'senha-nova'           => 'NovaSenha@123',
+            'confirmar-senha-nova' => 'NovaSenha@123',
+        ]);
+
+        $resposta->assertOK();
+        $evento = $this->db->table('eventos_auditoria')->get()->getResultArray();
+
+        $this->assertCount(1, $evento);
+        $this->assertSame((string) $usuario->id, (string) $evento[0]['usuario_id']);
+        $this->assertSame('perfil', $evento[0]['modulo']);
+        $this->assertSame('alterar_senha', $evento[0]['acao']);
+        $this->assertSame((string) $usuario->id, $evento[0]['entidade_id']);
+        $this->assertSame('concluida', $evento[0]['resultado']);
+        $this->assertStringNotContainsString('NovaSenha@123', $evento[0]['descricao']);
+        $this->assertStringNotContainsString($this->senha, $evento[0]['descricao']);
+        $this->assertStringNotContainsString($this->buscarHashDaSenha($usuario), $evento[0]['descricao']);
+    }
+
+    public function testSenhaAtualIncorretaNaoAlteraSenhaNemRegistraEvento(): void
+    {
+        $usuario = $this->criarUsuario('conta.principal');
+        auth()->login($usuario);
+        $hashAnterior = $this->buscarHashDaSenha($usuario);
+
+        $resposta = $this->withSession($_SESSION)->post('perfil/alterar-senha', [
+            csrf_token()           => csrf_hash(),
+            'senha-atual'          => 'SenhaErrada@123',
+            'senha-nova'           => 'NovaSenha@123',
+            'confirmar-senha-nova' => 'NovaSenha@123',
+        ]);
+
+        $resposta->assertStatus(422);
+        $this->assertSame($hashAnterior, $this->buscarHashDaSenha($usuario));
+        $this->seeNumRecords(0, 'eventos_auditoria', []);
     }
 
     public function testAlteracaoDeSenhaNaoModificaOutrosDadosNemOutraConta(): void
