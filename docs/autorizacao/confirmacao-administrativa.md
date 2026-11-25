@@ -85,7 +85,8 @@ A modal de confirmação da área Gerenciamento de Usuários envia a senha **jun
 - A mensagem do servidor aparece no alerta da própria modal, sempre com `.text()`. Sucesso usa `alert-success`; recusa usa `alert-danger`. Só `sucesso === true` no JSON conclui a operação: uma resposta 2xx sem isso é tratada como recusa.
 - O campo de senha é limpo assim que a tentativa é enviada e quando a modal fecha.
 - **Cancelar ou fechar a modal não envia nada ao servidor**, então nenhuma alteração é persistida. Durante o envio, a modal não fecha.
-- Sessão revogada (JSON com `redirecionamento`), HTTP 401 ou resposta que não é JSON levam ao login. Quando o token CSRF some junto com a sessão, o servidor responde 403 sem JSON e a modal pede para recarregar a página.
+- Sessão revogada (conta desativada ou sessão encerrada pela administração): o `AutenticacaoSessaoService` responde 403 em JSON com `redirecionamento`, antes de chegar ao Controller, e a modal segue o destino. HTTP 401 ou resposta que não é JSON também levam ao login. Quando o token CSRF some junto com a sessão, o servidor responde 403 sem JSON e a modal pede para recarregar a página.
+- A View gera a URL de cada operação com `url_to()` da rota nomeada, usando o marcador de conta `999999999`, nos atributos `data-url-<tipo>` da tabela; `montarRequisicao()` só troca o marcador pela conta. O JavaScript não monta caminhos.
 - Cada tipo de ação da modal aponta para o endpoint da operação em `montarRequisicao()`. Tipos sem endpoint no servidor mostram "Esta operação ainda não está disponível" e **não enviam a senha**.
 
 | Tipo na modal | Endpoint | Ação cadastrada |
@@ -118,7 +119,7 @@ O limite usa o `Throttler` do CodeIgniter (cache), com uma chave por operador (`
 3. **Rota:** use o POST, com o filtro `permission:` da operação.
 4. **Controller:** leia `senha_admin` do corpo (senha ausente ou fora do formato vira `''`, e a confirmação a recusa), chame o Service e devolva com `responderOperacaoAdministrativa()` (trait `App\Controllers\Traits\RespostaAdministrativaTrait`), passando o status das falhas próprias da operação.
 5. **Service:** chame `confirmar()` antes de qualquer escrita, use o `User` devolvido e mantenha os controles próprios da operação (validação, hierarquia, transação e auditoria centralizada).
-6. **Modal:** acrescente o tipo em `montarRequisicao()` com o endpoint e os campos da operação.
+6. **Modal:** na View, gere a URL da rota nomeada em um atributo `data-url-<tipo>` (com o marcador de conta); se a operação enviar campos próprios, acrescente-os em `montarRequisicao()`.
 7. **Testes:** cubra, no mínimo, senha correta e incorreta, sem sessão, permissão insuficiente, limite de tentativas e ausência de alteração em cada falha. Isole o cache com `Services::injectMock('cache', new MockCache())` para o contador não vazar entre os testes.
 
 ## 8. O Que Não Fazer
