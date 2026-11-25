@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Controllers\EstadoContaController;
+use App\Models\EstadoContaModel;
 use App\Services\ConfirmacaoAdministrativaService;
 use App\Services\EstadoContaService;
 use CodeIgniter\Shield\Entities\User;
@@ -258,6 +259,40 @@ final class ConfirmacaoAdministrativaTest extends CIUnitTestCase
         self::assertContains(EstadoContaService::class, $classes, 'A exceção deveria passar pelo Service.');
         self::assertStringContainsString('SensitiveParameterValue', $rastro);
         self::assertStringNotContainsString($this->senha, $rastro);
+    }
+
+    public function testTelaDeAcessosEntregaAsUrlsDasOperacoesPelasRotasNomeadas(): void
+    {
+        $resposta = $this->withSession($_SESSION)->get('admin/acessos');
+
+        $resposta->assertOK();
+        $corpo = html_entity_decode((string) $resposta->response()->getBody(), ENT_QUOTES | ENT_HTML5);
+        self::assertStringContainsString('data-marcador-conta="999999999"', $corpo);
+
+        foreach (['atualizar', 'desativar', 'reativar'] as $operacao) {
+            $url = url_to('contas.' . $operacao, 999999999);
+            self::assertStringContainsString('data-url-' . $operacao . '="' . $url . '"', $corpo);
+        }
+    }
+
+    public function testSessaoRevogadaNaRotaDaModalDevolveORedirecionamento(): void
+    {
+        $conta = $this->criarConta('conta.afetada', 'user');
+        self::assertTrue(model(EstadoContaModel::class)->update($this->operador->id, ['versao_sessao' => 2]));
+
+        $resposta = $this->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])
+            ->withSession($_SESSION)->post('admin/contas/' . $conta->id . '/desativar', [
+                'senha_admin' => $this->senha,
+                csrf_token() => csrf_hash(),
+            ]);
+
+        $resposta->assertStatus(403);
+        $resposta->assertJSONFragment([
+            'sucesso' => false,
+            'codigo' => 'SESSAO_REVOGADA',
+            'redirecionamento' => url_to('login'),
+        ]);
+        self::assertTrue((bool) $this->recarregar($conta)->active);
     }
 
     private function desativarPelaRota(User $conta, string $senha): TestResponse
