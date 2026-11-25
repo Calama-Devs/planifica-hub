@@ -4,8 +4,7 @@
 
 O sistema oferece dois fluxos distintos para definir uma nova senha.
 
-No perfil, o usuário autenticado acessa `/perfil/alterar-senha`, informa a senha atual, a nova senha e a confirmação. A senha atual é validada antes da alteração e a sessão é encerrada somente após a troca ser concluída com sucesso. A nova senha e o evento de auditoria (`perfil`, `alterar_senha`, com a descrição sem valores de senha) são gravados na mesma transação; se o evento falhar, a senha não é alterada. A redefinição por link de recuperação ainda não registra evento de auditoria.
-
+No perfil, o usuário autenticado acessa `/perfil/alterar-senha`, informa a senha atual, a nova senha e a confirmação. A senha atual é validada antes da alteração e a sessão é encerrada somente após a troca ser concluída com sucesso.
 Quando não possui acesso à conta, o usuário solicita a recuperação em `/recuperar-senha`. O sistema envia um link temporário de uso único (`magic-link-reset`), separado do Magic Link nativo do Shield. O link é vinculado à `versao_sessao` da conta no momento da emissão. Após a validação, o servidor guarda o ID do usuário e essa versão em `tempdata`, exclusivamente para a redefinição. Esse acesso não autentica o usuário; após definir a senha, ele retorna ao login.
 
 A desativação remove os links de recuperação da conta na mesma transação e invalida os formulários já abertos pela mudança de versão. Reativar a conta exige solicitar um novo link. Links e autorizações temporárias antigos, sem versão, também exigem nova solicitação.
@@ -13,6 +12,13 @@ A desativação remove os links de recuperação da conta na mesma transação e
 Nos dois fluxos, a conta precisa estar ativa, com `users.active = 1`. Contas com valor diferente de `1` não podem solicitar, validar ou concluir a redefinição de senha, nem alterar a senha pelo perfil.
 
 A nova senha passa pelas validações do Shield e deve ser diferente da senha anterior.
+
+Nos dois fluxos, a nova senha e o evento da [auditoria centralizada](auditoria.md) são gravados na mesma transação pelo `RedefinirSenhaService`; se o evento falhar, a senha não é alterada. A descrição do evento registra apenas o fato, sem valores ou hash de senha.
+
+| Fluxo | `modulo` / `acao` | Responsável (`usuario_id`) |
+| --- | --- | --- |
+| Alteração pelo perfil | `perfil` / `alterar_senha` | Usuário autenticado |
+| Redefinição por link de recuperação | `autenticacao` / `redefinir_senha` | Nulo, pois não há sessão autenticada; a conta é identificada em `entidade_id` |
 
 > A rota `POST /recuperar-senha` utiliza o filtro nativo `auth-rates` do Shield para limitar as solicitações por endereço IP. Essa medida reduz tentativas automatizadas e o abuso do envio de e-mails, mas não elimina completamente a possibilidade de inferir contas por diferenças no tempo de resposta. A mensagem exibida permanece genérica para não revelar se o e-mail está cadastrado.
 
@@ -41,7 +47,7 @@ O Magic Link nativo do Shield mantém o tipo `magic-link` e o redirecionamento n
 | `tests/feature/AutenticacaoTest.php` | Testes automatizados do fluxo de autenticação e redefinição. |
 | `tests/feature/HomeTest.php` | Testa a opção do perfil e o acesso ao formulário de alteração de senha. |
 | `tests/feature/PerfilTest.php` | Testa que a troca de senha pelo perfil não altera nome, e-mail, grupos, permissões nem outra conta, e que registra o evento de auditoria. |
-| `tests/database/AuditoriaPerfilTest.php` | Testa que a troca de nome e de senha pelo perfil é desfeita quando a gravação ou a auditoria falha. |
+| `tests/database/AuditoriaPerfilTest.php` | Testa que a troca de nome e de senha pelo perfil e a redefinição por link são desfeitas quando a gravação ou a auditoria falha. |
 
 ## Validação realizada
 
