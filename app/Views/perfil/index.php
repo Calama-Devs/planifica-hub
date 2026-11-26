@@ -3,6 +3,7 @@
  * @var string        $nomeAtual          Nome atual do usuário autenticado.
  * @var string        $emailAtual         E-mail da conta autenticada.
  * @var string[]      $grupos             Títulos dos grupos associados à conta.
+ * @var int|null      $comprimentoMinimo  Comprimento mínimo permitido para o nome.
  * @var int|null      $comprimentoMaximo  Comprimento máximo permitido para o nome.
  * @var bool          $podeEditarEmail    Indica se o usuário tem autorização para editar o e-mail.
  * @var bool          $podeEditarGrupos   Indica se o usuário tem autorização para editar os grupos.
@@ -48,9 +49,14 @@
                                 <input type="text" id="campo-nome" name="nome"
                                        class="form-control <?= erro_campo('nome') ?>"
                                        value="<?= old('nome') ?? esc($nomeAtual) ?>"
+                                       minlength="<?= esc((string) $comprimentoMinimo) ?>"
                                        maxlength="255"
+                                       aria-describedby="regras-nome-perfil"
                                        required>
                             </div>
+                            <p id="regras-nome-perfil" class="text-muted small mt-1 mb-0">
+                                O nome deve ter pelo menos <?= esc((string) $comprimentoMinimo) ?> caracteres.
+                            </p>
                             <?= view('partials/erros_validacao', ['campo' => 'nome']) ?>
                         </div>
                     </div>

@@ -36,6 +36,11 @@ class PerfilService
         return $grupos;
     }
 
+    public function obterComprimentoMinimoNome(): int
+    {
+        return 3;
+    }
+
     public function obterComprimentoMaximoNome(): int
     {
         return 255;
@@ -66,7 +71,7 @@ class PerfilService
                 'tipo'     => 'validacao',
                 'codigo'   => 'PERFIL_NOME_INVALIDO',
                 'mensagem' => 'Verifique o nome informado.',
-                'erros'    => ['nome' => 'Informe um nome completo válido, com até 255 caracteres.'],
+                'erros'    => ['nome' => 'Informe um nome completo válido, com pelo menos 3 e no máximo 255 caracteres.'],
             ];
         }
 

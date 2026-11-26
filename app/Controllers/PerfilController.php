@@ -23,6 +23,7 @@ class PerfilController extends BaseController
             'nomeAtual'         => (string) ($usuario->nome_completo ?? $usuario->username ?? ''),
             'emailAtual'        => $usuario->email ?? '',
             'grupos'            => $perfilService->obterGruposDoUsuario($usuario),
+            'comprimentoMinimo' => $perfilService->obterComprimentoMinimoNome(),
             'comprimentoMaximo' => $perfilService->obterComprimentoMaximoNome(),
             'podeEditarEmail'   => $perfilService->podeEditarEmail(),
             'podeEditarGrupos'  => $perfilService->podeEditarGrupos(),

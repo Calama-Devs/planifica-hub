@@ -8,7 +8,7 @@ class ValidadorNomeCompleto
 {
     public function validar(string $nome): bool
     {
-        return mb_strlen($nome) >= 2
+        return mb_strlen($nome) >= 3
             && mb_strlen($nome) <= 255
             && preg_match('/\A[\p{L}\p{M}]+(?:[ \'\x{2019}-][\p{L}\p{M}]+)*\z/u', $nome) === 1;
     }
