@@ -50,7 +50,7 @@
                                        class="form-control <?= erro_campo('nome') ?>"
                                        value="<?= old('nome') ?? esc($nomeAtual) ?>"
                                        minlength="<?= esc((string) $comprimentoMinimo) ?>"
-                                       maxlength="255"
+                                       maxlength="<?= esc((string) $comprimentoMaximo) ?>"
                                        aria-describedby="regras-nome-perfil"
                                        required>
                             </div>
