@@ -1,9 +1,8 @@
 (function ($) {
     'use strict';
 
-    var modal = $('#modal-alterar-senha');
-    var formulario = $('#formulario-alterar-senha');
-    var alerta = $('#erro-alterar-senha');
+    var formulario = $('#formulario-trocar-senha');
+    var alerta = $('#alerta-trocar-senha');
     var enviando = false;
 
     function atualizarCsrf(resposta) {
@@ -21,6 +20,10 @@
     }
 
     function exibirErro(mensagem) {
+        var secao = document.getElementById('secao-trocar-senha');
+        if (secao) {
+            bootstrap.Collapse.getOrCreateInstance(secao).show();
+        }
         alerta.text(mensagem).removeClass('d-none').trigger('focus');
     }
 
@@ -35,17 +38,6 @@
         return true;
     }
 
-    modal.on('shown.bs.modal', function () {
-        $('#perfil-senha-atual').trigger('focus');
-    }).on('hide.bs.modal', function (evento) {
-        if (enviando) {
-            evento.preventDefault();
-        }
-    }).on('hidden.bs.modal', function () {
-        formulario[0].reset();
-        alerta.text('').addClass('d-none');
-    });
-
     formulario.on('submit', function (evento) {
         evento.preventDefault();
         if (enviando) {
@@ -54,7 +46,7 @@
 
         enviando = true;
         alerta.text('').addClass('d-none');
-        formulario.find('button').prop('disabled', true);
+        formulario.find('button[type="submit"]').prop('disabled', true);
 
         $.ajax({
             url: formulario.attr('action'),
@@ -86,7 +78,7 @@
                 'Não foi possível concluir. Recarregue a página e tente novamente.');
         }).always(function () {
             enviando = false;
-            formulario.find('button').prop('disabled', false);
+            formulario.find('button[type="submit"]').prop('disabled', false);
         });
     });
 })(jQuery);

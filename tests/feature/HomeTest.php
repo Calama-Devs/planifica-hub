@@ -46,9 +46,6 @@ final class HomeTest extends CIUnitTestCase
         $resposta->assertOK();
         $resposta->assertSee('PlanIFica Hub');
         $resposta->assertSee('Dashboard');
-        $resposta->assertSee('Alterar Senha');
-        $resposta->assertSeeElement('button[id=botao-alterar-senha]');
-        $resposta->assertSee('mdi-lock-reset');
     }
 
     public function testExibeSobreReutilizandoLayoutQuandoAutenticado(): void
@@ -67,7 +64,7 @@ final class HomeTest extends CIUnitTestCase
         $usuario = $this->criarUsuario();
         $this->actingAs($usuario);
 
-        $resposta = $this->withSession($_SESSION)->get('/');
+        $resposta = $this->withSession($_SESSION)->get('perfil');
 
         $resposta->assertOK();
         $resposta->assertSeeElement('input[name=senha-atual]');
@@ -83,8 +80,6 @@ final class HomeTest extends CIUnitTestCase
             $resposta = $this->withSession()->get($rota);
 
             $resposta->assertOK();
-            $resposta->assertSeeElement('div[id=modal-alterar-senha]');
-            $resposta->assertSeeElement('form[id=formulario-alterar-senha]');
             $this->assertStringContainsString(
                 '<link rel="stylesheet" href="' . base_url('assets/vendor/mdi/css/materialdesignicons.min.css') . '">',
                 $resposta->getBody()
@@ -100,7 +95,8 @@ final class HomeTest extends CIUnitTestCase
             foreach ($referencias[1] as $url) {
                 $prefixo = base_url('assets/');
                 $this->assertStringStartsWith($prefixo, $url);
-                $this->assertFileExists(FCPATH . 'assets/' . substr($url, strlen($prefixo)));
+                $caminho = strtok(substr($url, strlen($prefixo)), '?');
+                $this->assertFileExists(FCPATH . 'assets/' . $caminho);
             }
         }
     }

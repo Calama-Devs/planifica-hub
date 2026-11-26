@@ -7,9 +7,40 @@ namespace App\Services;
 use App\Models\UsuarioAutenticacaoModel;
 use App\Validation\ValidadorNomeCompleto;
 use CodeIgniter\Shield\Entities\User;
+use Config\AuthGroups;
 
 class PerfilService
 {
+    public function podeEditarEmail(): bool
+    {
+        return false;
+    }
+
+    public function podeEditarGrupos(): bool
+    {
+        return false;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function obterGruposDoUsuario(User $usuario): array
+    {
+        $configGrupos = config(AuthGroups::class);
+        $grupos       = [];
+
+        foreach ($usuario->getGroups() ?? [] as $chave) {
+            $grupos[] = $configGrupos->groups[$chave]['title'] ?? $chave;
+        }
+
+        return $grupos;
+    }
+
+    public function obterComprimentoMinimoNome(): int
+    {
+        return 3;
+    }
+
     public function obterComprimentoMaximoNome(): int
     {
         return 255;
@@ -40,7 +71,7 @@ class PerfilService
                 'tipo'     => 'validacao',
                 'codigo'   => 'PERFIL_NOME_INVALIDO',
                 'mensagem' => 'Verifique o nome informado.',
-                'erros'    => ['nome' => 'Informe um nome completo válido, com até 255 caracteres.'],
+                'erros'    => ['nome' => 'Informe um nome completo válido, com pelo menos 3 e no máximo 255 caracteres.'],
             ];
         }
 
