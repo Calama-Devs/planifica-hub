@@ -12,6 +12,7 @@ use App\Services\ConviteService;
 use App\Services\AuditoriaService;
 use App\Services\EstadoContaService;
 use App\Services\EdicaoContaService;
+use App\Services\ConfirmacaoAdministrativaService;
 use App\Services\ConfirmacaoOperacaoService;
 use App\Services\ConfirmacaoEmailContaService;
 use CodeIgniter\Config\BaseService;
@@ -58,6 +59,15 @@ class Services extends BaseService
         }
 
         return new ConfirmacaoEmailContaService();
+    }
+
+    public static function confirmacaoAdministrativaService(bool $getShared = true): ConfirmacaoAdministrativaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('confirmacaoAdministrativaService');
+        }
+
+        return new ConfirmacaoAdministrativaService();
     }
 
     public static function confirmacaoOperacaoService(bool $getShared = true): ConfirmacaoOperacaoService
