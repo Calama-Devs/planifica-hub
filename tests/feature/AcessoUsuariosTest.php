@@ -50,15 +50,27 @@ final class AcessoUsuariosTest extends CIUnitTestCase
         $this->get('admin/acessos/listar')->assertRedirectTo(site_url('login'));
     }
 
-    public function testQuemNaoPodeAdministrarAcessosNaoAcessaATelaNemAListagem(): void
+    public function testUsuarioSemPermissoesNaoAcessaATelaNemAListagem(): void
     {
         $comum = $this->criarConta('comum', 'user');
+
+        $this->actingAs($comum)->get('admin/acessos')->assertRedirect();
+        $this->actingAs($comum)->get('admin/acessos/listar')->assertRedirect();
+    }
+
+    public function testOperadorComContasCriarAcessaSomenteEmissaoDeConvites(): void
+    {
         $admin = $this->criarConta('admin.contas', 'admin');
 
-        foreach ([$comum, $admin] as $conta) {
-            $this->actingAs($conta)->get('admin/acessos')->assertRedirect();
-            $this->actingAs($conta)->get('admin/acessos/listar')->assertRedirect();
-        }
+        $resposta = $this->actingAs($admin)->get('admin/acessos');
+
+        $resposta->assertOK();
+        $html = (string) $resposta->getBody();
+        $this->assertStringContainsString('id="modal-adicionar-usuario"', $html);
+        $this->assertStringContainsString('id="grupo-add-user-default"', $html);
+        $this->assertStringNotContainsString('id="tabela-usuarios"', $html);
+        $this->assertStringNotContainsString('id="modal-atualizar-usuario"', $html);
+        $this->actingAs($admin)->get('admin/acessos/listar')->assertRedirect();
     }
 
     public function testSuperadminVeATelaComBotaoAdicionarUsuarioEModais(): void
@@ -97,6 +109,7 @@ final class AcessoUsuariosTest extends CIUnitTestCase
         $html = (string) $resposta->getBody();
         $this->assertStringNotContainsString('id="modal-adicionar-usuario"', $html);
         $this->assertStringContainsString('id="modal-atualizar-usuario"', $html);
+        $this->assertStringContainsString('id="tabela-usuarios"', $html);
     }
 
     public function testAlternaBotaoEntreAtivosEInativosConformeSituacao(): void
@@ -229,12 +242,14 @@ final class AcessoUsuariosTest extends CIUnitTestCase
         $this->actingAs($superadmin)->get('admin/acessos/' . $superadmin->id . '/permissoes');
     }
 
-    public function testMenuOferecePaginaDeAcessosSoParaQuemPodeAdministrar(): void
+    public function testMenuOferecePaginaDeAcessosParaCadaPermissaoDaTela(): void
     {
         $superadmin = $this->criarConta('super.menu', 'superadmin');
+        $admin      = $this->criarConta('admin.menu', 'admin');
         $comum      = $this->criarConta('comum.menu', 'user');
 
         $this->actingAs($superadmin)->get('/')->assertSee(url_to('acessos.index'));
+        $this->actingAs($admin)->get('/')->assertSee(url_to('acessos.index'));
         $this->actingAs($comum)->get('/')->assertDontSee(url_to('acessos.index'));
     }
 

@@ -6,7 +6,9 @@ O sistema oferece dois fluxos distintos para definir uma nova senha.
 
 No perfil, o usuário autenticado acessa `/perfil/alterar-senha`, informa a senha atual, a nova senha e a confirmação. A senha atual é validada antes da alteração e a sessão é encerrada somente após a troca ser concluída com sucesso.
 
-Quando não possui acesso à conta, o usuário solicita a recuperação em `/recuperar-senha`. O sistema cria um token `magic-link-reset`, separado do Magic Link nativo do Shield, e envia um link temporário de uso único. Após validá-lo, o ID do usuário fica em um `tempdata` temporário, utilizado exclusivamente pela redefinição e pelo cancelamento. Esse acesso não cria uma sessão autenticada nem libera outras funcionalidades. Após definir a nova senha, o usuário retorna ao login.
+Quando não possui acesso à conta, o usuário solicita a recuperação em `/recuperar-senha`. O sistema envia um link temporário de uso único (`magic-link-reset`), separado do Magic Link nativo do Shield. O link é vinculado à `versao_sessao` da conta no momento da emissão. Após a validação, o servidor guarda o ID do usuário e essa versão em `tempdata`, exclusivamente para a redefinição. Esse acesso não autentica o usuário; após definir a senha, ele retorna ao login.
+
+A desativação remove os links de recuperação da conta na mesma transação e invalida os formulários já abertos pela mudança de versão. Reativar a conta exige solicitar um novo link. Links e autorizações temporárias antigos, sem versão, também exigem nova solicitação.
 
 Nos dois fluxos, a conta precisa estar ativa, com `users.active = 1`. Contas com valor diferente de `1` não podem solicitar, validar ou concluir a redefinição de senha, nem alterar a senha pelo perfil.
 

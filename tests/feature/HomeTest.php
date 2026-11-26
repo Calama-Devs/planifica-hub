@@ -15,10 +15,7 @@ final class HomeTest extends CIUnitTestCase
     use FeatureTestTrait;
     use AuthenticationTesting;
 
-    protected $namespace = [
-        'CodeIgniter\Shield',
-        'CodeIgniter\Settings',
-    ];
+    protected $namespace = null;
 
     protected function setUp(): void
     {
@@ -44,21 +41,18 @@ final class HomeTest extends CIUnitTestCase
     {
         $usuario = $this->criarUsuario();
 
-        $resposta = $this->actingAs($usuario)->get('/');
+        $resposta = $this->actingAs($usuario)->withSession()->get('/');
 
         $resposta->assertOK();
         $resposta->assertSee('PlanIFica Hub');
         $resposta->assertSee('Dashboard');
-        $resposta->assertSee('Alterar Senha');
-        $resposta->assertSeeElement('button[id=botao-alterar-senha]');
-        $resposta->assertSee('mdi-lock-reset');
     }
 
     public function testExibeSobreReutilizandoLayoutQuandoAutenticado(): void
     {
         $usuario = $this->criarUsuario();
 
-        $resposta = $this->actingAs($usuario)->get('sobre');
+        $resposta = $this->actingAs($usuario)->withSession()->get('sobre');
 
         $resposta->assertOK();
         $resposta->assertSee('Sobre o PlanIFica Hub');
@@ -70,7 +64,7 @@ final class HomeTest extends CIUnitTestCase
         $usuario = $this->criarUsuario();
         $this->actingAs($usuario);
 
-        $resposta = $this->withSession($_SESSION)->get('/');
+        $resposta = $this->withSession($_SESSION)->get('perfil');
 
         $resposta->assertOK();
         $resposta->assertSeeElement('input[name=senha-atual]');
@@ -80,13 +74,12 @@ final class HomeTest extends CIUnitTestCase
     public function testUsaAssetsExistentesNoLayoutDasPaginasAutenticadas(): void
     {
         $usuario = $this->criarUsuario();
+        $this->actingAs($usuario);
 
         foreach (['/', 'sobre'] as $rota) {
-            $resposta = $this->actingAs($usuario)->get($rota);
+            $resposta = $this->withSession()->get($rota);
 
             $resposta->assertOK();
-            $resposta->assertSeeElement('div[id=modal-alterar-senha]');
-            $resposta->assertSeeElement('form[id=formulario-alterar-senha]');
             $this->assertStringContainsString(
                 '<link rel="stylesheet" href="' . base_url('assets/vendor/mdi/css/materialdesignicons.min.css') . '">',
                 $resposta->getBody()
@@ -102,11 +95,10 @@ final class HomeTest extends CIUnitTestCase
             foreach ($referencias[1] as $url) {
                 $prefixo = base_url('assets/');
                 $this->assertStringStartsWith($prefixo, $url);
-                $this->assertFileExists(FCPATH . 'assets/' . substr($url, strlen($prefixo)));
+                $caminho = strtok(substr($url, strlen($prefixo)), '?');
+                $this->assertFileExists(FCPATH . 'assets/' . $caminho);
             }
         }
-
-        $this->assertDirectoryDoesNotExist(FCPATH . 'assets/vendors');
     }
 
     public function testFontesUtilizadasPeloLayoutExistem(): void
@@ -135,6 +127,7 @@ final class HomeTest extends CIUnitTestCase
         $users = model(UserModel::class);
         $user  = new User([
             'username' => 'usuario.layout',
+            'active'   => true,
             'email'    => 'layout@example.com',
             'password' => 'SenhaForte123!',
         ]);

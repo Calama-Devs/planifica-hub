@@ -488,22 +488,184 @@ $(document).ready(function () {
         );
     });
 
-    // Submissão do Formulário de Confirmação com Senha de Admin
-    // Sem simulação de sucesso: exibe estado explícito até integração com endpoint real.
-    $('#form-confirmar-senha-admin').on('submit', function (e) {
-        e.preventDefault();
-        var senhaAdmin = $('#admin-password-confirm').val();
+    // Confirmação de senha: a senha viaja no mesmo POST que executa a operação. O servidor confere a sessão, a
+    // permissão, a senha do próprio operador e o limite de tentativas; só depois altera algo. Cancelar a modal
+    // não envia nada.
+    var modalConfirmacao = $('#modal-confirmar-senha-admin');
+    var campoSenhaAdmin = $('#admin-password-confirm');
+    var enviandoConfirmacao = false;
 
-        if (!senhaAdmin || senhaAdmin.trim() === '') {
-            $('#admin-password-confirm').addClass('is-invalid');
+    // Endpoint de cada tipo de ação da modal. Tipos sem endpoint ainda não existem no servidor: a senha não é enviada.
+    function montarRequisicao(acao) {
+        // A view entrega a URL de cada operação, gerada pela rota nomeada, com um marcador no lugar da conta.
+        var modelo = tableElement.data('url-' + acao.tipo);
+
+        if (!modelo) {
+            return null;
+        }
+
+        var url = String(modelo).replace(String(tableElement.data('marcador-conta')), encodeURIComponent(acao.userId));
+
+        if (acao.tipo === 'desativar' || acao.tipo === 'reativar') {
+            return { url: url, dados: {} };
+        }
+
+        if (acao.tipo === 'atualizar' && acao.dadosExtras) {
+            var dados = { nome: acao.dadosExtras.nome };
+            var email = acao.dadosExtras.email;
+
+            // O servidor lê a simples presença do campo "email" como pedido de troca de e-mail: só envia com valor.
+            if (typeof email === 'string' && email.trim() !== '') {
+                dados.email = email.trim();
+            }
+
+            // A troca de e-mail exige justificativa no servidor (15 a 500 caracteres); a modal repassa quando houver.
+            var justificativa = acao.dadosExtras.justificativa;
+
+            if (typeof justificativa === 'string' && justificativa.trim() !== '') {
+                dados.justificativa = justificativa.trim();
+            }
+
+            return { url: url, dados: dados };
+        }
+
+        return null;
+    }
+
+    function exibirAlertaConfirmacao(classe, mensagem) {
+        $('#alerta-confirmar-senha')
+            .removeClass('d-none alert-danger alert-success alert-warning')
+            .addClass(classe)
+            .text(mensagem);
+    }
+
+    function definirEnvioConfirmacao(emAndamento) {
+        enviandoConfirmacao = emAndamento;
+        $('#btn-executar-confirmacao').prop('disabled', emAndamento);
+        $('#btn-cancelar-confirmacao').prop('disabled', emAndamento);
+        $('#spinner-confirmar-senha').toggleClass('d-none', !emAndamento);
+    }
+
+    // O token CSRF é regenerado a cada envio: a meta tag e os campos ocultos precisam do valor novo.
+    function atualizarCsrf(resposta) {
+        var csrf = resposta && resposta.csrf ? resposta.csrf : null;
+        var hash = csrf ? csrf.hash : (resposta ? resposta.csrf_hash : null);
+
+        if (!hash) {
             return;
         }
-        $('#admin-password-confirm').removeClass('is-invalid').val('');
 
-        $('#alerta-confirmar-senha')
-            .removeClass('d-none alert-danger alert-success')
-            .addClass('alert-warning')
-            .text('Esta ação administrativa ainda aguarda integração com o servidor. Nenhuma alteração foi realizada.');
+        var nome = csrf && csrf.nome ? csrf.nome : $('#form-confirmar-senha-admin input[type="hidden"]').first().attr('name');
+
+        $('meta[name="X-CSRF-TOKEN"]').attr('content', hash);
+        $('input[type="hidden"]').filter(function () {
+            return this.name === nome;
+        }).val(hash);
+    }
+
+    function aoConcluirConfirmacao(resposta) {
+        exibirAlertaConfirmacao('alert-success', resposta.mensagem || 'Operação concluída.');
+        $('#btn-cancelar-confirmacao').text('Fechar');
+
+        if ($.fn.DataTable && $.fn.DataTable.isDataTable(tableElement)) {
+            tableElement.DataTable().ajax.reload(null, false);
+        }
+    }
+
+    function exibirFalhaConfirmacao(resposta) {
+        exibirAlertaConfirmacao(
+            'alert-danger',
+            resposta && resposta.mensagem ? resposta.mensagem : 'Não foi possível concluir. Recarregue a página e tente novamente.'
+        );
+    }
+
+    function aoFalharConfirmacao(requisicao, situacao) {
+        var resposta = requisicao.responseJSON;
+        atualizarCsrf(resposta);
+
+        // Sessão encerrada: o servidor indica o destino; sem JSON, a página protegida leva ao login.
+        if (resposta && resposta.redirecionamento) {
+            window.location.assign(resposta.redirecionamento);
+            return;
+        }
+
+        if (requisicao.status === 401 || situacao === 'parsererror') {
+            window.location.reload();
+            return;
+        }
+
+        exibirFalhaConfirmacao(resposta);
+    }
+
+    $('#form-confirmar-senha-admin').on('submit', function (e) {
+        e.preventDefault();
+        if (enviandoConfirmacao) {
+            return;
+        }
+
+        var senhaAdmin = campoSenhaAdmin.val();
+
+        if (!senhaAdmin || senhaAdmin.trim() === '') {
+            campoSenhaAdmin.addClass('is-invalid');
+            return;
+        }
+        campoSenhaAdmin.removeClass('is-invalid').val('');
+
+        var requisicao = acaoPendente.tipo ? montarRequisicao(acaoPendente) : null;
+
+        if (!requisicao) {
+            senhaAdmin = null;
+            exibirAlertaConfirmacao('alert-warning', 'Esta operação ainda não está disponível. Nenhuma alteração foi realizada.');
+            return;
+        }
+
+        $('#alerta-confirmar-senha').addClass('d-none').text('');
+        definirEnvioConfirmacao(true);
+        var concluida = false;
+
+        $.ajax({
+            url: requisicao.url,
+            type: 'POST',
+            data: $.extend({ senha_admin: senhaAdmin }, requisicao.dados),
+            dataType: 'json'
+        }).done(function (resposta) {
+            atualizarCsrf(resposta);
+
+            // HTTP 2xx não basta: só o retorno estruturado com sucesso verdadeiro conclui a operação.
+            if (!resposta || resposta.sucesso !== true) {
+                exibirFalhaConfirmacao(resposta);
+                return;
+            }
+
+            concluida = true;
+            aoConcluirConfirmacao(resposta);
+        }).fail(aoFalharConfirmacao).always(function () {
+            senhaAdmin = null;
+            campoSenhaAdmin.val('');
+            definirEnvioConfirmacao(false);
+
+            if (concluida) {
+                $('#btn-executar-confirmacao').prop('disabled', true);
+            } else {
+                campoSenhaAdmin.trigger('focus');
+            }
+        });
+    });
+
+    modalConfirmacao.on('shown.bs.modal', function () {
+        campoSenhaAdmin.trigger('focus');
+    }).on('hide.bs.modal', function (evento) {
+        if (enviandoConfirmacao) {
+            evento.preventDefault();
+        }
+    }).on('hidden.bs.modal', function () {
+        // Cancelar ou fechar não envia nada ao servidor: só limpa o campo e o contexto da ação pendente.
+        campoSenhaAdmin.val('').removeClass('is-invalid');
+        $('#alerta-confirmar-senha').addClass('d-none').text('');
+        $('#btn-cancelar-confirmacao').text('Cancelar');
+        acaoPendente.tipo = null;
+        acaoPendente.userId = null;
+        acaoPendente.dadosExtras = null;
     });
 
     // Adicionar Usuário (Modal de Convite)
@@ -514,7 +676,10 @@ $(document).ready(function () {
 
     $('#form-adicionar-usuario').on('submit', function (e) {
         e.preventDefault();
+        var formulario = $(this);
         var emailInput = $('#convite-email');
+        var botao = $('#btn-enviar-convite');
+        var alerta = $('#alerta-adicionar-usuario');
 
         if (!emailInput.val().trim() || !emailInput[0].checkValidity()) {
             emailInput.addClass('is-invalid');
@@ -522,9 +687,51 @@ $(document).ready(function () {
         }
         emailInput.removeClass('is-invalid');
 
-        $('#alerta-adicionar-usuario')
+        botao.prop('disabled', true).find('.spinner-border').removeClass('d-none');
+        alerta
             .removeClass('d-none alert-danger alert-success')
             .addClass('alert-warning')
-            .text('O envio de convite ainda aguarda integração com o servidor. Nenhum convite foi enviado.');
+            .text('Enviando convite...');
+
+        $.ajax({
+            url: formulario.attr('action'),
+            type: 'POST',
+            data: formulario.serialize(),
+            dataType: 'json'
+        }).done(function (resposta) {
+            atualizarTokenCsrf(resposta);
+            alerta
+                .removeClass('alert-warning alert-danger alert-success')
+                .addClass(resposta.sucesso ? 'alert-success' : 'alert-danger')
+                .text(resposta.mensagem || 'Não foi possível concluir o envio.');
+
+            if (resposta.sucesso) {
+                formulario[0].reset();
+            }
+        }).fail(function (xhr) {
+            atualizarTokenCsrf(xhr.responseJSON || {});
+            if (xhr.responseJSON && xhr.responseJSON.tipo === 'validacao') {
+                emailInput.addClass('is-invalid');
+            }
+            alerta
+                .removeClass('alert-warning alert-success')
+                .addClass('alert-danger')
+                .text(
+                    xhr.responseJSON && xhr.responseJSON.mensagem
+                        ? xhr.responseJSON.mensagem
+                        : 'Não foi possível concluir o envio.'
+                );
+        }).always(function () {
+            botao.prop('disabled', false).find('.spinner-border').addClass('d-none');
+        });
     });
+
+    function atualizarTokenCsrf(resposta) {
+        if (!resposta.csrf || !resposta.csrf.hash) return;
+
+        $('meta[name="X-CSRF-TOKEN"]').attr('content', resposta.csrf.hash);
+        $('input[name="' + resposta.csrf.nome + '"]')
+            .val(resposta.csrf.hash)
+            .prop('defaultValue', resposta.csrf.hash);
+    }
 });

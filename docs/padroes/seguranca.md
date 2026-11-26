@@ -7,7 +7,7 @@ Base: Manual Calama Devs, capítulo 11 e item 8.7. Em caso de dúvida, o manual 
 1. **SQL Injection:** nunca concatenar dado externo em SQL. Query Builder ou consulta parametrizada.
 2. **XSS:** todo dado dinâmico exibido em HTML passa por `esc()`. No JavaScript, `.text()` em vez de `.html()` para dados do servidor.
 3. **CSRF:** filtro `csrf` ativo globalmente em `app/Config/Filters.php`; todo formulário com `<?= csrf_field() ?>`; todo AJAX que altera dados envia o token.
-4. **Autorização no back-end:** toda rota e operação sensível verifica permissão no servidor (Filter e/ou Service). Esconder menu ou botão não é proteção. Testar acesso direto pela URL.
+4. **Autorização no back-end:** proteger rotas restritas com os Filters do Shield e verificar a permissão efetiva e o escopo no Service nas operações sensíveis, quando aplicável. Esconder menu ou botão não é proteção. Testar requisições diretas; siga o [padrão de permissões](permissoes.md).
 5. **Senhas:** só `password_hash($senha, PASSWORD_DEFAULT)` e `password_verify()`. Nunca armazenar, registrar em log ou enviar senha legível.
 6. **Segredos:** credenciais, tokens e chaves só no `.env`. Nunca no código, em commits, em prints, em issues ou em conversas com agentes de IA.
 7. **Dados reais:** proibido versionar dumps ou exportações com dados pessoais; desenvolvimento e testes usam dados fictícios ou anonimizados.
@@ -36,7 +36,7 @@ if (! password_verify($senhaInformada, $usuario['senha_hash'])) {
 
 - Modelo de perfis e permissões, com permissões independentes dos perfis (`usuarios.visualizar`, `usuarios.editar`, `relatorios.visualizar`).
 - Princípio do menor privilégio para usuários, contas de serviço, banco de dados e integrações.
-- Registrar em auditoria as operações administrativas e sensíveis.
+- Integrar criações, atualizações e exclusões novas ou alteradas à [auditoria centralizada do Hub](../auditoria.md), inclusive as operações administrativas e sensíveis. Nunca registrar segredos ou dados pessoais desnecessários nos eventos.
 
 ## Upload de arquivos (manual 11.7)
 
