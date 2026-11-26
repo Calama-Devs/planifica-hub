@@ -7,8 +7,8 @@
     <title><?= $this->renderSection('titulo') ?> | PlanIFica Hub</title>
 
     <link rel="stylesheet" href="<?= esc(base_url('assets/vendor/mdi/css/materialdesignicons.min.css')) ?>">
-    <link rel="stylesheet" href="<?= base_url('assets/css/modern-vertical/style.css') ?>">
-    <link rel="stylesheet" href="<?= base_url('assets/css/custom.css') ?>">
+    <link rel="stylesheet" href="<?= esc(base_url('assets/css/modern-vertical/style.css'), 'attr') ?>?v=<?= filemtime(FCPATH . 'assets/css/modern-vertical/style.css') ?>">
+    <link rel="stylesheet" href="<?= esc(base_url('assets/css/custom.css'), 'attr') ?>?v=<?= filemtime(FCPATH . 'assets/css/custom.css') ?>">
     <?= $this->renderSection('estilos') ?>
 
     <link rel="shortcut icon" href="<?= base_url('assets/images/logo-ifro-mini.png') ?>">
@@ -31,14 +31,11 @@
         </div>
     </div>
 
-    <?= $this->include('partials/modal_alterar_senha') ?>
-
     <script src="<?= esc(base_url('assets/vendor/js/vendor.bundle.base.js')) ?>"></script>
     <script src="<?= base_url('assets/js/off-canvas.js') ?>"></script>
     <script src="<?= base_url('assets/js/hoverable-collapse.js') ?>"></script>
     <script src="<?= base_url('assets/js/misc.js') ?>"></script>
     <script src="<?= base_url('assets/js/custom.js') ?>"></script>
-    <script src="<?= esc(base_url('assets/js/alterar-senha.js')) ?>"></script>
     <?= $this->renderSection('scripts') ?>
 </body>
 </html>

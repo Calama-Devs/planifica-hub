@@ -4,18 +4,19 @@ namespace Tests\Feature;
 
 use CodeIgniter\Config\Factories;
 use CodeIgniter\Shield\Entities\User;
-use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\Shield\Test\AuthenticationTesting;
-use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\CIUnitTestCase;
+use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
 use Config\Menu;
+use Tests\Support\Traits\CriaContasTrait;
 
-class MenuPermissoesTest extends CIUnitTestCase
+final class MenuPermissoesTest extends CIUnitTestCase
 {
     use DatabaseTestTrait;
     use FeatureTestTrait;
     use AuthenticationTesting;
+    use CriaContasTrait;
 
     protected $namespace = null;
 
@@ -36,7 +37,7 @@ class MenuPermissoesTest extends CIUnitTestCase
     {
         $usuarioComum = $this->criarUsuarioNoGrupo('user');
 
-        $resposta = $this->actingAs($usuarioComum)->get('/');
+        $resposta = $this->actingAs($usuarioComum)->withSession()->get('/');
 
         $resposta->assertOK();
         $resposta->assertSee('Dashboard');
@@ -50,7 +51,7 @@ class MenuPermissoesTest extends CIUnitTestCase
     {
         $superadmin = $this->criarUsuarioNoGrupo('superadmin');
 
-        $resposta = $this->actingAs($superadmin)->get('admin/permissoes');
+        $resposta = $this->actingAs($superadmin)->withSession()->get('admin/permissoes');
 
         $resposta->assertOK();
         $resposta->assertSee('Dashboard');
@@ -64,7 +65,7 @@ class MenuPermissoesTest extends CIUnitTestCase
         $usuario = $this->criarUsuarioNoGrupo('user');
         $usuario->addPermission('acessos.administrar');
 
-        $resposta = $this->actingAs($usuario)->get('admin/permissoes');
+        $resposta = $this->actingAs($usuario)->withSession()->get('admin/permissoes');
 
         $resposta->assertOK();
         $resposta->assertSee('Administração');
@@ -75,7 +76,7 @@ class MenuPermissoesTest extends CIUnitTestCase
     {
         $usuarioComum = $this->criarUsuarioNoGrupo('user');
 
-        $resposta = $this->actingAs($usuarioComum)->get('sobre');
+        $resposta = $this->actingAs($usuarioComum)->withSession()->get('sobre');
 
         $resposta->assertOK();
         $itens = service('menu')->filtrarItensVisiveis($usuarioComum);
@@ -106,7 +107,7 @@ class MenuPermissoesTest extends CIUnitTestCase
     {
         $usuarioComum = $this->criarUsuarioNoGrupo('user');
 
-        $resposta = $this->actingAs($usuarioComum)->get('admin/permissoes');
+        $resposta = $this->actingAs($usuarioComum)->withSession()->get('admin/permissoes');
 
         $resposta->assertRedirectTo(rtrim(site_url('/'), '/'));
         $resposta->assertSessionHas('error');
@@ -127,16 +128,6 @@ class MenuPermissoesTest extends CIUnitTestCase
 
     private function criarUsuarioNoGrupo(string $grupo): User
     {
-        $usuarios = model(UserModel::class);
-        $usuarios->save(new User([
-            'username' => 'menu.' . $grupo . '.' . uniqid(),
-            'active'   => true,
-        ]));
-
-        /** @var User $usuario */
-        $usuario = $usuarios->findById($usuarios->getInsertID());
-        $usuario->addGroup($grupo);
-
-        return $usuario;
+        return $this->criarConta('menu.' . $grupo . '.' . uniqid(), $grupo);
     }
 }

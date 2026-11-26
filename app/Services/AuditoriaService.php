@@ -32,7 +32,6 @@ class AuditoriaService
         }
 
         $usuarioId = auth()->id();
-
         $eventos   = array_map(
             static function (array $evento) use ($usuarioId): array {
                 $evento['usuario_id'] = $usuarioId;

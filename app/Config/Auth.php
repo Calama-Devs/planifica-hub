@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace Config;
 
-use App\Autenticacao\SessaoAutenticador;
+use App\Services\AutenticacaoSessaoService;
 use CodeIgniter\Shield\Config\Auth as ShieldAuth;
 use CodeIgniter\Shield\Authentication\Actions\ActionInterface;
 use CodeIgniter\Shield\Authentication\AuthenticatorInterface;
@@ -121,7 +121,7 @@ class Auth extends ShieldAuth
      */
     public array $authenticators = [
         'tokens'  => AccessTokens::class,
-        'session' => SessaoAutenticador::class,
+        'session' => AutenticacaoSessaoService::class,
         'hmac'    => HmacSha256::class,
         // 'jwt'     => JWT::class,
     ];
@@ -434,7 +434,7 @@ class Auth extends ShieldAuth
      *
      * @var class-string<UserModel>
      */
-    public string $userProvider = UserModel::class;
+    public string $userProvider = \App\Models\UsuarioAutenticacaoModel::class;
 
     /**
      * Returns the URL that a user should be redirected

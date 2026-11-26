@@ -42,6 +42,9 @@ O Shield recusa (`AuthorizationException`) qualquer permissão atribuída a um u
 |---|---|---|
 | `contas.consultar` | Consultar a lista e os dados das contas de usuário | `superadmin`, `admin` |
 | `contas.criar` | Criar novas contas de usuário | `superadmin`, `admin` |
+| `contas.editar` | Editar nome de outras contas e solicitar troca excepcional de e-mail com justificativa e confirmação no novo endereço | `superadmin`, `admin` |
+| `contas.desativar` | Desativar contas de usuário | `superadmin` |
+| `contas.reativar` | Reativar contas de usuário | `superadmin` |
 | `acessos.administrar` | Conceder e remover grupos e permissões das contas de usuário | `superadmin` |
 
 - `acessos.administrar` fica num contexto separado de `contas` para que uma concessão a `contas` nunca libere, por engano, a administração de acessos.
@@ -80,6 +83,8 @@ if (! auth()->user()?->can('acessos.administrar')) {
 ```
 
 Permissão para a ação não garante acesso a todos os registros. Quando houver escopo por usuário, vínculo ou módulo, confira-o no servidor antes de consultar, alterar, excluir ou devolver o registro. Em ações que administram acessos, confira também se o ator pode alterar o alvo e conceder ou revogar os grupos e permissões solicitados; não permita autoelevação nem concessões além do escopo autorizado.
+
+Operações que alteram a conta de outra pessoa exigem ainda a confirmação da senha do próprio operador. O `ConfirmacaoAdministrativaService` confere a sessão, a permissão da ação, a senha e o limite de tentativas na mesma requisição, antes de qualquer escrita; a senha correta nunca substitui a permissão. Veja o [guia de confirmação administrativa](../autorizacao/confirmacao-administrativa.md).
 
 ### 3. Na View, só para exibir ou esconder
 

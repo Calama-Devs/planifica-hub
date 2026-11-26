@@ -18,10 +18,7 @@ final class MensagensTest extends CIUnitTestCase
     use FeatureTestTrait;
     use AuthenticationTesting;
 
-    protected $namespace = [
-        'CodeIgniter\Shield',
-        'CodeIgniter\Settings',
-    ];
+    protected $namespace = null;
 
     protected function setUp(): void
     {
@@ -182,7 +179,7 @@ final class MensagensTest extends CIUnitTestCase
     {
         $usuario = $this->criarUsuario();
 
-        $resposta = $this->actingAs($usuario)->get('sobre');
+        $resposta = $this->actingAs($usuario)->withSession()->get('sobre');
 
         $resposta->assertOK();
         $resposta->assertSee('Exemplo Funcional de Validação e Mensagens');
