@@ -32,6 +32,7 @@
 
     // Impede envio duplicado do perfil (o segundo clique chegaria com token CSRF já usado)
     $('#formulario-perfil').on('submit', function () {
+        if (!this.checkValidity()) return;
         $('button[form="formulario-perfil"]').prop('disabled', true);
     });
 
