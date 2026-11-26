@@ -27,14 +27,22 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
 
     $routes->group('admin/permissoes', ['filter' => 'permission:acessos.administrar'], static function (RouteCollection $routes): void {
         $routes->get('/', 'PermissaoController::index', ['as' => 'permissoes.index']);
+        $routes->get('listar', 'PermissaoController::listarGrupos', ['as' => 'permissoes.grupos.listar']);
     });
 
-    // Gerenciamento de usuários: o filtro do grupo (session) soma com o permission da rota.
-    $routes->group('admin/acessos', ['filter' => 'permission:acessos.administrar'], static function (RouteCollection $routes): void {
-        $routes->get('/', 'AcessoController::index', ['as' => 'acessos.index']);
-        $routes->get('listar', 'AcessoController::listar', ['as' => 'acessos.listar']);
+    // A tela aceita uma das permissões; a listagem continua restrita à administração de acessos.
+    $routes->group('admin/acessos', static function (RouteCollection $routes): void {
+        $routes->get('/', 'AcessoController::index', [
+            'as'     => 'acessos.index',
+            'filter' => 'permission:contas.criar,acessos.administrar',
+        ]);
+        $routes->get('listar', 'AcessoController::listar', [
+            'as'     => 'acessos.listar',
+            'filter' => 'permission:acessos.administrar',
+        ]);
     });
 
+    $routes->post('admin/convites', 'ConviteController::emitir', ['as' => 'convites.emitir', 'filter' => 'permission:contas.criar']);
     // A área de acessos consome estes endpoints JSON; Controller e Service repetem a autorização.
     $routes->get('admin/contas/(:num)', 'ContaController::consultar/$1', [
         'as' => 'contas.consultar',

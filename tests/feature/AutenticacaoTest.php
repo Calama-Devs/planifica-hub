@@ -159,7 +159,7 @@ final class AutenticacaoTest extends CIUnitTestCase
 
             $this->assertSame(EXIT_SUCCESS, $comandos->run('shield:user', ['activate', 'e' => $credenciais['email']]));
             $this->enviarFormulario('login', $credenciais)->assertRedirectTo(rtrim(site_url('/'), '/'));
-            $this->withSession($_SESSION)->get('admin/permissoes')->assertSee('Catálogo de Permissões');
+            $this->withSession($_SESSION)->get('admin/permissoes')->assertSee('Grupos e permissões');
         } finally {
             ComandoUsuario::resetInputOutput();
         }
