@@ -8,8 +8,15 @@ use App\Services\RedefinirSenhaService;
 use App\Services\PerfilService;
 use App\Services\AcessoService;
 use App\Services\PermissaoService;
+use App\Services\ConviteService;
+use App\Services\AuditoriaService;
+use App\Services\EstadoContaService;
+use App\Services\EdicaoContaService;
+use App\Services\ConfirmacaoOperacaoService;
+use App\Services\ConfirmacaoEmailContaService;
 use CodeIgniter\Config\BaseService;
 use App\Services\CabecalhoService;
+use App\Services\FinalizarCadastroService;
 
 /**
  * Services Configuration file.
@@ -26,6 +33,51 @@ use App\Services\CabecalhoService;
  */
 class Services extends BaseService
 {
+    public static function auditoriaService(bool $getShared = true): AuditoriaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('auditoriaService');
+        }
+
+        return new AuditoriaService();
+    }
+
+    public static function estadoContaService(bool $getShared = true): EstadoContaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('estadoContaService');
+        }
+
+        return new EstadoContaService();
+    }
+
+    public static function confirmacaoEmailContaService(bool $getShared = true): ConfirmacaoEmailContaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('confirmacaoEmailContaService');
+        }
+
+        return new ConfirmacaoEmailContaService();
+    }
+
+    public static function confirmacaoOperacaoService(bool $getShared = true): ConfirmacaoOperacaoService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('confirmacaoOperacaoService');
+        }
+
+        return new ConfirmacaoOperacaoService();
+    }
+
+    public static function edicaoContaService(bool $getShared = true): EdicaoContaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('edicaoContaService');
+        }
+
+        return new EdicaoContaService();
+    }
+
     public static function redefinirSenhaService(bool $getShared = true): RedefinirSenhaService
     {
         if ($getShared) {
@@ -42,6 +94,15 @@ class Services extends BaseService
         }
 
         return new PerfilService();
+    }
+
+    public static function conviteService(bool $getShared = true): ConviteService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('conviteService');
+        }
+
+        return new ConviteService();
     }
 
     public static function permissaoService(bool $getShared = true): PermissaoService
@@ -78,5 +139,14 @@ class Services extends BaseService
         }
 
         return new CabecalhoService();
+    }
+
+    public static function finalizarCadastroService(bool $getShared = true): FinalizarCadastroService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('finalizarCadastroService');
+        }
+
+        return new FinalizarCadastroService();
     }
 }

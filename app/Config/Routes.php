@@ -16,16 +16,51 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
     $routes->get('perfil', 'PerfilController::index', ['as' => 'perfil']);
     $routes->post('perfil', 'PerfilController::atualizar', ['as' => 'perfil.atualizar']);
 
+    $routes->post('admin/contas/(:segment)/desativar', 'EstadoContaController::desativar/$1', [
+        'as' => 'contas.desativar',
+        'filter' => 'permission:contas.desativar',
+    ]);
+    $routes->post('admin/contas/(:segment)/reativar', 'EstadoContaController::reativar/$1', [
+        'as' => 'contas.reativar',
+        'filter' => 'permission:contas.reativar',
+    ]);
+
     $routes->group('admin/permissoes', ['filter' => 'permission:acessos.administrar'], static function (RouteCollection $routes): void {
         $routes->get('/', 'PermissaoController::index', ['as' => 'permissoes.index']);
+        $routes->get('listar', 'PermissaoController::listarGrupos', ['as' => 'permissoes.grupos.listar']);
     });
 
-    // Gerenciamento de usuários: o filtro do grupo (session) soma com o permission da rota.
-    $routes->group('admin/acessos', ['filter' => 'permission:acessos.administrar'], static function (RouteCollection $routes): void {
-        $routes->get('/', 'AcessoController::index', ['as' => 'acessos.index']);
-        $routes->get('listar', 'AcessoController::listar', ['as' => 'acessos.listar']);
+    // A tela aceita uma das permissões; a listagem continua restrita à administração de acessos.
+    $routes->group('admin/acessos', static function (RouteCollection $routes): void {
+        $routes->get('/', 'AcessoController::index', [
+            'as'     => 'acessos.index',
+            'filter' => 'permission:contas.criar,acessos.administrar',
+        ]);
+        $routes->get('listar', 'AcessoController::listar', [
+            'as'     => 'acessos.listar',
+            'filter' => 'permission:acessos.administrar',
+        ]);
     });
+
+    $routes->post('admin/convites', 'ConviteController::emitir', ['as' => 'convites.emitir', 'filter' => 'permission:contas.criar']);
+    // A área de acessos consome estes endpoints JSON; Controller e Service repetem a autorização.
+    $routes->get('admin/contas/(:num)', 'ContaController::consultar/$1', [
+        'as' => 'contas.consultar',
+        'filter' => 'permissao-json:contas.editar',
+    ]);
+    $routes->post('admin/contas/(:num)', 'ContaController::atualizar/$1', [
+        'as' => 'contas.atualizar',
+        'filter' => 'permissao-json:contas.editar',
+    ]);
 });
+
+// Confirmação pública por link enviada ao novo endereço; o GET só mostra o formulário.
+$routes->get('confirmar-troca-email', 'ConfirmacaoEmailContaController::formulario', [
+    'as' => 'contas.email.confirmar.form',
+]);
+$routes->post('confirmar-troca-email', 'ConfirmacaoEmailContaController::confirmar', [
+    'as' => 'contas.email.confirmar',
+]);
 
 service('auth')->routes($routes, ['except' => ['logout']]);
 $routes->post('logout', '\CodeIgniter\Shield\Controllers\LoginController::logoutAction', ['as' => 'logout']);
@@ -38,3 +73,8 @@ $routes->get('recuperar-senha/verificar', 'RedefinirSenhaController::verificar',
 $routes->get('reset-password', 'RedefinirSenhaController::redefinir');
 $routes->post('reset-password', 'RedefinirSenhaController::atualizar');
 $routes->post('reset-password/cancelar', 'RedefinirSenhaController::cancelar');
+
+// Finalização de cadastro por convite.
+$routes->get('finalizar-cadastro', 'FinalizarCadastroController::index', ['as' => 'finalizar_cadastro']);
+$routes->post('finalizar-cadastro', 'FinalizarCadastroController::concluir', ['as' => 'finalizar_cadastro.concluir', 'filter' => 'auth-rates']);
+$routes->get('convite/finalizar', 'FinalizarCadastroController::index', ['as' => 'convite.finalizar']);

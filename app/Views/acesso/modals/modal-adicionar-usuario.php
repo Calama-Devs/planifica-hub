@@ -8,7 +8,7 @@
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
-            <form id="form-adicionar-usuario" novalidate>
+            <form id="form-adicionar-usuario" action="<?= esc(url_to('convites.emitir'), 'attr') ?>" method="post" novalidate>
                 <?= csrf_field() ?>
                 <div class="modal-body">
                     <p class="text-muted small mb-3">
@@ -30,8 +30,8 @@
                             Se nenhum grupo for selecionado, a nova conta receberá automaticamente o grupo padrão <strong>user</strong> (Usuário).
                         </small>
                         <div class="border border-secondary rounded p-2 custom-scroll lista-grupos">
-                            <?php if (!empty($gruposDisponiveis)): ?>
-                                <?php foreach ($gruposDisponiveis as $slugGrupo => $dadosGrupo): ?>
+                            <?php if (! empty($gruposDisponiveis)) : ?>
+                                <?php foreach ($gruposDisponiveis as $slugGrupo => $dadosGrupo) : ?>
                                     <div class="form-check mb-1">
                                         <input class="form-check-input" type="checkbox" name="grupos[]"
                                                value="<?= esc($slugGrupo) ?>" id="grupo-add-<?= esc($slugGrupo) ?>">
@@ -40,8 +40,8 @@
                                             <small class="text-muted d-block descricao-grupo"><?= esc($dadosGrupo['description'] ?? '') ?></small>
                                         </label>
                                     </div>
-                                <?php endforeach; ?>
-                            <?php else: ?>
+                                <?php endforeach ?>
+                            <?php else : ?>
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" name="grupos[]" value="user" id="grupo-add-user-default" checked disabled>
                                     <label class="form-check-label text-white" for="grupo-add-user-default">
@@ -49,7 +49,7 @@
                                         <small class="text-muted d-block descricao-grupo">Grupo padrão sem privilégios administrativos.</small>
                                     </label>
                                 </div>
-                            <?php endif; ?>
+                            <?php endif ?>
                         </div>
                     </div>
                 </div>

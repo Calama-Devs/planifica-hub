@@ -514,7 +514,10 @@ $(document).ready(function () {
 
     $('#form-adicionar-usuario').on('submit', function (e) {
         e.preventDefault();
+        var formulario = $(this);
         var emailInput = $('#convite-email');
+        var botao = $('#btn-enviar-convite');
+        var alerta = $('#alerta-adicionar-usuario');
 
         if (!emailInput.val().trim() || !emailInput[0].checkValidity()) {
             emailInput.addClass('is-invalid');
@@ -522,9 +525,51 @@ $(document).ready(function () {
         }
         emailInput.removeClass('is-invalid');
 
-        $('#alerta-adicionar-usuario')
+        botao.prop('disabled', true).find('.spinner-border').removeClass('d-none');
+        alerta
             .removeClass('d-none alert-danger alert-success')
             .addClass('alert-warning')
-            .text('O envio de convite ainda aguarda integração com o servidor. Nenhum convite foi enviado.');
+            .text('Enviando convite...');
+
+        $.ajax({
+            url: formulario.attr('action'),
+            type: 'POST',
+            data: formulario.serialize(),
+            dataType: 'json'
+        }).done(function (resposta) {
+            atualizarTokenCsrf(resposta);
+            alerta
+                .removeClass('alert-warning alert-danger alert-success')
+                .addClass(resposta.sucesso ? 'alert-success' : 'alert-danger')
+                .text(resposta.mensagem || 'Não foi possível concluir o envio.');
+
+            if (resposta.sucesso) {
+                formulario[0].reset();
+            }
+        }).fail(function (xhr) {
+            atualizarTokenCsrf(xhr.responseJSON || {});
+            if (xhr.responseJSON && xhr.responseJSON.tipo === 'validacao') {
+                emailInput.addClass('is-invalid');
+            }
+            alerta
+                .removeClass('alert-warning alert-success')
+                .addClass('alert-danger')
+                .text(
+                    xhr.responseJSON && xhr.responseJSON.mensagem
+                        ? xhr.responseJSON.mensagem
+                        : 'Não foi possível concluir o envio.'
+                );
+        }).always(function () {
+            botao.prop('disabled', false).find('.spinner-border').addClass('d-none');
+        });
     });
+
+    function atualizarTokenCsrf(resposta) {
+        if (!resposta.csrf || !resposta.csrf.hash) return;
+
+        $('meta[name="X-CSRF-TOKEN"]').attr('content', resposta.csrf.hash);
+        $('input[name="' + resposta.csrf.nome + '"]')
+            .val(resposta.csrf.hash)
+            .prop('defaultValue', resposta.csrf.hash);
+    }
 });
