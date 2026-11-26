@@ -4,16 +4,101 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\GrupoUsuarioModel;
 use App\Models\PermissaoModel;
 use Config\AuthGroups;
 
 class PermissaoService
 {
-    private PermissaoModel $permissaoModel;
+    /**
+     * Grupos nativos protegidos contra bloqueio/exclusão, independentemente de alterações no grupo padrão.
+     */
+    private const GRUPOS_PROTEGIDOS = ['superadmin', 'user'];
 
-    public function __construct(?PermissaoModel $permissaoModel = null)
-    {
-        $this->permissaoModel = $permissaoModel ?? model(PermissaoModel::class);
+    private PermissaoModel $permissaoModel;
+    private GrupoUsuarioModel $grupoUsuarioModel;
+
+    public function __construct(
+        ?PermissaoModel $permissaoModel = null,
+        ?GrupoUsuarioModel $grupoUsuarioModel = null,
+    ) {
+        $this->permissaoModel    = $permissaoModel ?? model(PermissaoModel::class);
+        $this->grupoUsuarioModel = $grupoUsuarioModel ?? model(GrupoUsuarioModel::class);
+    }
+
+    /**
+     * Lista os grupos configurados no sistema com contagem real de usuários vinculados,
+     * busca por nome ou descrição e paginação no servidor (compatível com DataTables).
+     *
+     * @return array{
+     *     grupos: list<array{
+     *         identificador: string,
+     *         nome: string,
+     *         descricao: string,
+     *         usuarios_vinculados: int,
+     *         situacao: string,
+     *         ativo: bool,
+     *         protegido: bool
+     *     }>,
+     *     total: int,
+     *     filtrados: int
+     * }
+     */
+    public function listarGrupos(
+        int $inicio = 0,
+        int $limite = 10,
+        string $pesquisa = '',
+    ): array {
+        $inicio   = max(0, $inicio);
+        $limite   = max(1, min($limite, 100));
+        $pesquisa = trim($pesquisa);
+
+        $authGroups       = config(AuthGroups::class);
+        $definidos        = setting('AuthGroups.groups');
+        $definidos        = is_array($definidos) ? $definidos : [];
+        $gruposProtegidos = array_values(array_unique([
+            ...self::GRUPOS_PROTEGIDOS,
+            (string) $authGroups->defaultGroup,
+        ]));
+        $contagens        = $this->grupoUsuarioModel->contarUsuariosPorGrupo();
+
+        $todos = [];
+
+        foreach ($definidos as $identificador => $dados) {
+            $slug = (string) $identificador;
+
+            $todos[] = [
+                'identificador'       => $slug,
+                'nome'                => (string) ($dados['title'] ?? $slug),
+                'descricao'           => (string) ($dados['description'] ?? ''),
+                'usuarios_vinculados' => $contagens[$slug] ?? 0,
+                'situacao'            => 'ativo',
+                'ativo'               => true,
+                'protegido'           => in_array($slug, $gruposProtegidos, true),
+            ];
+        }
+
+        usort(
+            $todos,
+            static fn (array $a, array $b): int => strcasecmp($a['nome'], $b['nome'])
+        );
+
+        $filtrados = $pesquisa === ''
+            ? $todos
+            : array_values(array_filter(
+                $todos,
+                static fn (array $grupo): bool => mb_stripos($grupo['nome'], $pesquisa) !== false
+                    || mb_stripos($grupo['descricao'], $pesquisa) !== false
+                    || mb_stripos($grupo['identificador'], $pesquisa) !== false
+            ));
+
+        $pagina = array_slice($filtrados, $inicio, $limite);
+
+        return [
+            'grupos'    => array_values($pagina),
+            'total'     => count($todos),
+            'filtrados' => count($filtrados),
+        ];
     }
 
     /**

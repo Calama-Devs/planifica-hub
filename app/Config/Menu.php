@@ -52,7 +52,7 @@ class Menu extends BaseConfig
             'rota'          => 'acessos.index',
             'padraoAtivo'   => 'admin/acessos*',
             'icone'         => 'mdi mdi-account-key text-warning',
-            'permissao'     => 'acessos.administrar',
+            'permissao'     => ['contas.criar', 'acessos.administrar'],
         ],
     ];
 }
