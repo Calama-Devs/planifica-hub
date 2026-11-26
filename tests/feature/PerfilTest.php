@@ -358,7 +358,7 @@ final class PerfilTest extends CIUnitTestCase
         ]);
     }
 
-    public function testUsuarioComumConsultaGruposSemPermissoesAdministrativas(): void
+    public function testUsuarioComumConsultaEmailEGruposSomenteParaLeitura(): void
     {
         $usuario = $this->criarUsuario('usuario.comum', 'user');
         auth()->login($usuario);
@@ -366,75 +366,38 @@ final class PerfilTest extends CIUnitTestCase
         $resposta = $this->withSession($_SESSION)->get('perfil');
 
         $resposta->assertOK();
-        $resposta->assertSee('E-mail institucional');
         $resposta->assertSee('perfil1@example.com');
         $resposta->assertSee(config('AuthGroups')->groups['user']['title']);
-        $resposta->assertSee('Nenhuma permissão administrativa.');
-        $resposta->assertDontSeeElement('input[name=email]');
+        $this->assertMatchesRegularExpression('/<input[^>]*id="campo-email"[^>]*\sdisabled/', $resposta->getBody());
+        $this->assertMatchesRegularExpression('/<input[^>]*id="campo-grupos"[^>]*\sdisabled/', $resposta->getBody());
     }
 
-    public function testExibeGruposEPermissoesEfetivasDaContaAdministrativa(): void
-    {
-        $usuario = $this->criarUsuario('usuario.admin', 'admin');
-        auth()->login($usuario);
-        $configuracao = config('AuthGroups');
-
-        $resposta = $this->withSession($_SESSION)->get('perfil');
-
-        $resposta->assertOK();
-        $resposta->assertSee($configuracao->groups['admin']['title']);
-        $resposta->assertSee($configuracao->permissions['contas.consultar']);
-        $resposta->assertSee($configuracao->permissions['contas.criar']);
-        $resposta->assertDontSee($configuracao->permissions['acessos.administrar']);
-    }
-
-    public function testExibeOpcoesDeEditarNomeEAlterarSenha(): void
-    {
-        $usuario = $this->criarUsuario('usuario.teste');
-        auth()->login($usuario);
-
-        $resposta = $this->withSession($_SESSION)->get('perfil');
-
-        $resposta->assertOK();
-        $resposta->assertSee('Editar nome');
-        $resposta->assertSeeElement('button[id=botao-alterar-senha-perfil]');
-        $resposta->assertSeeElement('input[id=mostrar-senhas-perfil]');
-        $resposta->assertSee('Atualizar senha');
-        $resposta->assertSee('Cancelar');
-    }
-
-    public function testListaGruposPeloTituloConfigurado(): void
+    public function testExibeTodosOsGruposDaContaPeloTituloConfigurado(): void
     {
         $usuario = $this->criarUsuario('usuario.grupos', 'user');
         $usuario->addGroup('admin');
+        auth()->login($usuario);
         $grupos = config('AuthGroups')->groups;
 
-        $this->assertSame(
-            [$grupos['user']['title'], $grupos['admin']['title']],
-            service('perfilService')->listarGrupos($usuario),
-        );
+        $resposta = $this->withSession($_SESSION)->get('perfil');
+
+        $resposta->assertOK();
+        $resposta->assertSee($grupos['user']['title'] . ', ' . $grupos['admin']['title']);
     }
 
-    public function testListaPermissoesEfetivasHerdadasDoGrupoEConcedidasDiretamente(): void
+    public function testTelaUsaComprimentoMinimoDoNomeDefinidoNoServico(): void
     {
-        $usuario = $this->criarUsuario('usuario.direto', 'user');
-        $usuario->addPermission('acessos.administrar');
-        $permissoes = config('AuthGroups')->permissions;
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+        $minimo = service('perfilService')->obterComprimentoMinimoNome();
 
-        $this->assertSame(
-            [$permissoes['acessos.administrar']],
-            service('perfilService')->listarPermissoesEfetivas($usuario),
-        );
+        $resposta = $this->withSession($_SESSION)->get('perfil');
 
-        $usuario->addGroup('admin');
-        $concedidas = [...config('AuthGroups')->matrix['admin'], 'acessos.administrar'];
-        $esperadas  = array_values(array_filter(
-            $permissoes,
-            static fn (string $permissao): bool => in_array($permissao, $concedidas, true),
-            ARRAY_FILTER_USE_KEY,
-        ));
-
-        $this->assertSame($esperadas, service('perfilService')->listarPermissoesEfetivas($usuario));
+        $this->assertSame(4, $minimo);
+        $resposta->assertOK();
+        $resposta->assertSee('minlength="' . $minimo . '"');
+        $resposta->assertSee('O nome deve ter pelo menos ' . $minimo . ' caracteres.');
+        $resposta->assertSeeElement('form[id=formulario-trocar-senha]');
     }
 
     public function testRecusaAlteracaoDeNomeSemSessao(): void

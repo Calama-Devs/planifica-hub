@@ -614,10 +614,9 @@ final class AutenticacaoTest extends CIUnitTestCase
     {
         $this->cadastrarUsuario();
 
-        $resposta = $this->withSession($_SESSION)->get('/');
+        $resposta = $this->withSession($_SESSION)->get('perfil');
 
         $resposta->assertOK();
-        $resposta->assertSeeElement('div[id=modal-alterar-senha]');
         $resposta->assertSeeElement('input[name=senha-atual]');
         $resposta->assertSeeElement('input[name=senha-nova]');
         $resposta->assertSeeElement('input[name=confirmar-senha-nova]');
@@ -648,7 +647,7 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
         $this->assertTrue(auth()->loggedIn());
 
-        $tela = $this->withSession($_SESSION)->get('/');
+        $tela = $this->withSession($_SESSION)->get('perfil');
 
         $tela->assertOK();
         $tela->assertSeeElement('input[name=senha-atual]');

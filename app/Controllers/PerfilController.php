@@ -20,12 +20,13 @@ class PerfilController extends BaseController
         $perfilService = service('perfilService');
 
         return view('perfil/index', [
-            'nomeAtual'          => (string) ($usuario->nome_completo ?? $usuario->username ?? ''),
-            'emailAtual'         => $usuario->email ?? '',
-            'grupos'             => $perfilService->listarGrupos($usuario),
-            'permissoesEfetivas' => $perfilService->listarPermissoesEfetivas($usuario),
-            'comprimentoMinimo'  => $perfilService->obterComprimentoMinimoNome(),
-            'comprimentoMaximo'  => $perfilService->obterComprimentoMaximoNome(),
+            'nomeAtual'         => (string) ($usuario->nome_completo ?? $usuario->username ?? ''),
+            'emailAtual'        => $usuario->email ?? '',
+            'grupos'            => $perfilService->obterGruposDoUsuario($usuario),
+            'comprimentoMinimo' => $perfilService->obterComprimentoMinimoNome(),
+            'comprimentoMaximo' => $perfilService->obterComprimentoMaximoNome(),
+            'podeEditarEmail'   => $perfilService->podeEditarEmail(),
+            'podeEditarGrupos'  => $perfilService->podeEditarGrupos(),
         ]);
     }
 

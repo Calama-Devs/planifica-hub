@@ -7,11 +7,13 @@ namespace App\Services;
 use App\Models\UsuarioAutenticacaoModel;
 use App\Validation\ValidadorNomeCompleto;
 use CodeIgniter\Shield\Entities\User;
+use Config\AuthGroups;
 use RuntimeException;
 use Throwable;
 
 class PerfilService
 {
+    // O Meu Perfil exige mais que o ValidadorNomeCompleto, que é compartilhado com a administração de contas.
     private const COMPRIMENTO_MINIMO_NOME = 4;
 
     private const COMPRIMENTO_MAXIMO_NOME = 255;
@@ -26,6 +28,31 @@ class PerfilService
         $this->auditoria = $auditoria ?? new AuditoriaService();
     }
 
+    public function podeEditarEmail(): bool
+    {
+        return false;
+    }
+
+    public function podeEditarGrupos(): bool
+    {
+        return false;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function obterGruposDoUsuario(User $usuario): array
+    {
+        $configGrupos = config(AuthGroups::class);
+        $grupos       = [];
+
+        foreach ($usuario->getGroups() ?? [] as $chave) {
+            $grupos[] = $configGrupos->groups[$chave]['title'] ?? $chave;
+        }
+
+        return $grupos;
+    }
+
     public function obterComprimentoMinimoNome(): int
     {
         return self::COMPRIMENTO_MINIMO_NOME;
@@ -34,40 +61,6 @@ class PerfilService
     public function obterComprimentoMaximoNome(): int
     {
         return self::COMPRIMENTO_MAXIMO_NOME;
-    }
-
-    /**
-     * Grupos da conta pelo título configurado em AuthGroups; grupo sem título aparece pelo identificador.
-     *
-     * @return list<string>
-     */
-    public function listarGrupos(User $usuario): array
-    {
-        $gruposConfigurados = config('AuthGroups')->groups;
-
-        return array_map(
-            static fn (string $grupo): string => $gruposConfigurados[$grupo]['title'] ?? $grupo,
-            $usuario->getGroups() ?? [],
-        );
-    }
-
-    /**
-     * Descrições das permissões do catálogo que a conta possui de fato, herdadas dos grupos
-     * ou concedidas diretamente. Usa o can() do Shield em vez de deduzir pelo nome do grupo.
-     *
-     * @return list<string>
-     */
-    public function listarPermissoesEfetivas(User $usuario): array
-    {
-        $permissoes = [];
-
-        foreach (config('AuthGroups')->permissions as $permissao => $descricao) {
-            if ($usuario->can($permissao)) {
-                $permissoes[] = $descricao;
-            }
-        }
-
-        return $permissoes;
     }
 
     /**

@@ -10,6 +10,7 @@ use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
+use CodeIgniter\Test\Mock\MockCache;
 use CodeIgniter\Test\TestResponse;
 use Config\Services;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -30,6 +31,8 @@ final class EstadoContaRotasTest extends CIUnitTestCase
         $this->resetServices();
         parent::setUp();
 
+        // O limite de tentativas usa o cache: cada teste começa com o contador zerado e sem tocar o cache real.
+        Services::injectMock('cache', new MockCache());
         $this->senha = 'Inicial@9' . bin2hex(random_bytes(16));
     }
 
@@ -93,7 +96,7 @@ final class EstadoContaRotasTest extends CIUnitTestCase
         $conta = $this->criarAlvo(true);
 
         $this->withSession($_SESSION)->post('admin/contas/' . $conta->id . '/desativar', [
-            'senha_atual' => $this->senha,
+            'senha_admin' => $this->senha,
             csrf_token() => csrf_hash(),
         ])->assertRedirectTo('/login');
 
@@ -124,7 +127,7 @@ final class EstadoContaRotasTest extends CIUnitTestCase
         auth()->login($operador);
 
         return $this->withSession($_SESSION)->post('admin/contas/' . $conta->id . '/' . $acao, [
-            'senha_atual' => $this->senha,
+            'senha_admin' => $this->senha,
             csrf_token() => csrf_hash(),
         ]);
     }

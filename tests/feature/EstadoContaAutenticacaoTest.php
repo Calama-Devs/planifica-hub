@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Models\EstadoContaModel;
 use App\Services\AutenticacaoSessaoService;
+use App\Services\ConfirmacaoAdministrativaService;
 use App\Services\EstadoContaService;
 use App\Services\RedefinirSenhaService;
 use CodeIgniter\Email\Email;
@@ -32,6 +33,7 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
     protected $namespace = ['CodeIgniter\Shield', 'CodeIgniter\Settings', 'App'];
 
     private EstadoContaService $servico;
+    private ConfirmacaoAdministrativaService $confirmacao;
     private User $operador;
     private User $conta;
     private string $senha;
@@ -53,8 +55,13 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
             ]);
         }
 
+        // Estes testes simulam, no mesmo processo, a sessão da conta afetada e as ações do operador. A conferência
+        // da senha é coberta em ConfirmacaoAdministrativaServiceTest e nos testes de rota; aqui o dublê só
+        // devolve o operador confirmado.
+        $this->confirmacao = $this->createMock(ConfirmacaoAdministrativaService::class);
+        $this->confirmacao->method('confirmar')->willReturn($this->operador);
         $this->contas = new EstadoContaModel();
-        $this->servico = new EstadoContaService($this->contas);
+        $this->servico = new EstadoContaService($this->contas, null, null, $this->confirmacao);
     }
 
     protected function tearDown(): void
@@ -137,7 +144,7 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
 
         $this->desativarConta();
         $this->assertSame($versaoInicial + 1, (int) $this->recarregar($this->conta)->versao_sessao);
-        $resultado = $this->servico->reativar((int) $this->conta->id, (int) $this->operador->id, $this->senha);
+        $resultado = $this->servico->reativar((int) $this->conta->id, $this->senha);
         $this->assertTrue($resultado['sucesso']);
         $this->assertSame($versaoInicial + 1, (int) $this->recarregar($this->conta)->versao_sessao);
 
@@ -251,7 +258,7 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
             Time::now()->addDays(1)->toDateTimeString(),
         );
         $this->desativarConta();
-        $this->servico->reativar((int) $this->conta->id, (int) $this->operador->id, $this->senha);
+        $this->servico->reativar((int) $this->conta->id, $this->senha);
         $nomeCookie = setting('Cookie.prefix') . setting('Auth.sessionConfig')['rememberCookieName'];
         $requisicao = service('request');
         $requisicao->setGlobal('cookie', [$nomeCookie => 'seletor-anterior:validador-anterior']);
@@ -300,9 +307,9 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
         $identidades = $this->createMock(UserIdentityModel::class);
         $identidades->expects($this->once())->method('deleteIdentitiesByType')
             ->willThrowException(new RuntimeException('Falha simulada na revogação.'));
-        $servico = new EstadoContaService($this->contas, null, $identidades);
+        $servico = new EstadoContaService($this->contas, null, $identidades, $this->confirmacao);
 
-        $resultado = $servico->desativar((int) $this->conta->id, (int) $this->operador->id, $this->senha);
+        $resultado = $servico->desativar((int) $this->conta->id, $this->senha);
 
         $this->assertFalse($resultado['sucesso']);
         $this->assertSame('CONTA_ERRO_PERSISTENCIA', $resultado['codigo']);
@@ -330,7 +337,7 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
     {
         $this->conta->addPermission('contas.consultar');
         $this->desativarConta();
-        $resultado = $this->servico->reativar((int) $this->conta->id, (int) $this->operador->id, $this->senha);
+        $resultado = $this->servico->reativar((int) $this->conta->id, $this->senha);
 
         $this->assertTrue($resultado['sucesso']);
         $this->assertTrue(auth()->attempt($this->credenciais())->isOK());
@@ -351,7 +358,7 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
             'status_message' => 'Bloqueio independente.',
         ]);
         $this->desativarConta();
-        $resultado = $this->servico->reativar((int) $this->conta->id, (int) $this->operador->id, $this->senha);
+        $resultado = $this->servico->reativar((int) $this->conta->id, $this->senha);
 
         $this->assertTrue($resultado['sucesso']);
         $this->assertTrue($this->recarregar($this->conta)->isBanned());
@@ -449,13 +456,13 @@ final class EstadoContaAutenticacaoTest extends CIUnitTestCase
 
     private function reativarConta(): void
     {
-        $resultado = $this->servico->reativar((int) $this->conta->id, (int) $this->operador->id, $this->senha);
+        $resultado = $this->servico->reativar((int) $this->conta->id, $this->senha);
         $this->assertTrue($resultado['sucesso'], $resultado['mensagem']);
     }
 
     private function desativarConta(): void
     {
-        $resultado = $this->servico->desativar((int) $this->conta->id, (int) $this->operador->id, $this->senha);
+        $resultado = $this->servico->desativar((int) $this->conta->id, $this->senha);
 
         $this->assertTrue($resultado['sucesso'], $resultado['mensagem']);
     }
