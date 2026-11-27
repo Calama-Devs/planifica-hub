@@ -48,39 +48,61 @@ class PermissaoService
         int $inicio = 0,
         int $limite = 10,
         string $pesquisa = '',
+        string $ordenarPor = 'nome',
+        string $direcao = 'asc',
     ): array {
+        $camposPermitidos = [
+        'identificador',
+        'nome',
+        'descricao',
+        'usuarios_vinculados',
+        'situacao',];
+
+        if (! in_array($ordenarPor, $camposPermitidos, true)) {
+            throw new \InvalidArgumentException(
+                'Campo de ordenação inválido.'
+            );
+        }
+
+        if (! in_array($direcao, ['asc', 'desc'], true)) {
+            throw new \InvalidArgumentException(
+                'Direção de ordenação inválida.'
+            );
+        }
         $inicio   = max(0, $inicio);
         $limite   = max(1, min($limite, 100));
         $pesquisa = trim($pesquisa);
-
-        $authGroups       = config(AuthGroups::class);
-        $definidos        = setting('AuthGroups.groups');
-        $definidos        = is_array($definidos) ? $definidos : [];
-        $gruposProtegidos = array_values(array_unique([
-            ...self::GRUPOS_PROTEGIDOS,
-            (string) $authGroups->defaultGroup,
-        ]));
-        $contagens        = $this->grupoUsuarioModel->contarUsuariosPorGrupo();
-
-        $todos = [];
-
-        foreach ($definidos as $identificador => $dados) {
-            $slug = (string) $identificador;
-
-            $todos[] = [
-                'identificador'       => $slug,
-                'nome'                => (string) ($dados['title'] ?? $slug),
-                'descricao'           => (string) ($dados['description'] ?? ''),
-                'usuarios_vinculados' => $contagens[$slug] ?? 0,
-                'situacao'            => 'ativo',
-                'ativo'               => true,
-                'protegido'           => in_array($slug, $gruposProtegidos, true),
-            ];
-        }
+        $todos = $this->obterGrupos();
 
         usort(
             $todos,
-            static fn (array $a, array $b): int => strcasecmp($a['nome'], $b['nome'])
+            static function (
+                array $a,
+                array $b
+            ) use (
+                $ordenarPor,
+                $direcao
+            ): int {
+                if ($ordenarPor === 'usuarios_vinculados') {
+                    $comparacao = $a[$ordenarPor] <=> $b[$ordenarPor];
+                } else {
+                    $comparacao = strcasecmp(
+                        (string) $a[$ordenarPor],
+                        (string) $b[$ordenarPor]
+                    );
+                }
+
+                if ($comparacao === 0) {
+                    return strcmp(
+                        $a['identificador'],
+                        $b['identificador']
+                    );
+                }
+
+                return $direcao === 'desc'
+                ? -$comparacao
+                : $comparacao;
+            }
         );
 
         $filtrados = $pesquisa === ''
@@ -161,5 +183,58 @@ class PermissaoService
         }
 
         return $this->permissaoModel->obterMapaCatalogo();
+    }
+
+    private function obterGrupos(): array
+    {
+        $authGroups = config(AuthGroups::class);
+
+        $definidos = setting('AuthGroups.groups');
+
+        $definidos = is_array($definidos)
+        ? $definidos
+        : [];
+
+        $gruposProtegidos = array_values(array_unique([
+        ...self::GRUPOS_PROTEGIDOS,
+        (string) $authGroups->defaultGroup,
+        ]));
+
+        $contagens = $this->grupoUsuarioModel
+        ->contarUsuariosPorGrupo();
+
+        $todos = [];
+
+        foreach ($definidos as $identificador => $dados) {
+            $slug = (string) $identificador;
+
+            $todos[] = [
+            'identificador' => $slug,
+            'nome' => (string) ($dados['title'] ?? $slug),
+            'descricao' => (string) ($dados['description'] ?? ''),
+            'usuarios_vinculados' => $contagens[$slug] ?? 0,
+            'situacao' => 'ativo',
+            'ativo' => true,
+            'protegido' => in_array(
+                $slug,
+                $gruposProtegidos,
+                true
+            ),
+            ];
+        }
+
+        return $todos;
+    }
+
+    public function buscarGrupoPorIdentificador(
+        string $identificador
+    ): ?array {
+        foreach ($this->obterGrupos() as $grupo) {
+            if ($grupo['identificador'] === $identificador) {
+                return $grupo;
+            }
+        }
+
+        return null;
     }
 }
