@@ -163,4 +163,60 @@ class PermissaoController extends BaseController
             'mensagem' => 'Parâmetros de listagem inválidos.',
         ]);
     }
+    public function consultarGrupo(
+        string $identificador
+    ): ResponseInterface {
+        if (
+            trim($identificador) === ''
+            || mb_strlen($identificador) > 100
+        ) {
+            return $this->response
+            ->setStatusCode(422)
+            ->setJSON([
+                'sucesso' => false,
+                'tipo' => 'validacao',
+                'codigo' => 'CONSULTA_GRUPO_INVALIDA',
+                'mensagem' => 'Identificador de grupo inválido.',
+            ]);
+        }
+
+        try {
+            $grupo = $this->permissaoService
+            ->buscarGrupoPorIdentificador($identificador);
+
+            if ($grupo === null) {
+                return $this->response
+                ->setStatusCode(404)
+                ->setJSON([
+                    'sucesso' => false,
+                    'tipo' => 'nao_encontrado',
+                    'codigo' => 'GRUPO_NAO_ENCONTRADO',
+                    'mensagem' => 'Grupo não encontrado.',
+                ]);
+            }
+
+            return $this->response->setJSON([
+            'sucesso' => true,
+            'tipo' => 'sucesso',
+            'codigo' => 'CONSULTA_GRUPO_OK',
+            'mensagem' => 'Grupo consultado com sucesso.',
+            'data' => $grupo,
+            ]);
+        } catch (Throwable $erro) {
+            log_message(
+                'error',
+                'Falha ao consultar grupo ({tipo}).',
+                ['tipo' => $erro::class]
+            );
+
+            return $this->response
+            ->setStatusCode(500)
+            ->setJSON([
+                'sucesso' => false,
+                'tipo' => 'inesperado',
+                'codigo' => 'CONSULTA_GRUPO_INDISPONIVEL',
+                'mensagem' => 'Não foi possível consultar o grupo.',
+            ]);
+        }
+    }
 }
