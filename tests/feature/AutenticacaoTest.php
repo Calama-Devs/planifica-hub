@@ -14,6 +14,7 @@ use CodeIgniter\Shield\Commands\Utils\InputOutput;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserIdentityModel;
 use CodeIgniter\Shield\Models\UserModel;
+use CodeIgniter\Shield\Models\RememberModel;
 
 final class AutenticacaoTest extends CIUnitTestCase
 {
@@ -140,6 +141,85 @@ final class AutenticacaoTest extends CIUnitTestCase
 
         $resposta->assertRedirectTo(rtrim(site_url('/'), '/'));
         $this->assertTrue(auth()->loggedIn());
+    }
+
+    public function testRecusaLoginDeContaDesativada(): void
+    {
+        $usuario = $this->criarUsuario();
+        $usuario->deactivate();
+        auth()->logout();
+
+        $resposta = $this->enviarFormulario('login', [
+            'email'    => 'teste@example.com',
+            'password' => $this->senha,
+        ]);
+
+        $resposta->assertRedirectTo('/login');
+        $resposta->assertSessionHas('error');
+        $this->assertFalse(auth()->loggedIn());
+    }
+
+    public function testEncerraSessaoQuandoContaEDesativada(): void
+    {
+        $usuario = $this->criarUsuario();
+        auth()->login($usuario);
+
+        $usuario->deactivate();
+
+        $resposta = $this->withSession($_SESSION)->get('/');
+
+        $resposta->assertRedirectTo('/login');
+        $resposta->assertSessionHas('error');
+        $this->assertFalse(auth()->loggedIn());
+    }
+
+    public function testRememberMeNaoAutenticaContaDesativada(): void
+    {
+        $usuario   = $this->criarUsuario();
+        $selector  = bin2hex(random_bytes(12));
+        $validator = bin2hex(random_bytes(20));
+
+        model(RememberModel::class)->insert([
+            'user_id'         => $usuario->id,
+            'selector'        => $selector,
+            'hashedValidator' => hash('sha256', $validator),
+            'expires'         => Time::now()->addDays(1),
+        ]);
+
+        $usuario->deactivate();
+        $nomeCookie = setting('Cookie.prefix') . setting('Auth.sessionConfig')['rememberCookieName'];
+        service('superglobals')->setCookie($nomeCookie, $selector . ':' . $validator);
+
+        $resposta = $this->get('/');
+
+        $resposta->assertRedirectTo('/login');
+        $resposta->assertSessionHas('error');
+        $this->assertFalse(auth()->loggedIn());
+        $this->dontSeeInDatabase('auth_remember_tokens', ['selector' => $selector]);
+    }
+
+    public function testMagicLinkNaoAutenticaContaDesativada(): void
+    {
+        $usuario = $this->criarUsuario();
+        $token = bin2hex(random_bytes(32));
+
+        model(UserIdentityModel::class)->insert([
+            'user_id' => $usuario->id,
+            'type'    => 'magic-link',
+            'secret'  => $token,
+            'expires' => Time::now()->addHours(1),
+        ]);
+        $usuario->deactivate();
+        auth()->logout();
+
+        $resposta = $this->get('login/verify-magic-link?token=' . rawurlencode($token));
+
+        $resposta->assertRedirectTo('/login/magic-link');
+        $resposta->assertSessionHas('error');
+        $this->assertFalse(auth()->loggedIn());
+        $this->assertNull(
+            model(UserIdentityModel::class)->getIdentityBySecret('magic-link', $token)
+        );
     }
 
     public function testPrimeiroAdministradorCriadoPelaCliPrecisaDeAtivacaoParaAcessarCatalogo(): void
@@ -381,6 +461,21 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->assertSame(rtrim(site_url('/'), '/'), rtrim($redirecionamento, '/'));
     }
 
+    public function testLimitaVerificacoesDeMagicLinkPorIp(): void
+    {
+        service('throttler')->remove(md5(service('request')->getIPAddress()));
+
+        for ($tentativa = 1; $tentativa <= 10; $tentativa++) {
+            $resposta = $this->get('login/verify-magic-link?token=token-invalido-' . $tentativa);
+
+            $resposta->assertRedirectTo('/login/magic-link');
+        }
+
+        $resposta = $this->get('login/verify-magic-link?token=token-invalido-11');
+
+        $resposta->assertStatus(429);
+    }
+
     public function testValidaEConsomeTokenDeRedefinicaoSemAfetarMagicLink(): void
     {
         $usuario = $this->criarUsuario();
@@ -612,10 +707,9 @@ final class AutenticacaoTest extends CIUnitTestCase
     {
         $this->cadastrarUsuario();
 
-        $resposta = $this->withSession($_SESSION)->get('/');
+        $resposta = $this->withSession($_SESSION)->get('perfil');
 
         $resposta->assertOK();
-        $resposta->assertSeeElement('div[id=modal-alterar-senha]');
         $resposta->assertSeeElement('input[name=senha-atual]');
         $resposta->assertSeeElement('input[name=senha-nova]');
         $resposta->assertSeeElement('input[name=confirmar-senha-nova]');
@@ -646,7 +740,7 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->assertSame($hashAnterior, $this->buscarHashDaSenha());
         $this->assertTrue(auth()->loggedIn());
 
-        $tela = $this->withSession($_SESSION)->get('/');
+        $tela = $this->withSession($_SESSION)->get('perfil');
 
         $tela->assertOK();
         $tela->assertSeeElement('input[name=senha-atual]');
@@ -885,7 +979,7 @@ final class AutenticacaoTest extends CIUnitTestCase
         }
     }
 
-    public function testPerfilRecusaUsuarioDesativado(): void
+    public function testFiltroContaAtivaBloqueiaRotaProtegidaForaDoGrupo(): void
     {
         $usuario = $this->cadastrarUsuario();
         $usuario->active = 0;

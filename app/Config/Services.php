@@ -8,8 +8,11 @@ use App\Services\RedefinirSenhaService;
 use App\Services\PerfilService;
 use App\Services\AcessoService;
 use App\Services\PermissaoService;
+use App\Services\ConviteService;
+use App\Services\AuditoriaService;
 use App\Services\EstadoContaService;
 use App\Services\EdicaoContaService;
+use App\Services\ConfirmacaoAdministrativaService;
 use App\Services\ConfirmacaoOperacaoService;
 use App\Services\ConfirmacaoEmailContaService;
 use CodeIgniter\Config\BaseService;
@@ -31,6 +34,15 @@ use App\Services\FinalizarCadastroService;
  */
 class Services extends BaseService
 {
+    public static function auditoriaService(bool $getShared = true): AuditoriaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('auditoriaService');
+        }
+
+        return new AuditoriaService();
+    }
+
     public static function estadoContaService(bool $getShared = true): EstadoContaService
     {
         if ($getShared) {
@@ -47,6 +59,15 @@ class Services extends BaseService
         }
 
         return new ConfirmacaoEmailContaService();
+    }
+
+    public static function confirmacaoAdministrativaService(bool $getShared = true): ConfirmacaoAdministrativaService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('confirmacaoAdministrativaService');
+        }
+
+        return new ConfirmacaoAdministrativaService();
     }
 
     public static function confirmacaoOperacaoService(bool $getShared = true): ConfirmacaoOperacaoService
@@ -83,6 +104,15 @@ class Services extends BaseService
         }
 
         return new PerfilService();
+    }
+
+    public static function conviteService(bool $getShared = true): ConviteService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('conviteService');
+        }
+
+        return new ConviteService();
     }
 
     public static function permissaoService(bool $getShared = true): PermissaoService

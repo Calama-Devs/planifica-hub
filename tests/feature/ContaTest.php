@@ -18,6 +18,7 @@ use CodeIgniter\Shield\Test\AuthenticationTesting;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
+use CodeIgniter\Test\Mock\MockCache;
 use CodeIgniter\Test\TestResponse;
 use Config\Database;
 use PHPUnit\Framework\Attributes\RequiresPhp;
@@ -42,6 +43,8 @@ final class ContaTest extends CIUnitTestCase
 
         $this->emailFake = new EmailContaFake();
         Services::injectMock('email', $this->emailFake);
+        // O limite de tentativas da confirmação usa o cache: cada teste começa com o contador zerado.
+        Services::injectMock('cache', new MockCache());
 
         $banco = $this->db;
         $tabelaUsuarios = $banco->prefixTable(config('Auth')->tables['users']);
@@ -268,6 +271,7 @@ final class ContaTest extends CIUnitTestCase
         $outraConta = $this->criarUsuario('conta.outra');
 
         $servico = service('edicaoContaService');
+        auth()->login($operador);
         $senhaIncorreta = $servico->atualizar((int) $alvo->id, 'Nome Não Gravado', 'incorreta', $operador);
         self::assertFalse($senhaIncorreta['sucesso']);
         self::assertNull($servico->consultar((int) $alvo->id, $operador)['confirmacao_expira_em']);
@@ -283,9 +287,31 @@ final class ContaTest extends CIUnitTestCase
         $segundaAlteracao = $servico->atualizar((int) $alvo->id, 'Segundo Nome', '', $operador);
         self::assertTrue($segundaAlteracao['sucesso']);
         self::assertFalse($servico->atualizar((int) $outraConta->id, 'Nome Outra', '', $operador)['sucesso']);
+        // A sessão do outro operador carrega a janela do primeiro, mas ela é guardada por operador e não vale para ele.
+        $janelas = session()->get('confirmacoes_recentes');
+        auth()->logout();
+        auth()->login($outroOperador);
+        session()->set('confirmacoes_recentes', $janelas);
         self::assertFalse($servico->atualizar((int) $alvo->id, 'Nome Outro Operador', '', $outroOperador)['sucesso']);
         $this->seeNumRecords(2, 'auditoria_edicao_contas', ['conta_id' => $alvo->id]);
         $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $outraConta->id]);
+    }
+
+    public function testConfirmacaoRecusaOperadorDiferenteDoDaSessao(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $outroOperador = $this->criarUsuario('outro.operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+        auth()->login($operador);
+        $confirmacao = service('confirmacaoOperacaoService');
+
+        // A senha é a do operador da sessão, mas o chamador informa outro operador: a janela não é aberta.
+        $recusa = $confirmacao->registrar($outroOperador, $this->senha, 'editar_conta', (int) $alvo->id);
+
+        self::assertIsArray($recusa);
+        self::assertSame('AUTENTICACAO_NECESSARIA', $recusa['codigo']);
+        self::assertNull($confirmacao->segundosRestantes($operador, 'editar_conta', (int) $alvo->id));
+        self::assertNull($confirmacao->segundosRestantes($outroOperador, 'editar_conta', (int) $alvo->id));
     }
 
     public function testTrocaDeEmailExigeSenhaMesmoComConfirmacaoRecente(): void
@@ -293,12 +319,13 @@ final class ContaTest extends CIUnitTestCase
         $operador = $this->criarUsuario('operador', true);
         $alvo = $this->criarUsuario('conta.alvo');
         $servico = service('edicaoContaService');
+        auth()->login($operador);
         $primeiraEdicao = $servico->atualizar((int) $alvo->id, 'Nome Atualizado', $this->senha, $operador);
 
         self::assertTrue($primeiraEdicao['sucesso']);
         self::assertTrue($servico->consultar((int) $alvo->id, $operador)['confirmacao_recente']);
 
-        $semSenha = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+        $semSenha = $this->enviarAtualizacaoNaSessao((int) $alvo->id, [
             'nome' => 'Nome Atualizado',
             'email' => 'troca@ifro.edu.br',
             'justificativa' => 'Correção solicitada pelo titular.',
@@ -314,7 +341,7 @@ final class ContaTest extends CIUnitTestCase
         $this->dontSeeInDatabase('solicitacoes_troca_email', ['conta_id' => $alvo->id]);
         $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id, 'campos_alterados' => 'email']);
 
-        $comSenha = $this->enviarAtualizacao($operador, (int) $alvo->id, [
+        $comSenha = $this->enviarAtualizacaoNaSessao((int) $alvo->id, [
             'nome' => 'Nome Atualizado',
             'senha_admin' => $this->senha,
             'email' => 'troca@ifro.edu.br',
@@ -335,6 +362,7 @@ final class ContaTest extends CIUnitTestCase
 
         try {
             $servico = service('edicaoContaService');
+            auth()->login($operador);
             self::assertTrue($servico->atualizar((int) $alvo->id, 'Primeiro Nome', $this->senha, $operador)['sucesso']);
             Time::setTestNow('2026-11-19 12:05:01');
             $expirada = $servico->atualizar((int) $alvo->id, 'Nome Expirado', '', $operador);
@@ -1089,11 +1117,12 @@ final class ContaTest extends CIUnitTestCase
             };
 
             $edicao = new EdicaoContaService(auditoria: $auditoria);
+            auth()->login($operador);
             self::assertFalse($edicao->atualizar((int) $alvo->id, 'Nome revisado', $this->senha, $operador)['sucesso']);
             self::assertStringContainsString('atualizar', $auditoria->trace);
             self::assertFalse(str_contains($auditoria->trace, $this->senha), 'Senha encontrada na trace.');
 
-            $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            $this->enviarAtualizacaoNaSessao((int) $alvo->id, [
                 'nome' => 'Nome revisado',
                 'senha_admin' => $this->senha,
                 'email' => 'novo.email@ifro.edu.br',
@@ -1335,5 +1364,17 @@ final class ContaTest extends CIUnitTestCase
         $campos[csrf_token()] = csrf_hash();
 
         return $this->actingAs($operador)->post('admin/contas/' . $contaId, $campos);
+    }
+
+    /**
+     * Envia pela sessão que o teste já abriu com auth()->login(), preservando o que ela guarda.
+     *
+     * @param array<string, mixed> $campos
+     */
+    private function enviarAtualizacaoNaSessao(int $contaId, array $campos): TestResponse
+    {
+        $campos[csrf_token()] = csrf_hash();
+
+        return $this->withSession($_SESSION)->post('admin/contas/' . $contaId, $campos);
     }
 }

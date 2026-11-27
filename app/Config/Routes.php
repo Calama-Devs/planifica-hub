@@ -5,7 +5,7 @@ use CodeIgniter\Router\RouteCollection;
 /**
  * @var RouteCollection $routes
  */
-$routes->group('', ['filter' => 'session'], static function (RouteCollection $routes): void {
+$routes->group('', ['filter' => ['conta-ativa', 'session']], static function (RouteCollection $routes): void {
     $routes->get('/', 'Home::index', ['as' => 'dashboard']);
     $routes->get('sobre', 'Home::sobre', ['as' => 'sobre']);
 
@@ -30,12 +30,19 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
         $routes->get('listar', 'PermissaoController::listarGrupos', ['as' => 'permissoes.grupos.listar']);
     });
 
-    // Gerenciamento de usuários: o filtro do grupo (session) soma com o permission da rota.
-    $routes->group('admin/acessos', ['filter' => 'permission:acessos.administrar'], static function (RouteCollection $routes): void {
-        $routes->get('/', 'AcessoController::index', ['as' => 'acessos.index']);
-        $routes->get('listar', 'AcessoController::listar', ['as' => 'acessos.listar']);
+    // A tela aceita uma das permissões; a listagem continua restrita à administração de acessos.
+    $routes->group('admin/acessos', static function (RouteCollection $routes): void {
+        $routes->get('/', 'AcessoController::index', [
+            'as'     => 'acessos.index',
+            'filter' => 'permission:contas.criar,acessos.administrar',
+        ]);
+        $routes->get('listar', 'AcessoController::listar', [
+            'as'     => 'acessos.listar',
+            'filter' => 'permission:acessos.administrar',
+        ]);
     });
 
+    $routes->post('admin/convites', 'ConviteController::emitir', ['as' => 'convites.emitir', 'filter' => 'permission:contas.criar']);
     // A área de acessos consome estes endpoints JSON; Controller e Service repetem a autorização.
     $routes->get('admin/contas/(:num)', 'ContaController::consultar/$1', [
         'as' => 'contas.consultar',
@@ -55,7 +62,13 @@ $routes->post('confirmar-troca-email', 'ConfirmacaoEmailContaController::confirm
     'as' => 'contas.email.confirmar',
 ]);
 
-service('auth')->routes($routes, ['except' => ['logout']]);
+service('auth')->routes($routes, ['except' => ['logout', 'magic-link']]);
+$routes->get('login/magic-link', '\\CodeIgniter\\Shield\\Controllers\\MagicLinkController::loginView', ['as' => 'magic-link']);
+$routes->post('login/magic-link', '\\CodeIgniter\\Shield\\Controllers\\MagicLinkController::loginAction');
+$routes->get('login/verify-magic-link', '\\App\\Controllers\\MagicLinkController::verify', [
+    'as'     => 'verify-magic-link',
+    'filter' => 'auth-rates',
+]);
 $routes->post('logout', '\CodeIgniter\Shield\Controllers\LoginController::logoutAction', ['as' => 'logout']);
 
 // Recuperação de senha por link temporário.

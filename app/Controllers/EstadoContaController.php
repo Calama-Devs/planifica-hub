@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Controllers\Traits\RespostaAdministrativaTrait;
 use App\Services\EstadoContaService;
 use CodeIgniter\HTTP\ResponseInterface;
 
 class EstadoContaController extends BaseController
 {
+    use RespostaAdministrativaTrait;
+
     public function desativar(string $contaId): ResponseInterface
     {
         return $this->alterarEstado($contaId, false);
@@ -21,27 +24,26 @@ class EstadoContaController extends BaseController
 
     private function alterarEstado(string $contaId, bool $ativar): ResponseInterface
     {
-        $senhaAtual = $this->request->getPost('senha_atual');
-        $entrada = ['conta_id' => $contaId, 'senha_atual' => $senhaAtual];
-        $regras = [
-            'conta_id' => 'required|regex_match[/^[1-9][0-9]{0,9}$/]|less_than_equal_to[4294967295]',
-            'senha_atual' => 'required|max_length[4096]',
-        ];
+        $regras = ['conta_id' => 'required|regex_match[/^[1-9][0-9]{0,9}$/]|less_than_equal_to[4294967295]'];
 
-        if (! is_string($senhaAtual) || ! $this->validateData($entrada, $regras)) {
+        if (! $this->validateData(['conta_id' => $contaId], $regras)) {
             return $this->responder([
                 'sucesso' => false,
                 'tipo' => 'validacao',
                 'codigo' => 'CONTA_ENTRADA_INVALIDA',
-                'mensagem' => 'Informe um identificador válido e sua senha atual.',
+                'mensagem' => 'Informe um identificador de conta válido.',
             ]);
         }
+
+        // A senha vem só do corpo do POST, nunca da URL. Ausente ou fora do formato, a confirmação a recusa.
+        $senhaAdmin = $this->request->getPost('senha_admin');
+        $senhaAdmin = is_string($senhaAdmin) ? $senhaAdmin : '';
 
         /** @var EstadoContaService $servico */
         $servico = service('estadoContaService');
         $resultado = $ativar
-            ? $servico->reativar((int) $contaId, (int) auth()->id(), $senhaAtual)
-            : $servico->desativar((int) $contaId, (int) auth()->id(), $senhaAtual);
+            ? $servico->reativar((int) $contaId, $senhaAdmin)
+            : $servico->desativar((int) $contaId, $senhaAdmin);
 
         return $this->responder($resultado);
     }
@@ -49,16 +51,12 @@ class EstadoContaController extends BaseController
     /** @param array{sucesso: bool, tipo: string, codigo: string, mensagem: string} $resultado */
     private function responder(array $resultado): ResponseInterface
     {
-        $status = $resultado['sucesso'] ? 200 : match (true) {
+        return $this->responderOperacaoAdministrativa($resultado, match (true) {
             $resultado['codigo'] === 'CONTA_NAO_ENCONTRADA' => 404,
             $resultado['tipo'] === 'validacao' => 422,
             $resultado['tipo'] === 'permissao' => 403,
             $resultado['tipo'] === 'regra_negocio' => 409,
             default => 500,
-        };
-
-        $resultado['csrf'] = ['nome' => csrf_token(), 'hash' => csrf_hash()];
-
-        return $this->response->setStatusCode($status)->setJSON($resultado);
+        });
     }
 }
