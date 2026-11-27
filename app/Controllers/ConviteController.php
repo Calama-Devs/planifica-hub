@@ -39,14 +39,26 @@ class ConviteController extends BaseController
             'password_confirm' => ['matches' => 'As senhas informadas não correspondem.'],
             ])
         ) {
-            return redirect()->back()->with('errors', $this->validator->getErrors());
+            $nomeCompleto = $dados['nome_completo'] ?? '';
+            $this->request->setGlobal('post', [
+                'nome_completo' => is_string($nomeCompleto) ? $nomeCompleto : '',
+            ]);
+
+            return redirect()->back()
+                ->withInput()
+                ->with('errors', $this->validator->getErrors());
         }
         $dados = $this->validator->getValidated();
         $resultado = service('conviteService')->concluirCadastro($dados);
-        return $resultado['sucesso']
-            ? redirect()->route('login')->with('success', $resultado['mensagem'])
-            : redirect()->to(url_to('finalizar_cadastro') . '?token=' . urlencode($dados['token']))
-                ->with('error', $resultado['mensagem']);
+        if ($resultado['sucesso']) {
+            return redirect()->route('login')->with('success', $resultado['mensagem']);
+        }
+
+        $this->request->setGlobal('post', ['nome_completo' => $dados['nome_completo']]);
+
+        return redirect()->to(url_to('finalizar_cadastro') . '?token=' . urlencode($dados['token']))
+            ->withInput()
+            ->with('error', $resultado['mensagem']);
     }
 
     public function emitir(): ResponseInterface

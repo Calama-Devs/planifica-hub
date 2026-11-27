@@ -275,7 +275,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
 
         $resposta = $this->post('finalizar-cadastro', [
             'token'            => 'token-valido-123456',
-            'nome_completo'    => 'Maria da Silva Araújo',
+            'nome_completo'    => 'Maria da Silva Araujo',
             'password'         => 'SenhaSegura@2026',
             'password_confirm' => 'SenhaSegura@2026',
             csrf_token()       => csrf_hash(),
@@ -284,6 +284,13 @@ final class FinalizarCadastroTest extends CIUnitTestCase
         $this->assertNull(session('message'));
         $resposta->assertSessionHas('error');
         $this->assertStringContainsString('Não foi possível concluir', session('error'));
+        $this->assertNull(old('password'));
+        $this->assertNull(old('password_confirm'));
+        $pagina = $this->withSession($_SESSION)->get('finalizar-cadastro?token=token-valido-123456');
+
+        $pagina->assertOK();
+        $this->assertStringContainsString('value="Maria da Silva Araujo"', $pagina->getBody());
+        $this->assertStringNotContainsString('SenhaSegura@2026', $pagina->getBody());
     }
 
     public function testSubmissaoComTokenIndisponivelRetornaErroDoServico(): void
@@ -408,18 +415,22 @@ final class FinalizarCadastroTest extends CIUnitTestCase
         Services::injectMock('conviteService', $mockService);
 
         // Submissão com erro
-        $this->post('finalizar-cadastro', [
+        $resposta = $this->post('finalizar-cadastro', [
             'token'            => 'token-valido-123456',
-            'nome_completo'    => '',
-            'password'         => 'SegredoDigitado123',
-            'password_confirm' => 'SegredoDigitado123',
+            'nome_completo'    => 'Nome 123',
+            'password'         => 'SenhaForte@123',
+            'password_confirm' => 'SenhaForte@123',
             csrf_token()       => csrf_hash(),
         ]);
+        $resposta->assertSessionHas('errors');
+        $this->assertNull(old('password'));
+        $this->assertNull(old('password_confirm'));
 
         // Carrega a tela com o erro na sessão
-        $resposta = $this->get('finalizar-cadastro?token=token-valido-123456');
+        $resposta = $this->withSession($_SESSION)->get('finalizar-cadastro?token=token-valido-123456');
 
         $resposta->assertOK();
-        $this->assertStringNotContainsString('SegredoDigitado123', $resposta->getBody());
+        $this->assertStringContainsString('value="Nome 123"', $resposta->getBody());
+        $this->assertStringNotContainsString('SenhaForte@123', $resposta->getBody());
     }
 }

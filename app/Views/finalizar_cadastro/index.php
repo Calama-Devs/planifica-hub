@@ -69,7 +69,7 @@
                                name="nome_completo"
                                autocomplete="name"
                                placeholder="Informe seu nome completo"
-                               value="<?= esc(session('nome_completo_anterior') ?? '', 'attr') ?>"
+                               value="<?= old('nome_completo', '', 'attr') ?>"
                                required
                                autofocus>
                         <?php if (session('errors.nome_completo')) : ?>
