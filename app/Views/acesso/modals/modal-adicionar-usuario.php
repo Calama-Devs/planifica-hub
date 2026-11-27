@@ -18,9 +18,9 @@
                     <div id="alerta-adicionar-usuario" class="alert d-none" role="alert"></div>
 
                     <div class="mb-3">
-                        <label for="convite-email" class="form-label">E-mail institucional <span class="text-danger">*</span></label>
+                        <label for="convite-email" class="form-label">E-mail <span class="text-danger">*</span></label>
                         <input type="email" class="form-control" id="convite-email" name="email"
-                               placeholder="nome.sobrenome@ifro.edu.br" required autocomplete="off">
+                               placeholder="nome@ifro.edu.br" required autocomplete="off">
                         <div class="invalid-feedback">Informe um e-mail válido para envio do convite.</div>
                     </div>
 

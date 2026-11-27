@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Services\FinalizarCadastroService;
+use App\Services\ConviteService;
+use App\Models\ConviteModel;
+use CodeIgniter\Shield\Entities\User;
+use CodeIgniter\Shield\Models\UserModel;
 use Config\Services;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
@@ -41,7 +44,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
 
         $resposta->assertOK();
         $resposta->assertSee('Finalize seu cadastro');
-        $resposta->assertSee('Convite Inválido ou Cancelado');
+        $resposta->assertSee('Convite Inválido');
         $resposta->assertSee('Este link de convite não está disponível para utilização');
         $resposta->assertSee('Voltar ao login');
         $this->assertStringNotContainsString('<form', $resposta->getBody());
@@ -49,7 +52,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
 
     public function testAcessoComConviteValidoExibeFormularioCompletoEEmailSomenteLeitura(): void
     {
-        $mockService = $this->createMock(FinalizarCadastroService::class);
+        $mockService = $this->createMock(ConviteService::class);
         $mockService->method('validarConvite')->willReturn([
             'sucesso'  => true,
             'tipo'     => 'sucesso',
@@ -64,7 +67,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
                 ],
             ],
         ]);
-        Services::injectMock('finalizarCadastroService', $mockService);
+        Services::injectMock('conviteService', $mockService);
 
         $resposta = $this->get('finalizar-cadastro?token=token-valido-123456');
 
@@ -105,7 +108,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
 
     public function testAcessoComConviteValidoExibeMultiplosGruposSomenteLeitura(): void
     {
-        $mockService = $this->createMock(FinalizarCadastroService::class);
+        $mockService = $this->createMock(ConviteService::class);
         $mockService->method('validarConvite')->willReturn([
             'sucesso'  => true,
             'tipo'     => 'sucesso',
@@ -122,7 +125,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
                 ],
             ],
         ]);
-        Services::injectMock('finalizarCadastroService', $mockService);
+        Services::injectMock('conviteService', $mockService);
 
         $resposta = $this->get('finalizar-cadastro?token=token-valido-multiplos');
 
@@ -137,7 +140,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
 
     public function testAcessoComConviteExpiradoExibeCardAvisoESemFormulario(): void
     {
-        $mockService = $this->createMock(FinalizarCadastroService::class);
+        $mockService = $this->createMock(ConviteService::class);
         $mockService->method('validarConvite')->willReturn([
             'sucesso'  => false,
             'tipo'     => 'regra_negocio',
@@ -146,7 +149,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
             'mensagem' => 'O prazo deste convite terminou.',
             'dados'    => null,
         ]);
-        Services::injectMock('finalizarCadastroService', $mockService);
+        Services::injectMock('conviteService', $mockService);
 
         $resposta = $this->get('finalizar-cadastro?token=token-expirado');
 
@@ -158,55 +161,9 @@ final class FinalizarCadastroTest extends CIUnitTestCase
         $this->assertStringNotContainsString('name="password"', $resposta->getBody());
     }
 
-    public function testAcessoComConviteCanceladoExibeCardAvisoESemFormulario(): void
-    {
-        $mockService = $this->createMock(FinalizarCadastroService::class);
-        $mockService->method('validarConvite')->willReturn([
-            'sucesso'  => false,
-            'tipo'     => 'regra_negocio',
-            'codigo'   => 'CONVITE_CANCELADO',
-            'estado'   => FinalizarCadastroService::ESTADO_CANCELADO,
-            'mensagem' => 'Este convite foi cancelado.',
-            'dados'    => null,
-        ]);
-        Services::injectMock('finalizarCadastroService', $mockService);
-
-        $resposta = $this->get('finalizar-cadastro?token=token-cancelado');
-
-        $resposta->assertOK();
-        $resposta->assertSee('Convite Inválido ou Cancelado');
-        $resposta->assertSee('Este link de convite não está disponível para utilização');
-        $resposta->assertSee('Voltar ao login');
-        $this->assertStringNotContainsString('<form', $resposta->getBody());
-        $this->assertStringNotContainsString('name="password"', $resposta->getBody());
-    }
-
-    public function testAcessoComEstadoInvalidoOuCanceladoExibeCardCombinadoSemFormulario(): void
-    {
-        $mockService = $this->createMock(FinalizarCadastroService::class);
-        $mockService->method('validarConvite')->willReturn([
-            'sucesso'  => false,
-            'tipo'     => 'regra_negocio',
-            'codigo'   => 'CONVITE_INVALIDO_OU_CANCELADO',
-            'estado'   => FinalizarCadastroService::ESTADO_INVALIDO_OU_CANCELADO,
-            'mensagem' => 'Este link de convite não está disponível para utilização.',
-            'dados'    => null,
-        ]);
-        Services::injectMock('finalizarCadastroService', $mockService);
-
-        $resposta = $this->get('finalizar-cadastro?token=token-invalido-cancelado');
-
-        $resposta->assertOK();
-        $resposta->assertSee('Convite Inválido ou Cancelado');
-        $resposta->assertSee('Este link de convite não está disponível para utilização');
-        $resposta->assertSee('Voltar ao login');
-        $this->assertStringNotContainsString('<form', $resposta->getBody());
-        $this->assertStringNotContainsString('name="password"', $resposta->getBody());
-    }
-
     public function testAcessoComConviteJaUtilizadoExibeCardComBotaoIrParaLogin(): void
     {
-        $mockService = $this->createMock(FinalizarCadastroService::class);
+        $mockService = $this->createMock(ConviteService::class);
         $mockService->method('validarConvite')->willReturn([
             'sucesso'  => false,
             'tipo'     => 'regra_negocio',
@@ -215,7 +172,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
             'mensagem' => 'Este convite já foi utilizado.',
             'dados'    => null,
         ]);
-        Services::injectMock('finalizarCadastroService', $mockService);
+        Services::injectMock('conviteService', $mockService);
 
         $resposta = $this->get('finalizar-cadastro?token=token-utilizado');
 
@@ -228,7 +185,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
 
     public function testAcessoComErroTemporarioExibeMensagemSemDetalhesTecnicos(): void
     {
-        $mockService = $this->createMock(FinalizarCadastroService::class);
+        $mockService = $this->createMock(ConviteService::class);
         $mockService->method('validarConvite')->willReturn([
             'sucesso'  => false,
             'tipo'     => 'inesperado',
@@ -237,7 +194,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
             'mensagem' => 'Instabilidade momentânea.',
             'dados'    => null,
         ]);
-        Services::injectMock('finalizarCadastroService', $mockService);
+        Services::injectMock('conviteService', $mockService);
 
         $resposta = $this->get('finalizar-cadastro?token=token-erro');
 
@@ -297,24 +254,24 @@ final class FinalizarCadastroTest extends CIUnitTestCase
         $this->assertSame('As senhas informadas não correspondem.', $erros['password_confirm']);
     }
 
-    public function testSubmissaoValidaSemBackendRetornaMensagemRealDoServidorESemSucessoFicticio(): void
+    public function testFalhaNaConclusaoRetornaMensagemDoServicoSemSucesso(): void
     {
-        $mockService = $this->createMock(FinalizarCadastroService::class);
+        $mockService = $this->createMock(ConviteService::class);
         $mockService->method('validarConvite')->willReturn([
             'sucesso'  => true,
             'tipo'     => 'sucesso',
             'codigo'   => 'CONVITE_VALIDO',
-            'estado'   => FinalizarCadastroService::ESTADO_VALIDO,
+            'estado'   => ConviteService::ESTADO_VALIDO,
             'mensagem' => 'Convite válido.',
             'dados'    => null,
         ]);
         $mockService->method('concluirCadastro')->willReturn([
             'sucesso'  => false,
-            'tipo'     => 'regra_negocio',
-            'codigo'   => 'SERVICO_INDISPONIVEL',
-            'mensagem' => 'O serviço de criação de conta por convite ainda não está disponível.',
+            'tipo'     => 'inesperado',
+            'codigo'   => 'CADASTRO_FALHOU',
+            'mensagem' => 'Não foi possível concluir o cadastro. Tente novamente.',
         ]);
-        Services::injectMock('finalizarCadastroService', $mockService);
+        Services::injectMock('conviteService', $mockService);
 
         $resposta = $this->post('finalizar-cadastro', [
             'token'            => 'token-valido-123456',
@@ -324,47 +281,51 @@ final class FinalizarCadastroTest extends CIUnitTestCase
             csrf_token()       => csrf_hash(),
         ]);
 
-        // Não pode redirecionar para login com sucesso fictício
         $this->assertNull(session('message'));
         $resposta->assertSessionHas('error');
-        $this->assertStringContainsString('não está disponível', session('error'));
+        $this->assertStringContainsString('Não foi possível concluir', session('error'));
     }
 
-    public function testSubmissaoComTokenInvalidoOuCanceladoBloqueiaAntesDeConcluirCadastro(): void
+    public function testSubmissaoComTokenIndisponivelRetornaErroDoServico(): void
     {
-        $mockService = $this->createMock(FinalizarCadastroService::class);
+        $mockService = $this->createMock(ConviteService::class);
         $mockService->method('validarConvite')->willReturn([
             'sucesso'  => false,
             'tipo'     => 'regra_negocio',
-            'codigo'   => 'CONVITE_CANCELADO',
-            'estado'   => FinalizarCadastroService::ESTADO_CANCELADO,
-            'mensagem' => 'Este convite foi cancelado pela administração.',
+            'codigo'   => 'CONVITE_INDISPONIVEL',
+            'estado'   => ConviteService::ESTADO_INVALIDO,
+            'mensagem' => 'Este convite não está disponível para utilização.',
             'dados'    => null,
         ]);
-        $mockService->expects($this->never())->method('concluirCadastro');
-        Services::injectMock('finalizarCadastroService', $mockService);
+        $mockService->expects($this->once())->method('concluirCadastro')->willReturn([
+            'sucesso' => false,
+            'tipo' => 'regra_negocio',
+            'codigo' => 'CONVITE_INDISPONIVEL',
+            'mensagem' => 'Este convite não está disponível para utilização.',
+        ]);
+        Services::injectMock('conviteService', $mockService);
 
         $resposta = $this->post('finalizar-cadastro', [
-            'token'            => 'token-cancelado-123',
+            'token'            => 'token-indisponivel-123',
             'nome_completo'    => 'Maria da Silva Araújo',
             'password'         => 'SenhaSegura@2026',
             'password_confirm' => 'SenhaSegura@2026',
             csrf_token()       => csrf_hash(),
         ]);
 
-        $resposta->assertRedirectTo(site_url('finalizar-cadastro?token=token-cancelado-123'));
+        $resposta->assertRedirectTo(site_url('finalizar-cadastro?token=token-indisponivel-123'));
         $resposta->assertSessionHas('error');
-        $this->assertSame('Este convite foi cancelado pela administração.', session('error'));
+        $this->assertSame('Este convite não está disponível para utilização.', session('error'));
     }
 
     public function testSubmissaoComSucessoRedirecionaParaLoginComMensagem(): void
     {
-        $mockService = $this->createMock(FinalizarCadastroService::class);
+        $mockService = $this->createMock(ConviteService::class);
         $mockService->method('validarConvite')->willReturn([
             'sucesso'  => true,
             'tipo'     => 'sucesso',
             'codigo'   => 'CONVITE_VALIDO',
-            'estado'   => FinalizarCadastroService::ESTADO_VALIDO,
+            'estado'   => ConviteService::ESTADO_VALIDO,
             'mensagem' => 'Convite válido.',
             'dados'    => null,
         ]);
@@ -374,7 +335,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
             'codigo'   => 'CADASTRO_CONCLUIDO',
             'mensagem' => 'Cadastro concluído com sucesso! Acesse sua conta.',
         ]);
-        Services::injectMock('finalizarCadastroService', $mockService);
+        Services::injectMock('conviteService', $mockService);
 
         $resposta = $this->post('finalizar-cadastro', [
             'token'            => 'token-valido-123456',
@@ -388,45 +349,37 @@ final class FinalizarCadastroTest extends CIUnitTestCase
         $this->assertSame('Cadastro concluído com sucesso! Acesse sua conta.', session('success'));
     }
 
-    public function testAcessoComResolvedorPlugavelExibeFormularioValido(): void
+    public function testAcessoComConvitePersistidoExibeFormularioValido(): void
     {
-        $servico = Services::finalizarCadastroService();
-        $servico->definirResolvedorConvite(static function (string $token): ?array {
-            if ($token === 'token-adaptado-valido-123') {
-                return [
-                    'sucesso'  => true,
-                    'tipo'     => 'sucesso',
-                    'codigo'   => 'CONVITE_VALIDO',
-                    'estado'   => FinalizarCadastroService::ESTADO_VALIDO,
-                    'mensagem' => 'Convite válido.',
-                    'dados'    => [
-                        'token'  => $token,
-                        'email'  => 'convidado.teste@example.com',
-                        'grupos' => [['codigo' => 'user', 'rotulo' => 'Usuário (user)']],
-                    ],
-                ];
-            }
-
-            return null;
-        });
+        $usuarios = model(UserModel::class);
+        $usuarios->save(new User(['username' => 'emissor-teste', 'active' => true]));
+        $this->assertNotFalse(model(ConviteModel::class)->insert([
+            'emissor_id' => $usuarios->getInsertID(),
+            'email' => 'convidado.teste@ifro.edu.br',
+            'email_pendente' => 'convidado.teste@ifro.edu.br',
+            'token_hash' => hash('sha256', 'token-adaptado-valido-123'),
+            'status' => 'pendente',
+            'expira_em' => date('Y-m-d H:i:s', time() + 1800),
+            'grupos' => json_encode(['user'], JSON_THROW_ON_ERROR),
+        ]));
 
         $resposta = $this->get('finalizar-cadastro?token=token-adaptado-valido-123');
 
         $resposta->assertOK();
         $resposta->assertSee('Finalize seu cadastro');
-        $resposta->assertSee('convidado.teste@example.com');
+        $resposta->assertSee('convidado.teste@ifro.edu.br');
         $resposta->assertSee('Usuário (user)');
         $resposta->assertSeeElement('input[id=senha]');
         $resposta->assertSeeElement('input[id=confirmar-senha]');
         $this->assertStringNotContainsString('tabindex="-1"', $resposta->getBody());
     }
 
-    public function testAcessoComTokenSemAdaptadorExibeEstadoInvalido(): void
+    public function testAcessoComTokenNaoEncontradoExibeEstadoInvalido(): void
     {
         $resposta = $this->get('finalizar-cadastro?token=token-sem-integracao-123');
 
         $resposta->assertOK();
-        $resposta->assertSee('Convite Inválido ou Cancelado');
+        $resposta->assertSee('Convite Inválido');
     }
 
     public function testAliasConviteFinalizarCarregaMesmaInterface(): void
@@ -439,7 +392,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
 
     public function testFalhaDeValidacaoNaoRepopulaSenhas(): void
     {
-        $mockService = $this->createMock(FinalizarCadastroService::class);
+        $mockService = $this->createMock(ConviteService::class);
         $mockService->method('validarConvite')->willReturn([
             'sucesso'  => true,
             'tipo'     => 'sucesso',
@@ -452,7 +405,7 @@ final class FinalizarCadastroTest extends CIUnitTestCase
                 'grupos' => [['codigo' => 'user', 'rotulo' => 'Usuário (user)']],
             ],
         ]);
-        Services::injectMock('finalizarCadastroService', $mockService);
+        Services::injectMock('conviteService', $mockService);
 
         // Submissão com erro
         $this->post('finalizar-cadastro', [

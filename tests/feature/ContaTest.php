@@ -836,11 +836,11 @@ final class ContaTest extends CIUnitTestCase
         $solicitacao->assertOK();
 
         $tabelaAuditoria = $this->db->prefixTable('auditoria_edicao_contas');
-        $this->db->query(
-            'CREATE TRIGGER falha_auditoria_confirmacao BEFORE UPDATE ON '
-            . $this->db->escapeIdentifiers($tabelaAuditoria) . ' '
-            . 'BEGIN SELECT RAISE(ABORT, "falha de auditoria"); END',
-        );
+        $falha = $this->db->getPlatform() === 'MySQLi'
+            ? "FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'falha de auditoria'"
+            : 'BEGIN SELECT RAISE(ABORT, "falha de auditoria"); END';
+        $this->db->query('CREATE TRIGGER falha_auditoria_confirmacao BEFORE UPDATE ON '
+            . $this->db->escapeIdentifiers($tabelaAuditoria) . ' ' . $falha);
 
         $confirmacao = $this->post('confirmar-troca-email', [
             csrf_token() => csrf_hash(),
@@ -1122,10 +1122,11 @@ final class ContaTest extends CIUnitTestCase
         $operador = $this->criarUsuario('operador', true);
         $alvo = $this->criarUsuario('conta.alvo');
         $tabelaAuditoria = db_connect()->prefixTable('auditoria_edicao_contas');
+        $falha = $this->db->getPlatform() === 'MySQLi'
+            ? "FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'falha de auditoria'"
+            : "WHEN NEW.campos_alterados = 'email' BEGIN SELECT RAISE(ABORT, 'falha de auditoria'); END";
         db_connect()->query(
-            'CREATE TRIGGER falha_auditoria_edicao BEFORE INSERT ON ' . $tabelaAuditoria . ' '
-            . "WHEN NEW.campos_alterados = 'email' "
-            . "BEGIN SELECT RAISE(ABORT, 'falha de auditoria'); END",
+            'CREATE TRIGGER falha_auditoria_edicao BEFORE INSERT ON ' . $tabelaAuditoria . ' ' . $falha
         );
 
         $resposta = $this->enviarAtualizacao($operador, (int) $alvo->id, [
