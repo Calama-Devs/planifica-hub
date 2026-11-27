@@ -22,8 +22,12 @@ class PermissaoController extends BaseController
      */
     public function index(): string
     {
+        $situacao = $this->request->getGet('situacao') === 'inativos' ? 'inativos' : 'ativos';
+
         return view('permissao/index', [
+            'situacao'          => $situacao,
             'urlListar'         => url_to('permissoes.grupos.listar'),
+            'urlReativar'       => url_to('permissoes.grupos.reativar', '999999999'),
             'destinoCriarGrupo' => site_url('admin/permissoes/grupos/novo'),
             'versaoCss'         => $this->versaoAsset('assets/css/permissao/index.css'),
             'versaoJs'          => $this->versaoAsset('assets/js/permissao/index.js'),
@@ -74,8 +78,9 @@ class PermissaoController extends BaseController
             $inicio    = (int) ($validados['start'] ?? 0);
             $limite    = (int) ($validados['length'] ?? 10);
             $termo     = trim((string) ($validados['pesquisa'] ?? ''));
+            $situacao  = $this->request->getGet('situacao') === 'inativos' ? 'inativos' : 'ativos';
 
-            $listagem = $this->permissaoService->listarGrupos($inicio, $limite, $termo);
+            $listagem = $this->permissaoService->listarGrupos($inicio, $limite, $termo, $situacao);
             $grupos   = array_map(
                 static function (array $grupo): array {
                     $slug              = rawurlencode($grupo['identificador']);
@@ -111,6 +116,27 @@ class PermissaoController extends BaseController
                 'mensagem' => 'Não foi possível carregar os grupos. Tente novamente.',
             ]);
         }
+    }
+
+    /**
+     * Reativa um grupo previamente inativado.
+     */
+    public function reativarGrupo(string $identificador): ResponseInterface
+    {
+        $resultado = $this->permissaoService->reativarGrupo(
+            rawurldecode($identificador),
+            (int) auth()->id(),
+        );
+
+        $status = match ($resultado['tipo']) {
+            'sucesso'        => 200,
+            'autorizacao'    => 403,
+            'nao_encontrado' => 404,
+            'validacao', 'negocio' => 422,
+            default          => 500,
+        };
+
+        return $this->response->setStatusCode($status)->setJSON($resultado);
     }
 
     private function extrairTermoBusca(): ?string
