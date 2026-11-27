@@ -43,7 +43,14 @@ final class PermissoesAdminTest extends CIUnitTestCase
     public function testAcessoNegadoParaUsuarioDeslogado(): void
     {
         $this->get('admin/permissoes')->assertRedirectTo(route_to('login'));
-        $this->get('admin/permissoes/listar')->assertRedirectTo(route_to('login'));
+
+        $this->get('admin/permissoes/listar')->assertStatus(401);
+        $this->get('admin/permissoes/grupos/admin')->assertStatus(401);
+
+        $this->seeNumRecords(2, 'eventos_auditoria', [
+            'modulo'    => 'permissoes',
+            'resultado' => 'recusada',
+        ]);
     }
 
     public function testAcessoNegadoParaUsuarioSemPermissaoAcessosAdministrar(): void
@@ -59,9 +66,17 @@ final class PermissoesAdminTest extends CIUnitTestCase
     {
         $usuarioComum = $this->criarUsuario('user');
 
-        $resposta = $this->actingAs($usuarioComum)->withSession()->get('admin/permissoes/listar');
-        $resposta->assertRedirectTo(rtrim(site_url('/'), '/'));
-        $resposta->assertSessionHas('error');
+        $resposta = $this->actingAs($usuarioComum)->get('admin/permissoes/listar');
+        $resposta->assertStatus(403);
+        $this->actingAs($usuarioComum)
+            ->get('admin/permissoes/grupos/admin')
+            ->assertStatus(403);
+
+        $this->seeNumRecords(2, 'eventos_auditoria', [
+            'modulo'     => 'permissoes',
+            'usuario_id' => $usuarioComum->id,
+            'resultado'  => 'recusada',
+        ]);
     }
 
     public function testSuperadminAcessaPaginaGruposEPermissoesComControlesPreparados(): void
@@ -110,6 +125,8 @@ final class PermissoesAdminTest extends CIUnitTestCase
         $this->assertTrue($porSlug['superadmin']['protegido']);
         $this->assertSame(2, $porSlug['admin']['usuarios_vinculados']);
         $this->assertFalse($porSlug['admin']['protegido']);
+        $this->assertSame('ativo', $porSlug['admin']['situacao']);
+        $this->assertTrue($porSlug['admin']['ativo']);
         $this->assertSame(
             site_url('admin/permissoes/grupos/admin/editar'),
             $porSlug['admin']['destinos']['editar']
@@ -118,6 +135,64 @@ final class PermissoesAdminTest extends CIUnitTestCase
             site_url('admin/permissoes/grupos/admin/integrantes'),
             $porSlug['admin']['destinos']['integrantes']
         );
+        $this->seeNumRecords(1, 'eventos_auditoria', [
+            'modulo'     => 'permissoes',
+            'acao'       => 'listar_grupos',
+            'usuario_id' => $superadmin->id,
+            'resultado'  => 'concluida',
+        ]);
+    }
+
+    public function testConsultaIndividualMantemContratoEDadosDeProtecao(): void
+    {
+        $superadmin = $this->criarUsuario('superadmin');
+
+        $resposta = $this->actingAs($superadmin)->get('admin/permissoes/grupos/superadmin');
+        $resposta->assertOK();
+
+        $json = json_decode($resposta->getJSON(), true);
+        $this->assertIsArray($json);
+        $this->assertSame('CONSULTA_GRUPO_OK', $json['codigo']);
+        $this->assertSame('superadmin', $json['data']['identificador']);
+        $this->assertTrue($json['data']['protegido']);
+        $this->assertSame('ativo', $json['data']['situacao']);
+
+        $this->seeInDatabase('eventos_auditoria', [
+            'modulo'        => 'permissoes',
+            'acao'          => 'consultar_grupo',
+            'entidade_tipo' => 'grupo',
+            'entidade_id'   => 'superadmin',
+            'usuario_id'    => $superadmin->id,
+            'resultado'     => 'concluida',
+        ]);
+    }
+
+    public function testPermissaoIndividualDoShieldAutorizaConsultaDeGrupo(): void
+    {
+        $usuario = $this->criarUsuario('user');
+        $usuario->addPermission('acessos.administrar');
+
+        $this->actingAs($usuario)
+            ->get('admin/permissoes/grupos/admin')
+            ->assertOK();
+    }
+
+    public function testGrupoInexistenteRetorna404EAuditaRecusa(): void
+    {
+        $superadmin = $this->criarUsuario('superadmin');
+
+        $this->actingAs($superadmin)
+            ->get('admin/permissoes/grupos/nao-existe')
+            ->assertStatus(404);
+
+        $this->seeInDatabase('eventos_auditoria', [
+            'modulo'        => 'permissoes',
+            'acao'          => 'consultar_grupo',
+            'entidade_tipo' => 'grupo',
+            'entidade_id'   => 'nao-existe',
+            'usuario_id'    => $superadmin->id,
+            'resultado'     => 'recusada',
+        ]);
     }
 
     public function testListagemServerSideFiltraPorNomeOuDescricaoEPagina(): void
@@ -156,6 +231,13 @@ final class PermissoesAdminTest extends CIUnitTestCase
 
         $this->actingAs($superadmin)->get('admin/permissoes/listar?' . http_build_query($parametros))
             ->assertStatus(422);
+
+        $this->seeNumRecords(1, 'eventos_auditoria', [
+            'modulo'     => 'permissoes',
+            'acao'       => 'listar_grupos',
+            'usuario_id' => $superadmin->id,
+            'resultado'  => 'recusada',
+        ]);
     }
 
     /**

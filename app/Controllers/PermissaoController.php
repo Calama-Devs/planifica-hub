@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Services\PermissaoService;
+use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\HTTP\ResponseInterface;
 use Throwable;
 
@@ -39,6 +40,13 @@ class PermissaoController extends BaseController
      */
     public function listarGrupos(): ResponseInterface
     {
+        $this->response->setHeader('Cache-Control', 'no-store');
+
+        $operador = $this->obterOperadorAutorizado('listar_grupos');
+        if ($operador instanceof ResponseInterface) {
+            return $operador;
+        }
+
         $pesquisa = $this->extrairTermoBusca();
         if ($pesquisa === null) {
             return $this->erroValidacaoListagem();
@@ -115,21 +123,32 @@ class PermissaoController extends BaseController
 
     private function extrairTermoBusca(): ?string
     {
-        $searchParam = $this->request->getGet('search');
+        $parametroBusca = $this->request->getGet('search');
 
-        if (is_array($searchParam)) {
-            if (! array_key_exists('value', $searchParam)) {
-                return '';
+        if (is_array($parametroBusca)) {
+            if (! array_key_exists('value', $parametroBusca) || ! is_string($parametroBusca['value'])) {
+                return null;
             }
 
-            return is_string($searchParam['value']) ? $searchParam['value'] : null;
+            if (
+                isset($parametroBusca['regex'])
+                && ! in_array(
+                    $parametroBusca['regex'],
+                    ['false', '0', false, 0],
+                    true
+                )
+            ) {
+                return null;
+            }
+
+            return $parametroBusca['value'];
         }
 
-        if (is_string($searchParam)) {
-            return $searchParam;
+        if (is_string($parametroBusca)) {
+            return $parametroBusca;
         }
 
-        if ($searchParam !== null) {
+        if ($parametroBusca !== null) {
             return null;
         }
 
@@ -156,6 +175,12 @@ class PermissaoController extends BaseController
 
     private function erroValidacaoListagem(): ResponseInterface
     {
+        $this->permissaoService->registrarRecusaConsultaDeGrupos(
+            'listar_grupos',
+            null,
+            'Consulta recusada: parâmetros de listagem inválidos.'
+        );
+
         return $this->response->setStatusCode(422)->setJSON([
             'sucesso'  => false,
             'tipo'     => 'validacao',
@@ -163,44 +188,54 @@ class PermissaoController extends BaseController
             'mensagem' => 'Parâmetros de listagem inválidos.',
         ]);
     }
+
     public function consultarGrupo(
         string $identificador
     ): ResponseInterface {
+        $this->response->setHeader('Cache-Control', 'no-store');
+
+        $operador = $this->obterOperadorAutorizado('consultar_grupo');
+        if ($operador instanceof ResponseInterface) {
+            return $operador;
+        }
+
         if (
             trim($identificador) === ''
-            || mb_strlen($identificador) > 100
+            || mb_strlen($identificador) > 255
+            || preg_match('/[\x00-\x1F\x7F]/', $identificador) === 1
         ) {
-            return $this->response
-            ->setStatusCode(422)
-            ->setJSON([
-                'sucesso' => false,
-                'tipo' => 'validacao',
-                'codigo' => 'CONSULTA_GRUPO_INVALIDA',
+            $this->permissaoService->registrarRecusaConsultaDeGrupos(
+                'consultar_grupo',
+                null,
+                'Consulta recusada: identificador de grupo inválido.'
+            );
+
+            return $this->response->setStatusCode(422)->setJSON([
+                'sucesso'  => false,
+                'tipo'     => 'validacao',
+                'codigo'   => 'CONSULTA_GRUPO_INVALIDA',
                 'mensagem' => 'Identificador de grupo inválido.',
             ]);
         }
 
         try {
-            $grupo = $this->permissaoService
-            ->buscarGrupoPorIdentificador($identificador);
+            $grupo = $this->permissaoService->buscarGrupoPorIdentificador($identificador);
 
             if ($grupo === null) {
-                return $this->response
-                ->setStatusCode(404)
-                ->setJSON([
-                    'sucesso' => false,
-                    'tipo' => 'nao_encontrado',
-                    'codigo' => 'GRUPO_NAO_ENCONTRADO',
+                return $this->response->setStatusCode(404)->setJSON([
+                    'sucesso'  => false,
+                    'tipo'     => 'regra_negocio',
+                    'codigo'   => 'GRUPO_NAO_ENCONTRADO',
                     'mensagem' => 'Grupo não encontrado.',
                 ]);
             }
 
             return $this->response->setJSON([
-            'sucesso' => true,
-            'tipo' => 'sucesso',
-            'codigo' => 'CONSULTA_GRUPO_OK',
-            'mensagem' => 'Grupo consultado com sucesso.',
-            'data' => $grupo,
+                'sucesso'  => true,
+                'tipo'     => 'sucesso',
+                'codigo'   => 'CONSULTA_GRUPO_OK',
+                'mensagem' => 'Grupo consultado com sucesso.',
+                'data'     => $grupo,
             ]);
         } catch (Throwable $erro) {
             log_message(
@@ -209,14 +244,49 @@ class PermissaoController extends BaseController
                 ['tipo' => $erro::class]
             );
 
-            return $this->response
-            ->setStatusCode(500)
-            ->setJSON([
-                'sucesso' => false,
-                'tipo' => 'inesperado',
-                'codigo' => 'CONSULTA_GRUPO_INDISPONIVEL',
+            return $this->response->setStatusCode(500)->setJSON([
+                'sucesso'  => false,
+                'tipo'     => 'inesperado',
+                'codigo'   => 'CONSULTA_GRUPO_INDISPONIVEL',
                 'mensagem' => 'Não foi possível consultar o grupo.',
             ]);
         }
+    }
+
+    private function obterOperadorAutorizado(string $acao): User|ResponseInterface
+    {
+        $operador = auth()->user();
+
+        if (! $operador instanceof User) {
+            $this->permissaoService->registrarRecusaConsultaDeGrupos(
+                $acao,
+                null,
+                'Consulta recusada: autenticação necessária.'
+            );
+
+            return $this->response->setStatusCode(401)->setJSON([
+                'sucesso'  => false,
+                'tipo'     => 'permissao',
+                'codigo'   => 'AUTENTICACAO_NECESSARIA',
+                'mensagem' => 'Entre novamente para continuar.',
+            ]);
+        }
+
+        if (! $operador->can('acessos.administrar')) {
+            $this->permissaoService->registrarRecusaConsultaDeGrupos(
+                $acao,
+                null,
+                'Consulta recusada: operador sem permissão.'
+            );
+
+            return $this->response->setStatusCode(403)->setJSON([
+                'sucesso'  => false,
+                'tipo'     => 'permissao',
+                'codigo'   => 'GRUPOS_SEM_PERMISSAO',
+                'mensagem' => 'Sem permissão para consultar grupos.',
+            ]);
+        }
+
+        return $operador;
     }
 }

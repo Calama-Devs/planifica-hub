@@ -61,8 +61,10 @@ seguem a convenção de sufixos descrita acima.
   matriz de permissões do Shield. Essas configurações não implicam a
   existência de telas administrativas.
 - `app/Config/Routes.php` registra as rotas do Shield e protege `/` e `/sobre`
-  com o filtro `session`. As rotas de `admin/acessos` e `admin/permissoes` ficam no mesmo grupo e
-  somam o filtro `permission:acessos.administrar`. Os endpoints JSON `/admin/contas/{id}`
+  com o filtro `session`. As telas de `admin/acessos` e `admin/permissoes` usam
+  `session` e `permission:acessos.administrar`. Os endpoints JSON de consulta
+  de grupos usam o filtro `permissao-grupos-json`, que devolve 401/403 em JSON
+  e audita recusas. Os endpoints JSON `/admin/contas/{id}`
   exigem `contas.editar`, com resposta JSON do filtro e conferência repetida no
   Controller e no Service. O logout permanece exclusivamente por POST.
   `app/Config/Filters.php` e `Security.php` mantêm a proteção CSRF global
@@ -75,6 +77,8 @@ seguem a convenção de sufixos descrita acima.
 | GET | `/` | `Home::index`, exige autenticação e apresenta o dashboard |
 | GET | `/sobre` | `Home::sobre`, exige autenticação e reutiliza o layout |
 | GET | `/admin/permissoes` | Catálogo de permissões protegido por `acessos.administrar` |
+| GET | `/admin/permissoes/listar` | Lista grupos com busca e paginação DataTables; respostas JSON usam 401/403 e são auditadas |
+| GET | `/admin/permissoes/grupos/{identificador}` | Consulta individual de grupo; exige `acessos.administrar` e registra auditoria |
 | GET | `/admin/acessos` | Tela de gerenciamento de usuários protegida por `acessos.administrar` |
 | GET | `/admin/acessos/listar` | Listagem de contas protegida por `acessos.administrar` |
 | GET | `/admin/contas/{id}` | `ContaController::consultar`, exige `contas.editar` no Controller e carrega nome completo e e-mail pelo identificador da rota |
@@ -88,6 +92,15 @@ seguem a convenção de sufixos descrita acima.
 | GET | `/login/verify-magic-link` | Verificação do link mágico pelo Shield |
 | GET | `/auth/a/show` | Exibição de ação de autenticação do Shield |
 | POST | `/auth/a/handle`, `/auth/a/verify` | Processamento e verificação de ações pelo Shield |
+
+Os identificadores, nomes e descrições dos grupos continuam vindo de
+`setting('AuthGroups.groups')`, que usa `Config\AuthGroups` como padrão e
+respeita sobrescritas persistidas em Settings. A tabela `grupos` complementa
+essa fonte apenas com a situação (`ativo`) e timestamps; não substitui nem
+reescreve os grupos, vínculos do Shield ou a matriz de permissões. A situação
+ausente na tabela é tratada como ativa. Consultas não sincronizam nem gravam
+grupos. `GrupoUsuarioModel` conta usuários distintos em
+`auth_groups_users`, desconsiderando contas com soft delete.
 
 Na edição administrativa, `nome_completo` é o nome de exibição alterado; o campo `username` permanece como identificador do Shield e não é modificado.
 

@@ -29,19 +29,10 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
         'filter' => 'permission:contas.reativar',
     ]);
 
-    $routes->group(
-        'admin/permissoes',
-        ['filter' => 'permission:acessos.administrar'],
-        static function (RouteCollection $routes): void {
-            $routes->get('/', 'PermissaoController::index', ['as' => 'permissoes.index']);
-            $routes->get('listar', 'PermissaoController::listarGrupos', ['as' => 'permissoes.grupos.listar']);
-            $routes->get(
-                'grupos/(:segment)',
-                'PermissaoController::consultarGrupo/$1',
-                ['as' => 'permissoes.grupos.consultar']
-            );
-        }
-    );
+    $routes->get('admin/permissoes', 'PermissaoController::index', [
+        'as'     => 'permissoes.index',
+        'filter' => 'permission:acessos.administrar',
+    ]);
 
     // Gerenciamento de usuários: o filtro do grupo (session) soma com o permission da rota.
     $routes->group(
@@ -63,6 +54,19 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
         'filter' => 'permissao-json:contas.editar',
     ]);
 });
+
+$routes->get('admin/permissoes/listar', 'PermissaoController::listarGrupos', [
+    'as'     => 'permissoes.grupos.listar',
+    'filter' => 'permissao-grupos-json:listar_grupos',
+]);
+$routes->get(
+    'admin/permissoes/grupos/(:segment)',
+    'PermissaoController::consultarGrupo/$1',
+    [
+        'as'     => 'permissoes.grupos.consultar',
+        'filter' => 'permissao-grupos-json:consultar_grupo',
+    ]
+);
 
 // Confirmação pública por link enviada ao novo endereço; o GET só mostra o formulário.
 $routes->get('confirmar-troca-email', 'ConfirmacaoEmailContaController::formulario', [

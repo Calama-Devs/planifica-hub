@@ -3,6 +3,7 @@
 namespace Config;
 
 use App\Filters\PermissaoJsonFilter;
+use App\Filters\PermissaoGruposJsonFilter;
 use CodeIgniter\Config\Filters as BaseFilters;
 use CodeIgniter\Filters\Cors;
 use CodeIgniter\Filters\CSRF;
@@ -36,6 +37,7 @@ class Filters extends BaseFilters
         'pagecache'     => PageCache::class,
         'performance'   => PerformanceMetrics::class,
         'permissao-json' => PermissaoJsonFilter::class,
+        'permissao-grupos-json' => PermissaoGruposJsonFilter::class,
     ];
 
     /**
