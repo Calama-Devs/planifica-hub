@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\GrupoUsuarioModel;
 use App\Models\PermissaoModel;
+use CodeIgniter\Shield\Entities\User;
 use Config\AuthGroups;
 
 class PermissaoService
@@ -14,6 +15,11 @@ class PermissaoService
      * Grupos nativos protegidos contra bloqueio/exclusão, independentemente de alterações no grupo padrão.
      */
     private const GRUPOS_PROTEGIDOS = ['superadmin', 'user'];
+
+    private const METADADOS_CATEGORIAS = [
+        'contas'  => ['titulo' => 'Contas e acesso', 'icone' => 'mdi-key-outline'],
+        'acessos' => ['titulo' => 'Acessos e segurança', 'icone' => 'mdi-shield-account-outline'],
+    ];
 
     private PermissaoModel $permissaoModel;
     private GrupoUsuarioModel $grupoUsuarioModel;
@@ -99,6 +105,58 @@ class PermissaoService
             'total'     => count($todos),
             'filtrados' => count($filtrados),
         ];
+    }
+
+    /**
+     * Agrupa as permissões ativas do catálogo por categoria (contexto antes do ponto),
+     * indicando quais opções estão habilitadas para o operador.
+     *
+     * @return list<array{
+     *     chave: string,
+     *     titulo: string,
+     *     icone: string,
+     *     permissoes: list<array{
+     *         identificador: string,
+     *         descricao: string,
+     *         habilitada: bool
+     *     }>
+     * }>
+     */
+    public function listarPermissoesPorCategoria(?User $operador = null): array
+    {
+        $permissoes = $this->listarPermissoes();
+        $agrupadas  = [];
+
+        foreach ($permissoes as $permissao) {
+            $identificador = (string) ($permissao['identificador'] ?? '');
+            if ($identificador === '') {
+                continue;
+            }
+
+            $partes   = explode('.', $identificador, 2);
+            $contexto = $partes[0] !== '' ? $partes[0] : 'geral';
+
+            if (! isset($agrupadas[$contexto])) {
+                $meta                 = self::METADADOS_CATEGORIAS[$contexto] ?? [
+                    'titulo' => ucfirst(str_replace('_', ' ', $contexto)),
+                    'icone'  => 'mdi-folder-outline',
+                ];
+                $agrupadas[$contexto] = [
+                    'chave'      => $contexto,
+                    'titulo'     => $meta['titulo'],
+                    'icone'      => $meta['icone'],
+                    'permissoes' => [],
+                ];
+            }
+
+            $agrupadas[$contexto]['permissoes'][] = [
+                'identificador' => $identificador,
+                'descricao'     => (string) ($permissao['descricao'] ?? $identificador),
+                'habilitada'    => $operador === null || $operador->can($identificador),
+            ];
+        }
+
+        return array_values($agrupadas);
     }
 
     /**

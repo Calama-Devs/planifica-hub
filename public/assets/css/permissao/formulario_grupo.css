@@ -1,0 +1,90 @@
+/* Formulário de grupo (Criar / Editar grupo) */
+
+.icone-cabecalho-grupo {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    background-color: rgba(0, 144, 231, 0.16);
+    color: #58a6ff;
+    font-size: 1.5rem;
+}
+
+.campo-grupo {
+    background-color: #2a3038;
+    border-color: #2c2e33;
+    color: #fff;
+}
+
+.campo-grupo:focus {
+    background-color: #2a3038;
+    border-color: #0090e7;
+    color: #fff;
+}
+
+.acao-selecao-permissoes {
+    color: #58a6ff;
+    text-decoration: none;
+    font-size: 0.85rem;
+}
+
+.acao-selecao-permissoes:hover {
+    color: #79c0ff;
+    text-decoration: underline;
+}
+
+.accordion-permissoes .categoria-permissoes-item {
+    background-color: #12151e;
+    border: 1px solid #2c2e33;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.accordion-permissoes .accordion-button {
+    background-color: #191c24;
+    color: #fff;
+    box-shadow: none;
+    padding: 0.85rem 1rem;
+}
+
+.accordion-permissoes .accordion-button:not(.collapsed) {
+    background-color: #1e2330;
+    color: #fff;
+}
+
+.accordion-permissoes .accordion-button::after {
+    filter: invert(1) grayscale(100%) brightness(180%);
+}
+
+.accordion-permissoes .accordion-body {
+    background-color: #141720;
+    border-top: 1px solid #2c2e33;
+    padding: 1rem;
+}
+
+.contador-categoria {
+    background-color: #2a3038;
+    color: #cbd5e1;
+    font-weight: 500;
+    font-size: 0.75rem;
+    padding: 0.35rem 0.65rem;
+}
+
+.item-permissao .form-check-label {
+    font-size: 0.85rem;
+    line-height: 1.3;
+}
+
+.codigo-permissao {
+    font-size: 0.74rem;
+}
+
+.modal-header .btn-close-white {
+    filter: invert(1) grayscale(100%) brightness(200%);
+    opacity: 0.85;
+}
+
+#form-grupo button:focus-visible,
+#form-grupo a:focus-visible {
+    outline: 2px solid #58a6ff;
+    outline-offset: 2px;
+}
