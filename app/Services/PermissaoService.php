@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\GrupoModel;
 use App\Models\GrupoUsuarioModel;
 use App\Models\PermissaoModel;
 use Config\AuthGroups;
@@ -15,15 +16,18 @@ class PermissaoService
      */
     private const GRUPOS_PROTEGIDOS = ['superadmin', 'user'];
 
+    private GrupoModel $grupoModel;
     private PermissaoModel $permissaoModel;
     private GrupoUsuarioModel $grupoUsuarioModel;
 
     public function __construct(
         ?PermissaoModel $permissaoModel = null,
         ?GrupoUsuarioModel $grupoUsuarioModel = null,
+        ?GrupoModel $grupoModel = null,
     ) {
         $this->permissaoModel    = $permissaoModel ?? model(PermissaoModel::class);
         $this->grupoUsuarioModel = $grupoUsuarioModel ?? model(GrupoUsuarioModel::class);
+        $this->grupoModel = $grupoModel ?? model(GrupoModel::class);
     }
 
     /**
@@ -52,11 +56,12 @@ class PermissaoService
         string $direcao = 'asc',
     ): array {
         $camposPermitidos = [
-        'identificador',
-        'nome',
-        'descricao',
-        'usuarios_vinculados',
-        'situacao',];
+            'identificador',
+            'nome',
+            'descricao',
+            'usuarios_vinculados',
+            'situacao',
+        ];
 
         if (! in_array($ordenarPor, $camposPermitidos, true)) {
             throw new \InvalidArgumentException(
@@ -72,7 +77,7 @@ class PermissaoService
         $inicio   = max(0, $inicio);
         $limite   = max(1, min($limite, 100));
         $pesquisa = trim($pesquisa);
-        $todos = $this->obterGrupos();
+        $todos    = $this->obterGrupos();
 
         usort(
             $todos,
@@ -99,9 +104,7 @@ class PermissaoService
                     );
                 }
 
-                return $direcao === 'desc'
-                ? -$comparacao
-                : $comparacao;
+                return $direcao === 'desc' ? -$comparacao : $comparacao;
             }
         );
 
@@ -191,35 +194,33 @@ class PermissaoService
 
         $definidos = setting('AuthGroups.groups');
 
-        $definidos = is_array($definidos)
-        ? $definidos
-        : [];
+        $definidos = is_array($definidos) ? $definidos : [];
 
         $gruposProtegidos = array_values(array_unique([
-        ...self::GRUPOS_PROTEGIDOS,
-        (string) $authGroups->defaultGroup,
+            ...self::GRUPOS_PROTEGIDOS,
+            (string) $authGroups->defaultGroup,
         ]));
 
         $contagens = $this->grupoUsuarioModel
-        ->contarUsuariosPorGrupo();
+            ->contarUsuariosPorGrupo();
+
+        $metadados = $this->grupoModel
+            ->obterMapaGrupos();
 
         $todos = [];
 
         foreach ($definidos as $identificador => $dados) {
             $slug = (string) $identificador;
+            $ativo = (bool) ($metadados[$slug]['ativo'] ?? true);
 
             $todos[] = [
-            'identificador' => $slug,
-            'nome' => (string) ($dados['title'] ?? $slug),
-            'descricao' => (string) ($dados['description'] ?? ''),
-            'usuarios_vinculados' => $contagens[$slug] ?? 0,
-            'situacao' => 'ativo',
-            'ativo' => true,
-            'protegido' => in_array(
-                $slug,
-                $gruposProtegidos,
-                true
-            ),
+                'identificador'       => $slug,
+                'nome'                => (string) ($dados['title'] ?? $slug),
+                'descricao'           => (string) ($dados['description'] ?? ''),
+                'usuarios_vinculados' => $contagens[$slug] ?? 0,
+                'situacao'            => $ativo ? 'ativo' : 'bloqueado',
+                'ativo'               => $ativo,
+                'protegido'           => in_array($slug, $gruposProtegidos, true),
             ];
         }
 
