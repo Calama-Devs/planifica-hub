@@ -197,7 +197,7 @@ class PermissaoService
         if ($ator === null || ! $ator->can('acessos.administrar')) {
             return [
                 'sucesso'  => false,
-                'tipo'     => 'autorizacao',
+                'tipo'     => 'permissao',
                 'codigo'   => 'GRUPO_REATIVACAO_NAO_AUTORIZADA',
                 'mensagem' => 'Você não tem permissão para reativar grupos.',
             ];
@@ -219,7 +219,7 @@ class PermissaoService
         if (! in_array($slug, $inativos, true)) {
             return [
                 'sucesso'  => false,
-                'tipo'     => 'negocio',
+                'tipo'     => 'regra_negocio',
                 'codigo'   => 'GRUPO_JA_ATIVO',
                 'mensagem' => 'Este grupo já está ativo.',
             ];

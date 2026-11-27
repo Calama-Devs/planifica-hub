@@ -135,9 +135,9 @@ class PermissaoController extends BaseController
 
         $status = match ($resultado['tipo']) {
             'sucesso'        => 200,
-            'autorizacao'    => 403,
+            'permissao'      => 403,
             'nao_encontrado' => 404,
-            'validacao', 'negocio' => 422,
+            'validacao', 'regra_negocio' => 422,
             default          => 500,
         };
 

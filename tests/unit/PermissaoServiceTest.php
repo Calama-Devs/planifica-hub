@@ -222,6 +222,7 @@ final class PermissaoServiceTest extends CIUnitTestCase
 
         $semPermissao = $this->service->reativarGrupo('alfa', 0);
         $this->assertFalse($semPermissao['sucesso']);
+        $this->assertSame('permissao', $semPermissao['tipo']);
         $this->assertSame('GRUPO_REATIVACAO_NAO_AUTORIZADA', $semPermissao['codigo']);
 
         $ator = auth()->getProvider()->findById($this->usuarioId);
@@ -230,10 +231,12 @@ final class PermissaoServiceTest extends CIUnitTestCase
 
         $jaAtivo = $this->service->reativarGrupo('alfa', $this->usuarioId);
         $this->assertFalse($jaAtivo['sucesso']);
+        $this->assertSame('regra_negocio', $jaAtivo['tipo']);
         $this->assertSame('GRUPO_JA_ATIVO', $jaAtivo['codigo']);
 
         $inexistente = $this->service->reativarGrupo('nao-existe', $this->usuarioId);
         $this->assertFalse($inexistente['sucesso']);
+        $this->assertSame('nao_encontrado', $inexistente['tipo']);
         $this->assertSame('GRUPO_NAO_ENCONTRADO', $inexistente['codigo']);
     }
 }
