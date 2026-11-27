@@ -37,6 +37,7 @@ final class PermissoesAdminTest extends CIUnitTestCase
     protected function tearDown(): void
     {
         $_SESSION = [];
+        $this->db->table('eventos_auditoria')->emptyTable();
         parent::tearDown();
     }
 
@@ -212,6 +213,64 @@ final class PermissoesAdminTest extends CIUnitTestCase
         $this->actingAs($superadmin)->post('admin/permissoes/atualizar/1', [
             'descricao'  => 'Tentativa direta de atualização manual',
             csrf_token() => csrf_hash(),
+        ]);
+    }
+
+    public function testReativacaoDeGrupoExigeAutenticacaoEPermissaoAcessosAdministrar(): void
+    {
+        $this->post('admin/permissoes/grupos/beta/reativar', [
+            csrf_token() => csrf_hash(),
+        ])->assertRedirectTo(route_to('login'));
+
+        $usuarioComum = $this->criarUsuario('user');
+        $resposta     = $this->actingAs($usuarioComum)->withSession()->post('admin/permissoes/grupos/beta/reativar', [
+            csrf_token() => csrf_hash(),
+        ]);
+        $resposta->assertRedirectTo(rtrim(site_url('/'), '/'));
+        $resposta->assertSessionHas('error');
+    }
+
+    public function testSuperadminVisualizaEReativaGrupoInativoComAuditoriaETokenCsrf(): void
+    {
+        $superadmin = $this->criarUsuario('superadmin');
+        service('settings')->set('AuthGroups.gruposInativos', ['beta']);
+
+        $telaInativos = $this->actingAs($superadmin)->withSession()->get('admin/permissoes?situacao=inativos');
+        $telaInativos->assertOK();
+        $telaInativos->assertSee('Grupos ativos');
+        $this->assertStringContainsString('data-situacao="inativos"', (string) $telaInativos->getBody());
+
+        $listagemInativos = $this->withSession()->get('admin/permissoes/listar?situacao=inativos');
+        $listagemInativos->assertOK();
+        $jsonInativos = json_decode($listagemInativos->getJSON(), true);
+        $this->assertCount(1, $jsonInativos['data']);
+        $this->assertSame('beta', $jsonInativos['data'][0]['identificador']);
+
+        $this->withSession()
+            ->get('admin/permissoes/listar?situacao=invalida')
+            ->assertStatus(422);
+
+        $reativacao = $this->withSession()->post('admin/permissoes/grupos/beta/reativar', [
+            csrf_token() => csrf_hash(),
+        ]);
+        $reativacao->assertOK();
+        $this->assertStringContainsString(
+            'no-store',
+            $reativacao->response()->getHeaderLine('Cache-Control')
+        );
+
+        $jsonReativacao = json_decode($reativacao->getJSON(), true);
+        $this->assertTrue($jsonReativacao['sucesso']);
+        $this->assertSame('GRUPO_REATIVADO', $jsonReativacao['codigo']);
+        $this->assertArrayHasKey('csrf', $jsonReativacao);
+        $this->assertNotEmpty($jsonReativacao['csrf']['hash']);
+
+        $this->seeInDatabase('eventos_auditoria', [
+            'modulo'        => 'permissoes',
+            'acao'          => 'reativar_grupo',
+            'entidade_tipo' => 'grupo',
+            'entidade_id'   => 'beta',
+            'resultado'     => 'concluida',
         ]);
     }
 
