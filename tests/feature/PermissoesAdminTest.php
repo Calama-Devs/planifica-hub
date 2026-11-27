@@ -84,7 +84,94 @@ final class PermissoesAdminTest extends CIUnitTestCase
         $this->assertStringContainsString('data-url="' . url_to('permissoes.grupos.listar') . '"', $html);
         $this->assertStringContainsString('href="' . site_url('admin/permissoes/grupos/novo') . '"', $html);
         $this->assertStringContainsString('data-destino="' . site_url('admin/permissoes/grupos/novo') . '"', $html);
-        $this->assertStringContainsString('aria-disabled="true"', $html);
+        $this->assertStringNotContainsString('btn-icon-text disabled', $html);
+    }
+
+    public function testVisitanteNaoAcessaPaginaNemEnvioDeCriarGrupo(): void
+    {
+        $this->get('admin/permissoes/grupos/novo')->assertRedirectTo(route_to('login'));
+        $this->post('admin/permissoes/grupos/novo', [
+            'nome'       => 'Coordenador',
+            csrf_token() => csrf_hash(),
+        ])->assertRedirectTo(route_to('login'));
+    }
+
+    public function testUsuarioSemPermissaoNaoAcessaPaginaCriarGrupo(): void
+    {
+        $comum = $this->criarUsuario('user');
+
+        $resposta = $this->actingAs($comum)->withSession()->get('admin/permissoes/grupos/novo');
+        $resposta->assertRedirectTo(rtrim(site_url('/'), '/'));
+        $resposta->assertSessionHas('error');
+    }
+
+    public function testSuperadminAbrePaginaCriarGrupoComFormularioECatalogoPorCategoria(): void
+    {
+        $superadmin = $this->criarUsuario('superadmin');
+
+        $resposta = $this->actingAs($superadmin)->withSession()->get('admin/permissoes/grupos/novo');
+        $resposta->assertOK();
+        $resposta->assertSee('Criar grupo');
+        $resposta->assertSee('Informações do grupo');
+        $resposta->assertSee('Nome do grupo');
+        $resposta->assertSee('Descrição');
+        $resposta->assertSee('Permissões');
+        $resposta->assertSee('Marcar todas');
+        $resposta->assertSee('Desmarcar todas');
+        $resposta->assertSee('Salvar grupo');
+        $resposta->assertSee('Cancelar');
+        $resposta->assertSee('contas.consultar');
+        $resposta->assertSee('acessos.administrar');
+
+        $html = (string) $resposta->getBody();
+        $this->assertStringContainsString('id="form-grupo"', $html);
+        $this->assertStringContainsString('id="accordion-permissoes"', $html);
+        $this->assertStringContainsString('id="modal-sair-sem-salvar"', $html);
+        $this->assertStringContainsString('contador-categoria', $html);
+    }
+
+    public function testCriarGrupoDesabilitaPermissoesQueOperadorNaoPossui(): void
+    {
+        $operador = $this->criarUsuario('user');
+        $operador->addPermission('acessos.administrar');
+
+        $resposta = $this->actingAs($operador)->withSession()->get('admin/permissoes/grupos/novo');
+        $resposta->assertOK();
+
+        $html = (string) $resposta->getBody();
+        $this->assertStringContainsString('value="contas.criar"', $html);
+        $this->assertStringContainsString('disabled aria-disabled="true"', $html);
+    }
+
+    public function testSalvarGrupoRecusaDadosInvalidosEPreservaPreenchimento(): void
+    {
+        $superadmin = $this->criarUsuario('superadmin');
+
+        $resposta = $this->actingAs($superadmin)->withSession()->post('admin/permissoes/grupos/novo', [
+            'nome'       => 'ab',
+            'descricao'  => 'Descrição preservada',
+            'permissoes' => ['permissao.inexistente'],
+            csrf_token() => csrf_hash(),
+        ]);
+
+        $resposta->assertRedirect();
+        $resposta->assertSessionHas('error');
+        $resposta->assertSessionHas('errors');
+    }
+
+    public function testSalvarGrupoValidoRetornaAvisoSemGravarEnquantoPersistenciaPendente(): void
+    {
+        $superadmin = $this->criarUsuario('superadmin');
+
+        $resposta = $this->actingAs($superadmin)->withSession()->post('admin/permissoes/grupos/novo', [
+            'nome'       => 'Coordenador',
+            'descricao'  => 'Coordenação de curso',
+            'permissoes' => ['contas.consultar'],
+            csrf_token() => csrf_hash(),
+        ]);
+
+        $resposta->assertRedirect();
+        $resposta->assertSessionHas('warning');
     }
 
     public function testListagemServerSideRetornaGruposComUsuariosVinculadosEDestinos(): void

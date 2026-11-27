@@ -167,4 +167,26 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $this->assertSame(5, $pagina['filtrados']);
         $this->assertCount(2, $pagina['grupos']);
     }
+
+    public function testListarPermissoesPorCategoriaAgrupaERespeitaPermissoesDoOperador(): void
+    {
+        $usuarios = model(UserModel::class);
+        $usuarios->save(new User(['username' => 'operador.restrito', 'active' => true]));
+        /** @var User $operador */
+        $operador = $usuarios->findById($usuarios->getInsertID());
+        $operador->addPermission('acessos.administrar');
+
+        $categorias = $this->service->listarPermissoesPorCategoria($operador);
+
+        $this->assertNotEmpty($categorias);
+        $porChave = array_column($categorias, null, 'chave');
+        $this->assertArrayHasKey('contas', $porChave);
+        $this->assertArrayHasKey('acessos', $porChave);
+
+        $permissoesContas  = array_column($porChave['contas']['permissoes'], null, 'identificador');
+        $permissoesAcessos = array_column($porChave['acessos']['permissoes'], null, 'identificador');
+
+        $this->assertFalse($permissoesContas['contas.criar']['habilitada']);
+        $this->assertTrue($permissoesAcessos['acessos.administrar']['habilitada']);
+    }
 }

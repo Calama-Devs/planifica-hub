@@ -5,9 +5,15 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Services\PermissaoService;
+use CodeIgniter\HTTP\RedirectResponse;
 use CodeIgniter\HTTP\ResponseInterface;
 use Throwable;
 
+/**
+ * Tela de Grupos e permissões (listagem server-side e formulário de criação de grupo).
+ *
+ * A rota exige `session` e `permission:acessos.administrar`.
+ */
 class PermissaoController extends BaseController
 {
     private PermissaoService $permissaoService;
@@ -17,17 +23,79 @@ class PermissaoController extends BaseController
         $this->permissaoService = service('permissaoService');
     }
 
-    /**
-     * Exibe a página de Grupos e permissões.
-     */
     public function index(): string
     {
         return view('permissao/index', [
             'urlListar'         => url_to('permissoes.grupos.listar'),
-            'destinoCriarGrupo' => site_url('admin/permissoes/grupos/novo'),
+            'destinoCriarGrupo' => url_to('permissoes.grupos.novo'),
             'versaoCss'         => $this->versaoAsset('assets/css/permissao/index.css'),
             'versaoJs'          => $this->versaoAsset('assets/js/permissao/index.js'),
         ]);
+    }
+
+    public function criarGrupo(): string
+    {
+        $selecionadas = old('permissoes');
+        if (! is_array($selecionadas)) {
+            $selecionadas = [];
+        }
+
+        $categorias = array_merge(
+            $this->permissaoService->listarPermissoesPorCategoria(auth()->user()),
+            $this->categoriasComplementaresVisuais(),
+        );
+
+        return view('permissao/criar_grupo', [
+            'categoriasPermissoes'   => $categorias,
+            'permissoesSelecionadas' => array_values(array_filter($selecionadas, 'is_string')),
+            'errosCampos'            => session('errors') ?? [],
+            'urlSalvar'              => url_to('permissoes.grupos.salvar'),
+            'urlVoltar'              => url_to('permissoes.index'),
+            'versaoCss'              => $this->versaoAsset('assets/css/permissao/formulario_grupo.css'),
+            'versaoJs'               => $this->versaoAsset('assets/js/permissao/formulario_grupo.js'),
+        ]);
+    }
+
+    public function salvarGrupo(): RedirectResponse
+    {
+        $regras = [
+            'nome'      => 'required|string|min_length[3]|max_length[80]',
+            'descricao' => 'permit_empty|string|max_length[255]',
+        ];
+
+        $mensagens = [
+            'nome' => [
+                'required'   => 'Informe o nome do grupo.',
+                'min_length' => 'O nome do grupo deve ter pelo menos 3 caracteres.',
+                'max_length' => 'O nome do grupo pode ter no máximo 80 caracteres.',
+            ],
+            'descricao' => [
+                'max_length' => 'A descrição pode ter no máximo 255 caracteres.',
+            ],
+        ];
+
+        $valido = $this->validate($regras, $mensagens);
+        $erros  = $valido ? [] : $this->validator->getErrors();
+
+        $erroPermissoes = $this->validarPermissoesSelecionadas($this->request->getPost('permissoes'));
+        if ($erroPermissoes !== null) {
+            $erros['permissoes'] = $erroPermissoes;
+        }
+
+        if ($erros !== []) {
+            return redirect()->back()
+                ->withInput()
+                ->with('errors', $erros)
+                ->with('error', 'Verifique os campos destacados antes de continuar.');
+        }
+
+        // Persistência definitiva no banco será integrada quando a entrega de back-end (PLAN-60) entrar em homolog.
+        return redirect()->back()
+            ->withInput()
+            ->with(
+                'warning',
+                'Os dados foram validados, mas o salvamento de grupos ainda aguarda integração com o servidor.'
+            );
     }
 
     /**
@@ -111,6 +179,104 @@ class PermissaoController extends BaseController
                 'mensagem' => 'Não foi possível carregar os grupos. Tente novamente.',
             ]);
         }
+    }
+
+    /**
+     * Categorias visuais complementares (sem vínculo com o catálogo do Shield)
+     * para compor o protótipo enquanto os demais módulos são integrados.
+     *
+     * @return list<array{
+     *     chave: string,
+     *     titulo: string,
+     *     icone: string,
+     *     somenteVisual: bool,
+     *     permissoes: list<array{identificador: string, descricao: string, habilitada: bool}>
+     * }>
+     */
+    private function categoriasComplementaresVisuais(): array
+    {
+        $item = static fn (string $id, string $desc): array => [
+            'identificador' => $id,
+            'descricao'     => $desc,
+            'habilitada'    => true,
+        ];
+
+        return [
+            [
+                'chave'         => 'modulos_sistemas',
+                'titulo'        => 'Módulos e sistemas',
+                'icone'         => 'mdi-apps',
+                'somenteVisual' => true,
+                'permissoes'    => [
+                    $item('modulos.rif', 'RIF'),
+                    $item('modulos.roboto', 'ROBOTO'),
+                    $item('modulos.alunos_pwa', 'ALUNOS-PWA'),
+                    $item('modulos.planifica_hub', 'PLANIFICA-HUB'),
+                ],
+            ],
+            [
+                'chave'         => 'participantes',
+                'titulo'        => 'Participantes',
+                'icone'         => 'mdi-account-multiple-outline',
+                'somenteVisual' => true,
+                'permissoes'    => [
+                    $item('participantes.visualizar', 'Visualizar participantes'),
+                    $item('participantes.adicionar', 'Adicionar participantes'),
+                    $item('participantes.editar', 'Editar participantes'),
+                    $item('participantes.remover', 'Remover participantes'),
+                ],
+            ],
+            [
+                'chave'         => 'configuracoes',
+                'titulo'        => 'Configurações',
+                'icone'         => 'mdi-cog-outline',
+                'somenteVisual' => true,
+                'permissoes'    => [
+                    $item('configuracoes.visualizar', 'Visualizar configurações'),
+                    $item('configuracoes.gerais', 'Alterar configurações gerais'),
+                    $item('configuracoes.integracoes', 'Gerenciar integrações'),
+                ],
+            ],
+            [
+                'chave'         => 'code_review',
+                'titulo'        => 'Code Review',
+                'icone'         => 'mdi-code-tags',
+                'somenteVisual' => true,
+                'permissoes'    => [
+                    $item('codereview.visualizar', 'Visualizar revisões'),
+                    $item('codereview.comentar', 'Comentar revisões'),
+                    $item('codereview.aprovar', 'Aprovar revisões'),
+                ],
+            ],
+        ];
+    }
+
+    private function validarPermissoesSelecionadas(mixed $enviadas): ?string
+    {
+        if ($enviadas === null) {
+            return null;
+        }
+
+        if (! is_array($enviadas)) {
+            return 'A seleção de permissões informada é inválida.';
+        }
+
+        $habilitadas = [];
+        foreach ($this->permissaoService->listarPermissoesPorCategoria(auth()->user()) as $categoria) {
+            foreach ($categoria['permissoes'] as $permissao) {
+                if ($permissao['habilitada']) {
+                    $habilitadas[$permissao['identificador']] = true;
+                }
+            }
+        }
+
+        foreach ($enviadas as $item) {
+            if (! is_string($item) || ! isset($habilitadas[$item])) {
+                return 'Uma ou mais permissões selecionadas não estão disponíveis para o seu perfil.';
+            }
+        }
+
+        return null;
     }
 
     private function extrairTermoBusca(): ?string
