@@ -15,8 +15,8 @@ $(document).ready(function () {
     function atualizarContadores() {
         $('.categoria-permissoes-item').each(function () {
             var $item = $(this);
-            var total = $item.find('.checkbox-permissao').length;
-            var marcadas = $item.find('.checkbox-permissao:checked').length;
+            var total = $item.find('.checkbox-permissao:not(:disabled)').length;
+            var marcadas = $item.find('.checkbox-permissao:not(:disabled):checked').length;
             $item.find('.contador-categoria').text(marcadas + ' de ' + total + ' selecionadas');
         });
     }

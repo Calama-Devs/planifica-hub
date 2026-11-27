@@ -103,12 +103,15 @@ $rotuloBotaoSalvar      = $rotuloBotaoSalvar ?? 'Salvar grupo';
                                 $collapseId  = 'categoria-permissoes-' . $chave;
                                 $headingId   = 'cabecalho-categoria-' . $chave;
                                 $expandida   = $indice === 0;
-                                $totalCat    = count($categoria['permissoes']);
+                                $totalCat    = 0;
                                 $marcadasCat = 0;
 
                                 foreach ($categoria['permissoes'] as $itemPermissao) {
-                                    if (in_array($itemPermissao['identificador'], $permissoesSelecionadas, true)) {
-                                        $marcadasCat++;
+                                    if (! empty($itemPermissao['habilitada'])) {
+                                        $totalCat++;
+                                        if (in_array($itemPermissao['identificador'], $permissoesSelecionadas, true)) {
+                                            $marcadasCat++;
+                                        }
                                     }
                                 }
                                 ?>
