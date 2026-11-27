@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\EventoAuditoriaModel;
 use App\Models\GrupoModel;
 use App\Models\GrupoUsuarioModel;
 use App\Models\PermissaoModel;
 use Config\AuthGroups;
+use CodeIgniter\Shield\Authorization\AuthorizationException;
+use CodeIgniter\Shield\Entities\User;
+use Throwable;
 
 class PermissaoService
 {
@@ -19,15 +23,20 @@ class PermissaoService
     private GrupoModel $grupoModel;
     private PermissaoModel $permissaoModel;
     private GrupoUsuarioModel $grupoUsuarioModel;
+    private AuditoriaService $auditoria;
 
     public function __construct(
         ?PermissaoModel $permissaoModel = null,
         ?GrupoUsuarioModel $grupoUsuarioModel = null,
         ?GrupoModel $grupoModel = null,
+        ?AuditoriaService $auditoria = null,
     ) {
         $this->permissaoModel    = $permissaoModel ?? model(PermissaoModel::class);
         $this->grupoUsuarioModel = $grupoUsuarioModel ?? model(GrupoUsuarioModel::class);
-        $this->grupoModel = $grupoModel ?? model(GrupoModel::class);
+        $this->grupoModel        = $grupoModel ?? model(GrupoModel::class);
+        $this->auditoria         = $auditoria ?? new AuditoriaService(
+            new EventoAuditoriaModel($this->permissaoModel->db)
+        );
     }
 
     /**
@@ -52,78 +61,52 @@ class PermissaoService
         int $inicio = 0,
         int $limite = 10,
         string $pesquisa = '',
-        string $ordenarPor = 'nome',
-        string $direcao = 'asc',
     ): array {
-        $camposPermitidos = [
-            'identificador',
-            'nome',
-            'descricao',
-            'usuarios_vinculados',
-            'situacao',
-        ];
+        $this->exigirPermissaoConsulta('listar_grupos');
 
-        if (! in_array($ordenarPor, $camposPermitidos, true)) {
-            throw new \InvalidArgumentException(
-                'Campo de ordenação inválido.'
-            );
-        }
+        try {
+            $inicio   = max(0, $inicio);
+            $limite   = max(1, min($limite, 100));
+            $pesquisa = trim($pesquisa);
+            $todos    = $this->obterGrupos();
 
-        if (! in_array($direcao, ['asc', 'desc'], true)) {
-            throw new \InvalidArgumentException(
-                'Direção de ordenação inválida.'
-            );
-        }
-        $inicio   = max(0, $inicio);
-        $limite   = max(1, min($limite, 100));
-        $pesquisa = trim($pesquisa);
-        $todos    = $this->obterGrupos();
-
-        usort(
-            $todos,
-            static function (
-                array $a,
-                array $b
-            ) use (
-                $ordenarPor,
-                $direcao
-            ): int {
-                if ($ordenarPor === 'usuarios_vinculados') {
-                    $comparacao = $a[$ordenarPor] <=> $b[$ordenarPor];
-                } else {
-                    $comparacao = strcasecmp(
-                        (string) $a[$ordenarPor],
-                        (string) $b[$ordenarPor]
-                    );
-                }
-
-                if ($comparacao === 0) {
-                    return strcmp(
-                        $a['identificador'],
-                        $b['identificador']
-                    );
-                }
-
-                return $direcao === 'desc' ? -$comparacao : $comparacao;
-            }
-        );
-
-        $filtrados = $pesquisa === ''
-            ? $todos
-            : array_values(array_filter(
+            usort(
                 $todos,
-                static fn (array $grupo): bool => mb_stripos($grupo['nome'], $pesquisa) !== false
-                    || mb_stripos($grupo['descricao'], $pesquisa) !== false
-                    || mb_stripos($grupo['identificador'], $pesquisa) !== false
-            ));
+                static fn (array $a, array $b): int =>
+                    strcasecmp($a['nome'], $b['nome'])
+                    ?: strcmp($a['identificador'], $b['identificador'])
+            );
 
-        $pagina = array_slice($filtrados, $inicio, $limite);
+            $filtrados = $pesquisa === ''
+                ? $todos
+                : array_values(array_filter(
+                    $todos,
+                    static fn (array $grupo): bool =>
+                        mb_stripos($grupo['nome'], $pesquisa) !== false
+                        || mb_stripos($grupo['descricao'], $pesquisa) !== false
+                        || mb_stripos($grupo['identificador'], $pesquisa) !== false
+                ));
 
-        return [
-            'grupos'    => array_values($pagina),
-            'total'     => count($todos),
-            'filtrados' => count($filtrados),
-        ];
+            $resultado = [
+                'grupos'    => array_slice($filtrados, $inicio, $limite),
+                'total'     => count($todos),
+                'filtrados' => count($filtrados),
+            ];
+
+            $this->auditoria->registrar([
+                'modulo'        => 'permissoes',
+                'acao'          => 'listar_grupos',
+                'entidade_tipo' => 'grupo',
+                'descricao'     => 'Listagem de grupos consultada.',
+                'resultado'     => 'concluida',
+            ]);
+
+            return $resultado;
+        } catch (Throwable $erro) {
+            $this->registrarErroConsulta('listar_grupos', null, $erro);
+
+            throw $erro;
+        }
     }
 
     /**
@@ -188,6 +171,17 @@ class PermissaoService
         return $this->permissaoModel->obterMapaCatalogo();
     }
 
+    /**
+     * @return list<array{
+     *     identificador: string,
+     *     nome: string,
+     *     descricao: string,
+     *     usuarios_vinculados: int,
+     *     situacao: string,
+     *     ativo: bool,
+     *     protegido: bool
+     * }>
+     */
     private function obterGrupos(): array
     {
         $authGroups = config(AuthGroups::class);
@@ -210,6 +204,10 @@ class PermissaoService
         $todos = [];
 
         foreach ($definidos as $identificador => $dados) {
+            if (! is_array($dados)) {
+                throw new \UnexpectedValueException('Configuração de grupo inválida.');
+            }
+
             $slug = (string) $identificador;
             $ativo = (bool) ($metadados[$slug]['ativo'] ?? true);
 
@@ -227,15 +225,148 @@ class PermissaoService
         return $todos;
     }
 
+    /**
+     * @return array{
+     *     identificador: string,
+     *     nome: string,
+     *     descricao: string,
+     *     usuarios_vinculados: int,
+     *     situacao: string,
+     *     ativo: bool,
+     *     protegido: bool
+     * }|null
+     */
     public function buscarGrupoPorIdentificador(
         string $identificador
     ): ?array {
-        foreach ($this->obterGrupos() as $grupo) {
-            if ($grupo['identificador'] === $identificador) {
-                return $grupo;
-            }
+        $this->exigirPermissaoConsulta('consultar_grupo');
+
+        if (
+            trim($identificador) === ''
+            || mb_strlen($identificador) > 255
+            || preg_match('/[\x00-\x1F\x7F]/', $identificador) === 1
+        ) {
+            $this->registrarRecusaConsultaDeGrupos(
+                'consultar_grupo',
+                null,
+                'Consulta recusada: identificador de grupo inválido.'
+            );
+
+            throw new \InvalidArgumentException('Identificador de grupo inválido.');
         }
 
-        return null;
+        try {
+            foreach ($this->obterGrupos() as $grupo) {
+                if ($grupo['identificador'] !== $identificador) {
+                    continue;
+                }
+
+                $this->auditoria->registrar([
+                    'modulo'        => 'permissoes',
+                    'acao'          => 'consultar_grupo',
+                    'entidade_tipo' => 'grupo',
+                    'entidade_id'   => $this->identificadorParaAuditoria($identificador),
+                    'descricao'     => 'Grupo consultado.',
+                    'resultado'     => 'concluida',
+                ]);
+
+                return $grupo;
+            }
+
+            $this->registrarRecusaConsultaDeGrupos(
+                'consultar_grupo',
+                $this->identificadorParaAuditoria($identificador),
+                'Consulta recusada: grupo não encontrado.'
+            );
+
+            return null;
+        } catch (Throwable $erro) {
+            $this->registrarErroConsulta('consultar_grupo', $identificador, $erro);
+
+            throw $erro;
+        }
+    }
+
+    /**
+     * Registra uma recusa de consulta sem alterar a resposta funcional da requisição.
+     */
+    public function registrarRecusaConsultaDeGrupos(
+        string $acao,
+        ?string $identificador,
+        string $descricao
+    ): void {
+        if (! in_array($acao, ['listar_grupos', 'consultar_grupo'], true)) {
+            throw new \InvalidArgumentException('Ação de consulta inválida.');
+        }
+
+        try {
+            $this->auditoria->registrar([
+                'modulo'        => 'permissoes',
+                'acao'          => $acao,
+                'entidade_tipo' => 'grupo',
+                'entidade_id'   => $this->identificadorParaAuditoria($identificador),
+                'descricao'     => $descricao,
+                'resultado'     => 'recusada',
+            ]);
+        } catch (Throwable $erro) {
+            log_message(
+                'warning',
+                'Não foi possível auditar a recusa de consulta de grupos ({tipo}).',
+                ['tipo' => $erro::class]
+            );
+        }
+    }
+
+    private function exigirPermissaoConsulta(string $acao): void
+    {
+        $operador = auth()->user();
+
+        if ($operador instanceof User && $operador->can('acessos.administrar')) {
+            return;
+        }
+
+        $descricao = $operador instanceof User
+            ? 'Consulta recusada: operador sem permissão.'
+            : 'Consulta recusada: autenticação necessária.';
+
+        $this->registrarRecusaConsultaDeGrupos($acao, null, $descricao);
+
+        throw new AuthorizationException('Consulta de grupos não autorizada.');
+    }
+
+    private function registrarErroConsulta(
+        string $acao,
+        ?string $identificador,
+        Throwable $erro
+    ): void {
+        log_message(
+            'error',
+            'Falha na consulta de grupos ({acao}, {tipo}).',
+            ['acao' => $acao, 'tipo' => $erro::class]
+        );
+
+        try {
+            $this->auditoria->registrar([
+                'modulo'        => 'permissoes',
+                'acao'          => $acao,
+                'entidade_tipo' => 'grupo',
+                'entidade_id'   => $this->identificadorParaAuditoria($identificador),
+                'descricao'     => 'Falha técnica ao consultar grupos.',
+                'resultado'     => 'erro',
+            ]);
+        } catch (Throwable $erroAuditoria) {
+            log_message(
+                'error',
+                'Falha ao registrar auditoria da consulta de grupos ({tipo}).',
+                ['tipo' => $erroAuditoria::class]
+            );
+        }
+    }
+
+    private function identificadorParaAuditoria(?string $identificador): ?string
+    {
+        return $identificador !== null && mb_strlen($identificador) <= 100
+            ? $identificador
+            : null;
     }
 }
