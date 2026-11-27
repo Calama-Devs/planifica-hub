@@ -8,6 +8,8 @@
 <?= $this->endSection() ?>
 
 <?= $this->section('conteudo') ?>
+<?= $this->include('permissao/modals/modal-reativar-grupo') ?>
+
 <div class="page-header mb-3">
     <h3 class="page-title">Grupos e permissões</h3>
     <nav aria-label="breadcrumb">
@@ -37,6 +39,16 @@
                             Criar grupo
                         </a>
                     </span>
+
+                    <?php if (($situacao ?? 'ativos') === 'inativos') : ?>
+                        <a href="<?= esc(url_to('permissoes.index'), 'attr') ?>?situacao=ativos" class="btn btn-secondary btn-icon-text">
+                            <i class="mdi mdi-account-multiple-check btn-icon-prepend" aria-hidden="true"></i> Grupos ativos
+                        </a>
+                    <?php else : ?>
+                        <a href="<?= esc(url_to('permissoes.index'), 'attr') ?>?situacao=inativos" class="btn btn-secondary btn-icon-text">
+                            <i class="mdi mdi-account-multiple-remove btn-icon-prepend" aria-hidden="true"></i> Grupos inativos
+                        </a>
+                    <?php endif ?>
                 </div>
             </div>
         </div>
@@ -47,6 +59,8 @@
     <div class="col-12 grid-margin stretch-card">
         <div class="card">
             <div class="card-body">
+                <div id="alerta-sucesso-grupos" class="alert alert-success d-none" role="status" aria-live="polite"></div>
+
                 <div id="alerta-erro-grupos" class="alert alert-danger d-none d-flex flex-wrap align-items-center justify-content-between gap-2" role="alert" aria-live="polite">
                     <span id="mensagem-erro-grupos">Não foi possível carregar os grupos. Tente novamente.</span>
                     <button type="button" id="btn-tentar-novamente-grupos" class="btn btn-sm btn-outline-light">
@@ -58,6 +72,9 @@
                     <table class="table table-hover align-middle mb-0 tabela-grupos" id="tabela-grupos"
                            aria-label="Listagem de grupos e permissões"
                            data-url="<?= esc($urlListar, 'attr') ?>"
+                           data-url-reativar="<?= esc($urlReativar, 'attr') ?>"
+                           data-marcador-grupo="999999999"
+                           data-situacao="<?= esc($situacao ?? 'ativos', 'attr') ?>"
                            data-traducao="<?= esc(base_url('assets/js/traducao-dataTable/pt_br.json'), 'attr') ?>">
                         <thead>
                             <tr>

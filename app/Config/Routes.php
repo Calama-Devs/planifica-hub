@@ -28,6 +28,7 @@ $routes->group('', ['filter' => ['conta-ativa', 'session']], static function (Ro
     $routes->group('admin/permissoes', ['filter' => 'permission:acessos.administrar'], static function (RouteCollection $routes): void {
         $routes->get('/', 'PermissaoController::index', ['as' => 'permissoes.index']);
         $routes->get('listar', 'PermissaoController::listarGrupos', ['as' => 'permissoes.grupos.listar']);
+        $routes->post('grupos/(:segment)/reativar', 'PermissaoController::reativarGrupo/$1', ['as' => 'permissoes.grupos.reativar']);
     });
 
     // A tela aceita uma das permissões; a listagem continua restrita à administração de acessos.

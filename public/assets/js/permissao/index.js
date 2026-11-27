@@ -104,6 +104,10 @@ $(document).ready(function () {
     var porPagina = parseInt(params.get('por_pagina'), 10) || 10;
     var pagina = Math.max((parseInt(params.get('pagina'), 10) || 1) - 1, 0);
 
+    var situacao = $tabela.data('situacao') || 'ativos';
+    var urlReativar = $tabela.data('url-reativar') || '';
+    var marcadorGrupo = String($tabela.data('marcador-grupo') || '999999999');
+
     var dt = $tabela.DataTable({
         serverSide: true,
         processing: true,
@@ -116,6 +120,9 @@ $(document).ready(function () {
         lengthMenu: [10, 25, 50, 100],
         ajax: {
             url: $tabela.data('url'),
+            data: function (d) {
+                d.situacao = situacao;
+            },
             error: function (xhr) {
                 var msg = xhr?.responseJSON?.mensagem || 'Não foi possível carregar os grupos. Tente novamente.';
                 $mensagemErro.text(msg);
@@ -159,12 +166,28 @@ $(document).ready(function () {
                 className: 'text-center text-nowrap',
                 render: function (data, type, row) {
                     var nome = row.nome || '';
-                    var bloqueio = row.ativo ? 'Bloquear grupo' : 'Desbloquear grupo';
-                    var iconeBloqueio = row.ativo ? 'mdi-lock-outline' : 'mdi-lock-open-outline';
+                    var identificador = row.identificador || '';
+                    var descricao = row.descricao || '';
+
+                    if (!row.ativo) {
+                        return `<div class="d-flex align-items-center justify-content-center">
+                            <span data-bs-toggle="tooltip" title="Reativar grupo">
+                                <button type="button" class="btn btn-inverse-success button-trans-success btn-icon btn-reativar-grupo"
+                                    data-bs-toggle="modal" data-bs-target="#modal-reativar-grupo"
+                                    data-identificador="${escapeHtml(identificador)}"
+                                    data-nome="${escapeHtml(nome)}"
+                                    data-descricao="${escapeHtml(descricao)}"
+                                    aria-label="Reativar grupo ${escapeHtml(nome)}">
+                                    <i class="mdi mdi-lock-open-outline" aria-hidden="true"></i>
+                                </button>
+                            </span>
+                        </div>`;
+                    }
+
                     return `<div class="d-flex align-items-center justify-content-center">
                         ${linkAcao('Editar grupo', 'success', 'mdi-pencil', 'Editar grupo ' + nome, row.destinos?.editar)}
                         ${linkAcao('Ver integrantes', 'info', 'mdi-account-group', 'Ver integrantes do grupo ' + nome, row.destinos?.integrantes)}
-                        ${botaoAcaoDesativado(bloqueio, 'warning', iconeBloqueio, bloqueio + ' ' + nome)}
+                        ${botaoAcaoDesativado('Bloquear grupo', 'warning', 'mdi-lock-outline', 'Bloquear grupo ' + nome)}
                         ${botaoAcaoDesativado('Excluir grupo', 'danger', 'mdi-delete-outline', 'Excluir grupo ' + nome)}
                     </div>`;
                 }
@@ -174,7 +197,7 @@ $(document).ready(function () {
             url: $tabela.data('traducao'),
             searchPlaceholder: 'Nome ou descrição...',
             processing: 'Carregando grupos...',
-            emptyTable: 'Nenhum grupo cadastrado.',
+            emptyTable: situacao === 'inativos' ? 'Nenhum grupo inativo.' : 'Nenhum grupo cadastrado.',
             zeroRecords: 'Nenhum grupo encontrado para a busca informada.'
         },
         drawCallback: function () {
@@ -192,5 +215,78 @@ $(document).ready(function () {
     $('#btn-tentar-novamente-grupos').on('click', function () {
         $alertaErro.addClass('d-none');
         dt.ajax.reload(null, false);
+    });
+
+    var grupoParaReativar = { identificador: '' };
+    var $modalReativar = $('#modal-reativar-grupo');
+    var $alertaSucesso = $('#alerta-sucesso-grupos');
+    var $alertaErroReativar = $('#alerta-erro-reativar-grupo');
+    var $btnConfirmarReativacao = $('#btn-confirmar-reativacao-grupo');
+    var csrfNomeAtual = 'csrf_test_name';
+
+    $tabela.on('click', '.btn-reativar-grupo', function () {
+        var $btn = $(this);
+        grupoParaReativar.identificador = String($btn.data('identificador') || '');
+        $('#reativar-nome-grupo').text($btn.data('nome') || grupoParaReativar.identificador);
+        $('#reativar-descricao-grupo').text($btn.data('descricao') || 'Sem descrição');
+        $alertaErroReativar.addClass('d-none').text('');
+    });
+
+    function atualizarCsrf(resposta) {
+        var csrf = resposta && resposta.csrf ? resposta.csrf : null;
+        var hash = csrf && csrf.hash ? csrf.hash : (resposta ? resposta.csrf_hash : null);
+        if (!hash) return;
+
+        if (csrf && csrf.nome) {
+            csrfNomeAtual = csrf.nome;
+        }
+
+        $('meta[name="X-CSRF-TOKEN"]').attr('content', hash);
+        $('input[name="' + csrfNomeAtual + '"]')
+            .val(hash)
+            .prop('defaultValue', hash);
+    }
+
+    $btnConfirmarReativacao.on('click', function () {
+        if (!grupoParaReativar.identificador || !urlReativar) return;
+
+        var url = urlReativar.replace(marcadorGrupo, encodeURIComponent(grupoParaReativar.identificador));
+        var csrfHash = $('meta[name="X-CSRF-TOKEN"]').attr('content') || '';
+        var dados = {};
+        if (csrfHash) {
+            dados[csrfNomeAtual] = csrfHash;
+        }
+
+        $btnConfirmarReativacao.prop('disabled', true);
+        $alertaErroReativar.addClass('d-none').text('');
+
+        $.ajax({
+            url: url,
+            method: 'POST',
+            data: dados,
+            headers: {
+                'X-CSRF-TOKEN': csrfHash
+            },
+            dataType: 'json',
+            success: function (resp) {
+                atualizarCsrf(resp);
+                if (resp && resp.sucesso) {
+                    var modalInstancia = bootstrap.Modal.getInstance($modalReativar[0]);
+                    if (modalInstancia) modalInstancia.hide();
+                    $alertaSucesso.text(resp.mensagem || 'Grupo reativado com sucesso.').removeClass('d-none');
+                    dt.ajax.reload(null, false);
+                    return;
+                }
+                $alertaErroReativar.text(resp?.mensagem || 'Não foi possível reativar o grupo.').removeClass('d-none');
+            },
+            error: function (xhr) {
+                atualizarCsrf(xhr.responseJSON || {});
+                var msg = xhr?.responseJSON?.mensagem || 'Não foi possível reativar o grupo. Tente novamente.';
+                $alertaErroReativar.text(msg).removeClass('d-none');
+            },
+            complete: function () {
+                $btnConfirmarReativacao.prop('disabled', false);
+            }
+        });
     });
 });
