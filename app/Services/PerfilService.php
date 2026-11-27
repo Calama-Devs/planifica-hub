@@ -8,9 +8,26 @@ use App\Models\UsuarioAutenticacaoModel;
 use App\Validation\ValidadorNomeCompleto;
 use CodeIgniter\Shield\Entities\User;
 use Config\AuthGroups;
+use RuntimeException;
+use Throwable;
 
 class PerfilService
 {
+    // O Meu Perfil exige mais que o ValidadorNomeCompleto, que é compartilhado com a administração de contas.
+    private const COMPRIMENTO_MINIMO_NOME = 4;
+
+    private const COMPRIMENTO_MAXIMO_NOME = 255;
+
+    private UsuarioAutenticacaoModel $usuarios;
+
+    private AuditoriaService $auditoria;
+
+    public function __construct(?UsuarioAutenticacaoModel $usuarios = null, ?AuditoriaService $auditoria = null)
+    {
+        $this->usuarios  = $usuarios ?? model(UsuarioAutenticacaoModel::class);
+        $this->auditoria = $auditoria ?? new AuditoriaService();
+    }
+
     public function podeEditarEmail(): bool
     {
         return false;
@@ -38,12 +55,12 @@ class PerfilService
 
     public function obterComprimentoMinimoNome(): int
     {
-        return 3;
+        return self::COMPRIMENTO_MINIMO_NOME;
     }
 
     public function obterComprimentoMaximoNome(): int
     {
-        return 255;
+        return self::COMPRIMENTO_MAXIMO_NOME;
     }
 
     /**
@@ -51,28 +68,19 @@ class PerfilService
      */
     public function atualizarNome(User $usuario, string $nome): array
     {
-        $nome = trim($nome);
+        // Espaços repetidos entre as palavras são reduzidos a um, para não recusar um nome válido por digitação.
+        $nome = trim((string) preg_replace('/\s+/u', ' ', $nome));
 
         $nomeAtual = (string) ($usuario->nome_completo ?? $usuario->username);
 
         if ($nome === trim($nomeAtual)) {
-            return [
-                'sucesso'  => false,
-                'tipo'     => 'validacao',
-                'codigo'   => 'PERFIL_NOME_SEM_ALTERACAO',
-                'mensagem' => 'Informe um nome diferente do atual.',
-                'erros'    => ['nome' => 'Informe um nome diferente do atual.'],
-            ];
+            return $this->erroValidacao('PERFIL_NOME_SEM_ALTERACAO', 'Informe um nome diferente do atual.');
         }
 
-        if (! $this->nomeCompletoValido($nome)) {
-            return [
-                'sucesso'  => false,
-                'tipo'     => 'validacao',
-                'codigo'   => 'PERFIL_NOME_INVALIDO',
-                'mensagem' => 'Verifique o nome informado.',
-                'erros'    => ['nome' => 'Informe um nome completo válido, com pelo menos 3 e no máximo 255 caracteres.'],
-            ];
+        $erroNome = $this->validarNome($nome);
+
+        if ($erroNome !== null) {
+            return $this->erroValidacao('PERFIL_NOME_INVALIDO', $erroNome);
         }
 
         if (! $this->salvarNome($usuario, $nome)) {
@@ -92,19 +100,90 @@ class PerfilService
         ];
     }
 
-    private function nomeCompletoValido(string $nome): bool
+    private function validarNome(string $nome): ?string
     {
-        return (new ValidadorNomeCompleto())->validar($nome);
-    }
-
-    private function salvarNome(User $usuario, string $nome): bool
-    {
-        $salvo = model(UsuarioAutenticacaoModel::class)->update($usuario->id, ['nome_completo' => $nome]);
-
-        if (! $salvo) {
-            log_message('error', 'Falha ao atualizar o nome exibido da conta autenticada.');
+        if ($nome === '') {
+            return 'Informe seu nome.';
         }
 
-        return $salvo;
+        if (mb_strlen($nome) < self::COMPRIMENTO_MINIMO_NOME) {
+            return 'O nome deve ter pelo menos ' . self::COMPRIMENTO_MINIMO_NOME . ' caracteres.';
+        }
+
+        if (mb_strlen($nome) > self::COMPRIMENTO_MAXIMO_NOME) {
+            return 'O nome deve ter no máximo ' . self::COMPRIMENTO_MAXIMO_NOME . ' caracteres.';
+        }
+
+        if (! (new ValidadorNomeCompleto())->validar($nome)) {
+            return 'O nome deve conter apenas letras, acentos e espaços.';
+        }
+
+        return null;
+    }
+
+    /**
+     * Grava o nome e o evento de auditoria na mesma transação: sem o evento, a alteração é desfeita.
+     */
+    private function salvarNome(User $usuario, string $nome): bool
+    {
+        $banco = db_connect();
+
+        if (! $banco->transBegin()) {
+            log_message('error', '[PerfilService::salvarNome] Não foi possível iniciar a transação.');
+
+            return false;
+        }
+
+        try {
+            if (! $this->usuarios->update($usuario->id, ['nome_completo' => $nome])) {
+                throw new RuntimeException('O nome não foi gravado.');
+            }
+
+            $this->auditoria->registrar([
+                'modulo'        => 'perfil',
+                'acao'          => 'alterar_nome',
+                'entidade_tipo' => 'usuario',
+                'entidade_id'   => (string) $usuario->id,
+                'descricao'     => $this->descreverAlteracaoNome($usuario->nome_completo, $nome),
+                'resultado'     => 'concluida',
+            ]);
+
+            if ($banco->transStatus() === false || ! $banco->transCommit()) {
+                throw new RuntimeException('Falha na transação.');
+            }
+        } catch (Throwable $erro) {
+            $banco->transRollback();
+            log_message('error', '[PerfilService::salvarNome] Falha ao atualizar o nome da conta {id}: {erro}', [
+                'id'   => $usuario->id,
+                'erro' => $erro->getMessage(),
+            ]);
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private function descreverAlteracaoNome(?string $nomeAnterior, string $nomeNovo): string
+    {
+        if ($nomeAnterior === null || trim($nomeAnterior) === '') {
+            return 'Nome de exibição definido como "' . $nomeNovo . '".';
+        }
+
+        return 'Nome de exibição alterado de "' . $nomeAnterior . '" para "' . $nomeNovo . '".';
+    }
+
+    /**
+     * @return array{sucesso: false, tipo: string, codigo: string, mensagem: string, erros: array<string, string>}
+     */
+    private function erroValidacao(string $codigo, string $mensagem): array
+    {
+        return [
+            'sucesso'  => false,
+            'tipo'     => 'validacao',
+            'codigo'   => $codigo,
+            'mensagem' => $mensagem,
+            'erros'    => ['nome' => $mensagem],
+        ];
     }
 }

@@ -36,6 +36,8 @@ final class AutenticacaoTest extends CIUnitTestCase
     protected function tearDown(): void
     {
         service('settings')->forget('Auth.validFields');
+        // A migration da auditoria bloqueia o rollback com eventos gravados, como a troca de senha pelo perfil.
+        $this->db->table('eventos_auditoria')->emptyTable();
 
         parent::tearDown();
     }
@@ -796,7 +798,7 @@ final class AutenticacaoTest extends CIUnitTestCase
 
     public function testRedefineSenhaERemoveAutorizacaoTemporaria(): void
     {
-        $this->cadastrarUsuario();
+        $usuario = $this->cadastrarUsuario();
         $this->ativarUsuarioAutenticado();
         $this->iniciarRedefinicaoTemporaria();
         $senhaNova = 'NovaSenha@123';
@@ -808,6 +810,15 @@ final class AutenticacaoTest extends CIUnitTestCase
         $this->assertFalse(auth()->loggedIn());
         $this->assertNull(session()->getTempdata('autorizacaoRedefinicaoSenha'));
         $resposta->assertSessionHas('success');
+        $this->seeNumRecords(1, 'eventos_auditoria', []);
+        $this->seeInDatabase('eventos_auditoria', [
+            'usuario_id'    => null,
+            'modulo'        => 'autenticacao',
+            'acao'          => 'redefinir_senha',
+            'entidade_tipo' => 'usuario',
+            'entidade_id'   => (string) $usuario->id,
+            'resultado'     => 'concluida',
+        ]);
     }
 
     public function testRemoveRotaGetDeAlteracaoPeloPerfil(): void

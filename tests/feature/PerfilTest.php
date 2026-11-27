@@ -41,6 +41,14 @@ final class PerfilTest extends CIUnitTestCase
         }
     }
 
+    protected function tearDown(): void
+    {
+        // A migration da auditoria bloqueia o rollback com eventos gravados pelas alterações do perfil.
+        $this->db->table('eventos_auditoria')->emptyTable();
+
+        parent::tearDown();
+    }
+
     public function testBloqueiaVisitanteSemSessao(): void
     {
         $resposta = $this->get('perfil');
@@ -350,7 +358,241 @@ final class PerfilTest extends CIUnitTestCase
         ]);
     }
 
-    private function criarUsuario(string $nome): User
+    public function testUsuarioComumConsultaEmailEGruposSomenteParaLeitura(): void
+    {
+        $usuario = $this->criarUsuario('usuario.comum', 'user');
+        auth()->login($usuario);
+
+        $resposta = $this->withSession($_SESSION)->get('perfil');
+
+        $resposta->assertOK();
+        $resposta->assertSee('perfil1@example.com');
+        $resposta->assertSee(config('AuthGroups')->groups['user']['title']);
+        $this->assertMatchesRegularExpression('/<input[^>]*id="campo-email"[^>]*\sdisabled/', $resposta->getBody());
+        $this->assertMatchesRegularExpression('/<input[^>]*id="campo-grupos"[^>]*\sdisabled/', $resposta->getBody());
+    }
+
+    public function testExibeTodosOsGruposDaContaPeloTituloConfigurado(): void
+    {
+        $usuario = $this->criarUsuario('usuario.grupos', 'user');
+        $usuario->addGroup('admin');
+        auth()->login($usuario);
+        $grupos = config('AuthGroups')->groups;
+
+        $resposta = $this->withSession($_SESSION)->get('perfil');
+
+        $resposta->assertOK();
+        $resposta->assertSee($grupos['user']['title'] . ', ' . $grupos['admin']['title']);
+    }
+
+    public function testTelaUsaComprimentoMinimoDoNomeDefinidoNoServico(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+        $minimo = service('perfilService')->obterComprimentoMinimoNome();
+
+        $resposta = $this->withSession($_SESSION)->get('perfil');
+
+        $this->assertSame(4, $minimo);
+        $resposta->assertOK();
+        $resposta->assertSee('minlength="' . $minimo . '"');
+        $resposta->assertSee('O nome deve ter pelo menos ' . $minimo . ' caracteres.');
+        $resposta->assertSeeElement('form[id=formulario-trocar-senha]');
+    }
+
+    public function testRecusaAlteracaoDeNomeSemSessao(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+
+        $resposta = $this->withSession($_SESSION)->post('perfil', [
+            csrf_token() => csrf_hash(),
+            'nome'       => 'Apelido',
+        ]);
+
+        $resposta->assertRedirectTo(site_url('login'));
+        $this->seeInDatabase('users', [
+            'id'       => $usuario->id,
+            'username' => 'usuario.teste',
+        ]);
+    }
+
+    public function testAlteracaoDeNomePreservaCredenciaisGruposEPermissoes(): void
+    {
+        $usuario = $this->criarUsuario('usuario.atual', 'admin');
+        $usuario->addPermission('acessos.administrar');
+        $this->ativarUsuario($usuario);
+        auth()->login($usuario);
+        $hashAnterior = $this->buscarHashDaSenha($usuario);
+
+        $resposta = $this->enviarFormulario(['nome' => 'Apelido']);
+
+        $resposta->assertRedirectTo(url_to('perfil'));
+        $resposta->assertSessionHas('success');
+        $this->seeInDatabase('users', [
+            'id'            => $usuario->id,
+            'username'      => 'usuario.atual',
+            'nome_completo' => 'Apelido',
+        ]);
+        $this->assertSame($hashAnterior, $this->buscarHashDaSenha($usuario));
+        $this->assertContaPreservada($usuario, 'perfil1@example.com', ['admin'], ['acessos.administrar']);
+        $this->assertTrue(auth()->loggedIn());
+    }
+
+    public function testAceitaNomeComQuatroCaracteres(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
+        $resposta = $this->enviarFormulario(['nome' => 'Luna']);
+
+        $resposta->assertRedirectTo(url_to('perfil'));
+        $resposta->assertSessionHas('success');
+        $this->seeInDatabase('users', ['id' => $usuario->id, 'nome_completo' => 'Luna']);
+    }
+
+    public function testAceitaNomeCompletoComEspacosRepetidosNormalizados(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
+        $resposta = $this->enviarFormulario(['nome' => " Ana   Maria\tde Souza "]);
+
+        $resposta->assertRedirectTo(url_to('perfil'));
+        $resposta->assertSessionHas('success');
+        $this->seeInDatabase('users', ['id' => $usuario->id, 'nome_completo' => 'Ana Maria de Souza']);
+    }
+
+    public function testRejeitaNomeComMenosDeQuatroCaracteresDesconsiderandoEspacos(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
+        foreach (['Léo', '  Ana  '] as $nome) {
+            $resposta = $this->enviarFormulario(['nome' => $nome]);
+
+            $resposta->assertRedirect();
+            $resposta->assertSessionHas('errors', ['nome' => 'O nome deve ter pelo menos 4 caracteres.']);
+        }
+
+        $this->seeInDatabase('users', ['id' => $usuario->id, 'nome_completo' => null]);
+        $this->seeNumRecords(0, 'eventos_auditoria', []);
+    }
+
+    public function testRejeitaNomeComConteudoInvalidoOuAcimaDoLimite(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        auth()->login($usuario);
+
+        foreach (['Maria123', '<script>alerta</script>', 'Ana_Maria', str_repeat('a', 256)] as $nome) {
+            $resposta = $this->enviarFormulario(['nome' => $nome]);
+
+            $resposta->assertRedirect();
+            $resposta->assertSessionHas('errors');
+        }
+
+        $this->seeInDatabase('users', ['id' => $usuario->id, 'nome_completo' => null]);
+    }
+
+    public function testRegistraAuditoriaDaAlteracaoDeNomeComAntesEDepois(): void
+    {
+        $usuario = $this->criarUsuario('usuario.teste');
+        $this->db->table('users')->where('id', $usuario->id)->update(['nome_completo' => 'Nome Antigo']);
+        auth()->login(model(UserModel::class)->findById($usuario->id));
+
+        $this->enviarFormulario(['nome' => 'Nome Novo'])->assertSessionHas('success');
+
+        $this->seeNumRecords(1, 'eventos_auditoria', []);
+        $this->seeInDatabase('eventos_auditoria', [
+            'usuario_id'    => $usuario->id,
+            'modulo'        => 'perfil',
+            'acao'          => 'alterar_nome',
+            'entidade_tipo' => 'usuario',
+            'entidade_id'   => (string) $usuario->id,
+            'descricao'     => 'Nome de exibição alterado de "Nome Antigo" para "Nome Novo".',
+            'resultado'     => 'concluida',
+        ]);
+    }
+
+    public function testRegistraAuditoriaDaAlteracaoDeSenhaSemExporCredenciais(): void
+    {
+        $usuario = $this->criarUsuario('conta.principal');
+        auth()->login($usuario);
+
+        $resposta = $this->withSession($_SESSION)->post('perfil/alterar-senha', [
+            csrf_token()           => csrf_hash(),
+            'senha-atual'          => $this->senha,
+            'senha-nova'           => 'NovaSenha@123',
+            'confirmar-senha-nova' => 'NovaSenha@123',
+        ]);
+
+        $resposta->assertOK();
+        $evento = $this->db->table('eventos_auditoria')->get()->getResultArray();
+
+        $this->assertCount(1, $evento);
+        $this->assertSame((string) $usuario->id, (string) $evento[0]['usuario_id']);
+        $this->assertSame('perfil', $evento[0]['modulo']);
+        $this->assertSame('alterar_senha', $evento[0]['acao']);
+        $this->assertSame((string) $usuario->id, $evento[0]['entidade_id']);
+        $this->assertSame('concluida', $evento[0]['resultado']);
+        $this->assertStringNotContainsString('NovaSenha@123', $evento[0]['descricao']);
+        $this->assertStringNotContainsString($this->senha, $evento[0]['descricao']);
+        $this->assertStringNotContainsString($this->buscarHashDaSenha($usuario), $evento[0]['descricao']);
+    }
+
+    public function testSenhaAtualIncorretaNaoAlteraSenhaNemRegistraEvento(): void
+    {
+        $usuario = $this->criarUsuario('conta.principal');
+        auth()->login($usuario);
+        $hashAnterior = $this->buscarHashDaSenha($usuario);
+
+        $resposta = $this->withSession($_SESSION)->post('perfil/alterar-senha', [
+            csrf_token()           => csrf_hash(),
+            'senha-atual'          => 'SenhaErrada@123',
+            'senha-nova'           => 'NovaSenha@123',
+            'confirmar-senha-nova' => 'NovaSenha@123',
+        ]);
+
+        $resposta->assertStatus(422);
+        $this->assertSame($hashAnterior, $this->buscarHashDaSenha($usuario));
+        $this->seeNumRecords(0, 'eventos_auditoria', []);
+    }
+
+    public function testAlteracaoDeSenhaNaoModificaOutrosDadosNemOutraConta(): void
+    {
+        $usuario      = $this->criarUsuario('conta.principal', 'admin');
+        $outroUsuario = $this->criarUsuario('conta.vizinha');
+        $usuario->addPermission('acessos.administrar');
+        $this->ativarUsuario($usuario);
+        auth()->login($usuario);
+        $hashOutraConta = $this->buscarHashDaSenha($outroUsuario);
+
+        $resposta = $this->withSession($_SESSION)->post('perfil/alterar-senha', [
+            csrf_token()           => csrf_hash(),
+            'senha-atual'          => $this->senha,
+            'senha-nova'           => 'NovaSenha@123',
+            'confirmar-senha-nova' => 'NovaSenha@123',
+            'id'                   => (string) $outroUsuario->id,
+            'user_id'              => (string) $outroUsuario->id,
+            'nome'                 => 'Apelido',
+            'username'             => 'Apelido',
+            'email'                => 'adulterado@example.com',
+            'groups'               => ['superadmin'],
+            'permissions'          => ['contas.criar'],
+            'active'               => '0',
+        ]);
+
+        $resposta->assertOK();
+        $resposta->assertJSONFragment(['sucesso' => true]);
+        $this->assertTrue(password_verify('NovaSenha@123', $this->buscarHashDaSenha($usuario)));
+        $this->assertSame($hashOutraConta, $this->buscarHashDaSenha($outroUsuario));
+        $this->seeInDatabase('users', [
+            'id'       => $usuario->id,
+            'username' => 'conta.principal',
+        ]);
+        $this->assertContaPreservada($usuario, 'perfil1@example.com', ['admin'], ['acessos.administrar']);
+    }
+
+    private function criarUsuario(string $nome, ?string $grupo = null): User
     {
         $usuarios = model(UserModel::class);
         $usuario  = new User(['username' => $nome, 'active' => true]);
@@ -363,7 +605,53 @@ final class PerfilTest extends CIUnitTestCase
             'password' => $this->senha,
         ]);
 
+        if ($grupo !== null) {
+            $usuario->addGroup($grupo);
+        }
+
         return $usuario;
+    }
+
+    private function ativarUsuario(User $usuario): void
+    {
+        $usuario->active = true;
+        $this->db->table('users')->where('id', $usuario->id)->update(['active' => 1]);
+    }
+
+    private function buscarHashDaSenha(User $usuario): string
+    {
+        $identidade = $this->db->table('auth_identities')
+            ->select('secret2')
+            ->where('user_id', $usuario->id)
+            ->where('type', 'email_password')
+            ->get()
+            ->getRowArray();
+
+        $this->assertNotNull($identidade);
+
+        return $identidade['secret2'];
+    }
+
+    /**
+     * @param list<string> $grupos
+     * @param list<string> $permissoesDiretas
+     */
+    private function assertContaPreservada(User $usuario, string $email, array $grupos, array $permissoesDiretas): void
+    {
+        /** @var User $conta */
+        $conta = model(UserModel::class)->findById($usuario->id);
+
+        $this->seeInDatabase('users', ['id' => $usuario->id, 'active' => 1]);
+        $this->seeInDatabase('auth_identities', [
+            'user_id' => $usuario->id,
+            'type'    => 'email_password',
+            'secret'  => $email,
+        ]);
+        $this->dontSeeInDatabase('auth_identities', ['secret' => 'adulterado@example.com']);
+        $this->assertSame($grupos, $conta->getGroups());
+        $this->assertSame($permissoesDiretas, $conta->getPermissions());
+        $this->assertTrue($conta->can('contas.consultar'));
+        $this->assertFalse($conta->inGroup('superadmin'));
     }
 
     private function enviarFormulario(array $campos): TestResponse

@@ -8,15 +8,21 @@ use CodeIgniter\Shield\Authentication\Passwords;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\I18n\Time;
+use RuntimeException;
 use Throwable;
 
 class RedefinirSenhaService
 {
     private IdentidadeRecuperacaoModel $modeloIdentidade;
 
-    public function __construct(?IdentidadeRecuperacaoModel $modeloIdentidade = null)
-    {
+    private AuditoriaService $auditoria;
+
+    public function __construct(
+        ?IdentidadeRecuperacaoModel $modeloIdentidade = null,
+        ?AuditoriaService $auditoria = null
+    ) {
         $this->modeloIdentidade = $modeloIdentidade ?? model(IdentidadeRecuperacaoModel::class);
+        $this->auditoria        = $auditoria ?? new AuditoriaService();
     }
 
     /**
@@ -76,7 +82,14 @@ class RedefinirSenhaService
             );
         }
 
-        return $this->redefinir($usuario, $senhaNova, $confirmacao);
+        return $this->gravarNovaSenha($usuario, $senhaNova, $confirmacao, [
+            'modulo'        => 'perfil',
+            'acao'          => 'alterar_senha',
+            'entidade_tipo' => 'usuario',
+            'entidade_id'   => (string) $usuario->id,
+            'descricao'     => 'Senha alterada pelo próprio usuário na área Meu Perfil.',
+            'resultado'     => 'concluida',
+        ]);
     }
 
     public function solicitarRedefinicao(string $email): void
@@ -178,6 +191,24 @@ class RedefinirSenhaService
      */
     public function redefinir(User $usuario, string $senha, string $confirmacao): array
     {
+        // Sem sessão autenticada, o responsável fica nulo; a conta afetada é identificada em entidade_id.
+        return $this->gravarNovaSenha($usuario, $senha, $confirmacao, [
+            'modulo'        => 'autenticacao',
+            'acao'          => 'redefinir_senha',
+            'entidade_tipo' => 'usuario',
+            'entidade_id'   => (string) $usuario->id,
+            'descricao'     => 'Senha redefinida pelo link de recuperação enviado por e-mail.',
+            'resultado'     => 'concluida',
+        ]);
+    }
+
+    /**
+     * @param array<string, string> $eventoAuditoria Evento gravado na mesma transação da nova senha.
+     *
+     * @return array{sucesso: bool, tipo: string, codigo: string, mensagem: string}
+     */
+    private function gravarNovaSenha(User $usuario, string $senha, string $confirmacao, array $eventoAuditoria): array
+    {
         $validacao = $this->validarSenha($usuario, $senha, $confirmacao);
 
         if (!$validacao['sucesso']) {
@@ -227,13 +258,7 @@ class RedefinirSenhaService
                 return $this->erro('inesperado', 'HASH_NAO_GERADO', 'Erro ao redefinir senha.');
             }
 
-            $atualizado = $this->modeloIdentidade->atualizarSenhaDaContaAtiva(
-                $usuario,
-                (int) $identidade->id,
-                $hashSenha
-            );
-
-            if ($atualizado === false) {
+            if (! $this->salvarCredencial($usuario, (int) $identidade->id, $hashSenha, $eventoAuditoria)) {
                 log_message(
                     'error',
                     '[RedefinirSenhaService::redefinir] Falha ao atualizar a senha do usuário {id}.',
@@ -266,6 +291,43 @@ class RedefinirSenhaService
                 'Ocorreu um erro ao redefinir a senha, tente novamente.'
             );
         }
+    }
+
+    /**
+     * Grava a credencial e o evento de auditoria na mesma transação: sem o evento, a senha não muda.
+     *
+     * @param array<string, string> $eventoAuditoria
+     */
+    private function salvarCredencial(
+        User $usuario,
+        int $identidadeId,
+        string $hashSenha,
+        array $eventoAuditoria
+    ): bool {
+        $banco = db_connect();
+
+        if (! $banco->transBegin()) {
+            return false;
+        }
+
+        try {
+            if (! $this->modeloIdentidade->atualizarSenhaDaContaAtiva($usuario, $identidadeId, $hashSenha)) {
+                throw new RuntimeException('A nova senha não foi gravada.');
+            }
+
+            $this->auditoria->registrar($eventoAuditoria);
+
+            if ($banco->transStatus() === false || ! $banco->transCommit()) {
+                throw new RuntimeException('Falha na transação.');
+            }
+        } catch (Throwable $erro) {
+            $banco->transRollback();
+            log_message('error', '[RedefinirSenhaService::salvarCredencial] {erro}', ['erro' => $erro->getMessage()]);
+
+            return false;
+        }
+
+        return true;
     }
 
     /**
