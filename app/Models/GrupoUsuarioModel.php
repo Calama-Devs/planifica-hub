@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use CodeIgniter\Model;
+use RuntimeException;
 
 /**
  * Consulta de vínculos entre usuários e grupos na tabela do Shield (`auth_groups_users`).
@@ -23,7 +24,7 @@ class GrupoUsuarioModel extends Model
     public function contarUsuariosPorGrupo(): array
     {
         if (! $this->db->tableExists('auth_groups_users') || ! $this->db->tableExists('users')) {
-            return [];
+            throw new RuntimeException('As tabelas de vínculos de grupos não estão disponíveis.');
         }
 
         $linhas = $this->db->table('auth_groups_users agu')

@@ -31,6 +31,9 @@ class GrupoModel extends Model
 
     protected $updatedField = 'updated_at';
 
+    /**
+     * @return array<string, array<string, mixed>>
+     */
     public function obterMapaGrupos(): array
     {
         $grupos = $this->findAll();
