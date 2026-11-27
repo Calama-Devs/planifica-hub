@@ -167,4 +167,73 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $this->assertSame(5, $pagina['filtrados']);
         $this->assertCount(2, $pagina['grupos']);
     }
+
+    public function testListarGruposFiltraAtivosEInativosEReativaGrupoComSucesso(): void
+    {
+        service('settings')->set('AuthGroups.groups', [
+            'alfa' => ['title' => 'Grupo Alfa', 'description' => 'Primeiro'],
+            'beta' => ['title' => 'Grupo Beta', 'description' => 'Segundo'],
+        ]);
+        service('settings')->set('AuthGroups.gruposInativos', ['beta']);
+
+        $ativos = $this->service->listarGrupos(0, 10, '', 'ativos');
+        $this->assertCount(1, $ativos['grupos']);
+        $this->assertSame('alfa', $ativos['grupos'][0]['identificador']);
+
+        $inativos = $this->service->listarGrupos(0, 10, '', 'inativos');
+        $this->assertCount(1, $inativos['grupos']);
+        $this->assertSame('beta', $inativos['grupos'][0]['identificador']);
+        $this->assertFalse($inativos['grupos'][0]['ativo']);
+
+        $ator = auth()->getProvider()->findById($this->usuarioId);
+        $this->assertNotNull($ator);
+        $ator->addPermission('acessos.administrar');
+
+        $auditoriaMock = $this->createMock(\App\Services\AuditoriaService::class);
+        $auditoriaMock->expects($this->once())
+            ->method('registrar')
+            ->with($this->callback(static function (array $evento): bool {
+                return ($evento['modulo'] ?? null) === 'permissoes'
+                    && ($evento['acao'] ?? null) === 'reativar_grupo'
+                    && ($evento['entidade'] ?? null) === 'grupo'
+                    && ($evento['entidade_id'] ?? null) === 'beta'
+                    && ($evento['resultado'] ?? null) === 'sucesso';
+            }));
+
+        $serviceComAuditoria = new \App\Services\PermissaoService(null, null, $auditoriaMock);
+
+        $resultado = $serviceComAuditoria->reativarGrupo('beta', $this->usuarioId);
+        $this->assertTrue($resultado['sucesso'], $resultado['mensagem'] ?? '');
+        $this->assertSame('GRUPO_REATIVADO', $resultado['codigo']);
+
+        $inativosApos = $serviceComAuditoria->listarGrupos(0, 10, '', 'inativos');
+        $this->assertCount(0, $inativosApos['grupos']);
+
+        $ativosApos = $serviceComAuditoria->listarGrupos(0, 10, '', 'ativos');
+        $this->assertCount(2, $ativosApos['grupos']);
+    }
+
+    public function testReativarGrupoFalhaSemPermissaoOuParaGrupoJaAtivo(): void
+    {
+        service('settings')->set('AuthGroups.groups', [
+            'alfa' => ['title' => 'Grupo Alfa', 'description' => 'Primeiro'],
+        ]);
+        service('settings')->set('AuthGroups.gruposInativos', []);
+
+        $semPermissao = $this->service->reativarGrupo('alfa', 0);
+        $this->assertFalse($semPermissao['sucesso']);
+        $this->assertSame('GRUPO_REATIVACAO_NAO_AUTORIZADA', $semPermissao['codigo']);
+
+        $ator = auth()->getProvider()->findById($this->usuarioId);
+        $this->assertNotNull($ator);
+        $ator->addPermission('acessos.administrar');
+
+        $jaAtivo = $this->service->reativarGrupo('alfa', $this->usuarioId);
+        $this->assertFalse($jaAtivo['sucesso']);
+        $this->assertSame('GRUPO_JA_ATIVO', $jaAtivo['codigo']);
+
+        $inexistente = $this->service->reativarGrupo('nao-existe', $this->usuarioId);
+        $this->assertFalse($inexistente['sucesso']);
+        $this->assertSame('GRUPO_NAO_ENCONTRADO', $inexistente['codigo']);
+    }
 }
