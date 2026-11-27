@@ -8,6 +8,8 @@
 <?= $this->endSection() ?>
 
 <?= $this->section('conteudo') ?>
+<?= $this->include('permissao/modals/modal-reativar-grupo') ?>
+
 <div class="page-header mb-3">
     <h3 class="page-title">Grupos e permissões</h3>
     <nav aria-label="breadcrumb">
@@ -37,6 +39,16 @@
                             Criar grupo
                         </a>
                     </span>
+
+                    <?php if (($situacao ?? 'ativos') === 'inativos') : ?>
+                        <a href="<?= esc(url_to('permissoes.index'), 'attr') ?>?situacao=ativos" class="btn btn-secondary btn-icon-text">
+                            <i class="mdi mdi-account-multiple-check btn-icon-prepend" aria-hidden="true"></i> Grupos ativos
+                        </a>
+                    <?php else : ?>
+                        <a href="<?= esc(url_to('permissoes.index'), 'attr') ?>?situacao=inativos" class="btn btn-secondary btn-icon-text">
+                            <i class="mdi mdi-account-multiple-remove btn-icon-prepend" aria-hidden="true"></i> Grupos inativos
+                        </a>
+                    <?php endif ?>
                 </div>
             </div>
         </div>
@@ -58,6 +70,9 @@
                     <table class="table table-hover align-middle mb-0 tabela-grupos" id="tabela-grupos"
                            aria-label="Listagem de grupos e permissões"
                            data-url="<?= esc($urlListar, 'attr') ?>"
+                           data-url-reativar="<?= esc($urlReativar, 'attr') ?>"
+                           data-marcador-grupo="999999999"
+                           data-situacao="<?= esc($situacao ?? 'ativos', 'attr') ?>"
                            data-traducao="<?= esc(base_url('assets/js/traducao-dataTable/pt_br.json'), 'attr') ?>">
                         <thead>
                             <tr>
