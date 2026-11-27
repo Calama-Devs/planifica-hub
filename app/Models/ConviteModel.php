@@ -71,4 +71,12 @@ class ConviteModel extends Model
                 'email_pendente' => null,
             ]);
     }
+
+    public function consumirPendente(string $tokenHash, string $agora): bool
+    {
+        return $this->builder()->where('token_hash', $tokenHash)->where('status', 'pendente')
+            ->where('expira_em >', $agora)
+            ->update(['status' => 'consumido', 'utilizado_em' => $agora, 'email_pendente' => null])
+            && $this->db->affectedRows() === 1;
+    }
 }

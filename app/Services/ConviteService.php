@@ -11,6 +11,13 @@ use Throwable;
 
 class ConviteService
 {
+    private const VALIDADE_CONVITE_MINUTOS = 30;
+
+    public const ESTADO_VALIDO = 'valido';
+    public const ESTADO_EXPIRADO = 'expirado';
+    public const ESTADO_INVALIDO = 'invalido';
+    public const ESTADO_UTILIZADO = 'utilizado';
+
     private AuditoriaService $auditoria;
 
     public function __construct(?AuditoriaService $auditoria = null)
@@ -37,19 +44,6 @@ class ConviteService
         }
 
         $email = strtolower(trim($emailInformado));
-        if (
-            filter_var($email, FILTER_VALIDATE_EMAIL) === false
-            || ! str_ends_with($email, '@ifro.edu.br')
-            || substr_count($email, '@') !== 1
-        ) {
-            return [
-                'sucesso'  => false,
-                'tipo'     => 'validacao',
-                'codigo'   => 'CONVITE_EMAIL_INVALIDO',
-                'mensagem' => 'Informe um e-mail institucional @ifro.edu.br válido.',
-            ];
-        }
-
         if (auth()->getProvider()->findByCredentials(['email' => $email]) !== null) {
             return [
                 'sucesso'  => false,
@@ -59,12 +53,227 @@ class ConviteService
             ];
         }
 
-        return $this->registrarEEnviar($email, config('Convite')->validadeMinutos, $grupos);
+        return $this->registrarEEnviar($email, $grupos);
+    }
+
+    /** @return array<string, mixed> */
+    public function validarConvite(?string $token): array
+    {
+        if ($token === null || ! preg_match('/^[a-zA-Z0-9_-]{8,128}$/', trim($token))) {
+            return $this->estado(
+                self::ESTADO_INVALIDO,
+                'CONVITE_INVALIDO',
+                'Este link de convite não está disponível para utilização.'
+            );
+        }
+        try {
+            $convite = model(ConviteModel::class)->where('token_hash', hash('sha256', trim($token)))->first();
+        } catch (Throwable $erro) {
+            log_message('error', 'Falha na consulta do convite. Exceção {tipo}.', ['tipo' => $erro::class]);
+            return $this->estado(
+                'erro_temporario',
+                'CONVITE_ERRO',
+                'Não foi possível consultar o convite. Tente novamente.'
+            );
+        }
+        if ($convite === null) {
+            return $this->estado(
+                self::ESTADO_INVALIDO,
+                'CONVITE_NAO_ENCONTRADO',
+                'Este link de convite não está disponível para utilização.'
+            );
+        }
+        if ($convite['status'] === 'consumido') {
+            return $this->estado(self::ESTADO_UTILIZADO, 'CONVITE_UTILIZADO', 'Este convite já foi utilizado.');
+        }
+        if ($convite['status'] === 'expirado') {
+            return $this->estado(self::ESTADO_EXPIRADO, 'CONVITE_EXPIRADO', 'O prazo deste convite terminou.');
+        }
+        if ($convite['status'] !== 'pendente') {
+            return $this->estado(
+                self::ESTADO_INVALIDO,
+                'CONVITE_INDISPONIVEL',
+                'Este link de convite não está disponível para utilização.'
+            );
+        }
+        if (strtotime($convite['expira_em']) <= time()) {
+            return $this->estado(self::ESTADO_EXPIRADO, 'CONVITE_EXPIRADO', 'O prazo deste convite terminou.');
+        }
+        try {
+            $contaExistente = auth()->getProvider()->findByCredentials(['email' => $convite['email']]);
+        } catch (Throwable $erro) {
+            log_message('error', 'Falha na consulta da conta convidada. Exceção {tipo}.', ['tipo' => $erro::class]);
+            return $this->estado(
+                'erro_temporario',
+                'CONVITE_ERRO',
+                'Não foi possível consultar o convite. Tente novamente.'
+            );
+        }
+        if ($contaExistente !== null) {
+            return $this->estado(
+                self::ESTADO_INVALIDO,
+                'CONVITE_CONTA_EXISTENTE',
+                'Este link de convite não está disponível para utilização.'
+            );
+        }
+        $grupos = $this->gruposDoConvite($convite['grupos']);
+        if ($grupos === null) {
+            return $this->estado(
+                self::ESTADO_INVALIDO,
+                'CONVITE_GRUPO_INVALIDO',
+                'Este link de convite não está disponível para utilização.'
+            );
+        }
+        $gruposDisponiveis = config(AuthGroups::class)->groups;
+        return [
+            'sucesso'  => true,
+            'tipo'     => 'sucesso',
+            'codigo'   => 'CONVITE_VALIDO',
+            'estado'   => self::ESTADO_VALIDO,
+            'mensagem' => 'Convite válido.',
+            'dados'    => [
+                'token'  => trim($token),
+                'email'  => $convite['email'],
+                'grupos' => array_map(
+                    static fn (string $grupo): array => [
+                        'codigo' => $grupo,
+                        'rotulo' => $gruposDisponiveis[$grupo]['title'] . ' (' . $grupo . ')',
+                    ],
+                    $grupos
+                ),
+            ],
+        ];
+    }
+
+    /** @param array{token:string,nome_completo:string,password:string,password_confirm:string} $dados */
+    public function concluirCadastro(array $dados): array
+    {
+        if (auth()->loggedIn()) {
+            return [
+                'sucesso' => false,
+                'tipo' => 'regra_negocio',
+                'codigo' => 'SESSAO_ATIVA',
+                'mensagem' => 'Você já está conectado em outra conta. Saia dessa conta e abra o convite novamente, '
+                    . 'ou abra o link em uma janela anônima.',
+            ];
+        }
+        $db = db_connect();
+        $convites = model(ConviteModel::class);
+        $tokenHash = hash('sha256', trim($dados['token']));
+        try {
+            $db->transException(true)->transBegin();
+            $agora = date('Y-m-d H:i:s');
+            if (! $convites->consumirPendente($tokenHash, $agora)) {
+                $db->transRollback();
+                return [
+                    'sucesso' => false,
+                    'tipo' => 'regra_negocio',
+                    'codigo' => 'CONVITE_INDISPONIVEL',
+                    'mensagem' => 'Este convite é inválido, expirou ou já foi utilizado. '
+                        . 'Confira o link ou solicite um novo convite ao responsável.',
+                ];
+            }
+            $convite = $convites->where('token_hash', $tokenHash)->first();
+            if (
+                $convite === null
+                || auth()->getProvider()->findByCredentials(['email' => $convite['email']]) !== null
+            ) {
+                throw new \RuntimeException('Convite ou e-mail indisponível.');
+            }
+            $provider = auth()->getProvider();
+            $grupos = $this->gruposDoConvite($convite['grupos']);
+            if ($grupos === null) {
+                throw new \RuntimeException('Grupos do convite inválidos.');
+            }
+            $user = $provider->createNewUser([
+                'nome_completo' => $dados['nome_completo'],
+                'email' => $convite['email'],
+                'password' => $dados['password'],
+                'active' => true,
+            ]);
+            $validacaoSenha = service('passwords')->check($dados['password'], $user);
+            if (! $validacaoSenha->isOK()) {
+                $db->transRollback();
+                return [
+                    'sucesso' => false,
+                    'tipo' => 'validacao',
+                    'codigo' => 'SENHA_INVALIDA',
+                    'mensagem' => 'A senha não atende aos requisitos de segurança. '
+                        . 'Escolha uma senha menos comum e que não contenha dados pessoais.',
+                ];
+            }
+            if (! $provider->save($user)) {
+                throw new \RuntimeException('Falha ao criar usuário.');
+            }
+            $user = $provider->findById((int) $provider->getInsertID());
+            if ($user === null) {
+                throw new \RuntimeException('Usuário criado não encontrado.');
+            }
+            $user->addGroup(...$grupos);
+            $this->auditoria->registrar([
+                'modulo' => 'convites',
+                'acao' => 'concluir_cadastro',
+                'entidade_tipo' => 'usuario',
+                'entidade_id' => (string) $user->id,
+                'descricao' => 'Cadastro concluído por convite ' . $convite['id']
+                    . ', emitido por ' . $convite['emissor_id'] . '.',
+                'resultado' => 'concluida',
+            ]);
+            if ($db->transStatus() === false || ! $db->transCommit()) {
+                throw new \RuntimeException('Falha na transação.');
+            }
+            return [
+                'sucesso' => true,
+                'tipo' => 'sucesso',
+                'codigo' => 'CADASTRO_CONCLUIDO',
+                'mensagem' => 'Cadastro concluído. Faça login para continuar.',
+            ];
+        } catch (Throwable $erro) {
+            $db->transRollback();
+            log_message('error', 'Falha ao concluir cadastro por convite. Exceção {tipo}.', ['tipo' => $erro::class]);
+            return [
+                'sucesso' => false,
+                'tipo' => 'inesperado',
+                'codigo' => 'CADASTRO_FALHOU',
+                'mensagem' => 'Não foi possível concluir o cadastro. Tente novamente.',
+            ];
+        }
+    }
+
+    private function estado(string $estado, string $codigo, string $mensagem): array
+    {
+        return [
+            'sucesso' => false,
+            'tipo' => 'regra_negocio',
+            'codigo' => $codigo,
+            'estado' => $estado,
+            'mensagem' => $mensagem,
+            'dados' => null,
+        ];
+    }
+
+    /** @return list<string>|null */
+    private function gruposDoConvite(?string $gruposJson): ?array
+    {
+        if ($gruposJson === null) {
+            return [config(AuthGroups::class)->defaultGroup];
+        }
+        $grupos = json_decode($gruposJson, true);
+        if (! is_array($grupos) || ! array_is_list($grupos) || $grupos === []) {
+            return null;
+        }
+        foreach ($grupos as $grupo) {
+            if (! is_string($grupo) || ! isset(config(AuthGroups::class)->groups[$grupo])) {
+                return null;
+            }
+        }
+        return $grupos;
     }
 
     /** @param list<string> $grupos */
-    private function registrarEEnviar(string $email, int $validadeMinutos, array $grupos): array
+    private function registrarEEnviar(string $email, array $grupos): array
     {
+        $validadeMinutos = self::VALIDADE_CONVITE_MINUTOS;
         $configuracaoEmail = config(EmailConfig::class);
         $remetenteEmail    = trim($configuracaoEmail->fromEmail);
         $remetenteNome     = trim($configuracaoEmail->fromName);
@@ -160,15 +369,6 @@ class ConviteService
                 $db->transRollback();
             }
 
-            if (! $etapaEnvio && $convites->buscarPendenteValidoPorEmail($email, $agora) !== null) {
-                return [
-                    'sucesso'  => false,
-                    'tipo'     => 'regra_negocio',
-                    'codigo'   => 'CONVITE_PENDENTE',
-                    'mensagem' => 'Já existe um convite válido para este e-mail.',
-                ];
-            }
-
             log_message(
                 'error',
                 'Falha na emissão do convite. Operador {emissor_id}, exceção {tipo}.',
@@ -209,7 +409,10 @@ class ConviteService
         $grupos = [];
 
         foreach ($gruposInformados as $grupo) {
-            if (! is_string($grupo) || trim($grupo) === '') {
+            if (is_string($grupo)) {
+                $grupo = trim($grupo);
+            }
+            if (! is_string($grupo) || $grupo === '') {
                 return [
                     'sucesso'  => false,
                     'tipo'     => 'validacao',
@@ -218,7 +421,7 @@ class ConviteService
                 ];
             }
 
-            $grupos[] = trim($grupo);
+            $grupos[] = $grupo;
         }
 
         $grupos = array_values(array_unique($grupos));

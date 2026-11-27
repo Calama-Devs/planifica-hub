@@ -84,8 +84,9 @@
 }
 
 /* Coluna lateral esquerda do formulário/status */
-.finalizar-cadastro-col-card {
+.auth.login-2 .finalizar-cadastro-col-card {
     background-color: #191c24;
+    height: auto;
     min-height: 100vh;
 }
 

@@ -119,6 +119,40 @@ final class ConviteControllerTest extends CIUnitTestCase
         $this->assertNotSame($csrfAnterior, $json['csrf']['hash']);
     }
 
+    public function testEndpointRecusaEnderecoDeEmailInvalido(): void
+    {
+        $operador = $this->criarUsuario('admin');
+
+        $resposta = $this->actingAs($operador)
+            ->withSession($_SESSION)
+            ->post('admin/convites', [
+                'email' => 'endereco-invalido',
+                csrf_token() => csrf_hash(),
+            ]);
+
+        $resposta->assertStatus(422);
+        $resposta->assertJSONFragment(['codigo' => 'CONVITE_DADOS_INVALIDOS']);
+        $this->assertSame(0, model(ConviteModel::class)->countAllResults());
+    }
+
+    public function testEndpointAceitaEmailDeOutroDominio(): void
+    {
+        $operador = $this->criarUsuario('admin');
+        $this->configurarEmail(true);
+
+        $resposta = $this->actingAs($operador)
+            ->withSession($_SESSION)
+            ->post('admin/convites', [
+                'email' => 'pessoa@example.com',
+                csrf_token() => csrf_hash(),
+            ]);
+
+        $resposta->assertStatus(201);
+        $convite = model(ConviteModel::class)->where('email', 'pessoa@example.com')->first();
+        $this->assertNotNull($convite);
+        $this->assertSame('pessoa@example.com', $convite['email_pendente']);
+    }
+
     public function testEndpointRecusaEmailJaCadastradoSemCriarConvite(): void
     {
         $operador = $this->criarUsuario('admin');
@@ -246,7 +280,7 @@ final class ConviteControllerTest extends CIUnitTestCase
     {
         $resposta = $this->get('finalizar-cadastro');
         $resposta->assertOK();
-        $resposta->assertSee('Convite Inválido ou Cancelado');
+        $resposta->assertSee('Convite Inválido');
     }
 
     private function criarUsuario(string $grupo): User

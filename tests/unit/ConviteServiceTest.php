@@ -58,11 +58,51 @@ final class ConviteServiceTest extends CIUnitTestCase
         parent::tearDown();
     }
 
-    public function testRecusaDominioInvalido(): void
+    public function testConviteModelRecusaEnderecoDeEmailInvalido(): void
     {
-        $resultado = (new ConviteService())->emitirConvite('pessoa@ifro.edu.br.exemplo');
+        $resultado = $this->conviteModel->insert([
+            'emissor_id' => $this->operadorId,
+            'email' => 'endereco-invalido',
+            'email_pendente' => 'endereco-invalido',
+            'token_hash' => hash('sha256', 'token-institucional-invalido'),
+            'status' => 'pendente',
+            'expira_em' => date('Y-m-d H:i:s', time() + 1800),
+            'grupos' => json_encode(['user'], JSON_THROW_ON_ERROR),
+        ]);
 
-        $this->assertSame('CONVITE_EMAIL_INVALIDO', $resultado['codigo']);
+        $this->assertFalse($resultado);
+        $this->assertArrayHasKey('email', $this->conviteModel->errors());
+    }
+
+    public function testConviteModelAceitaEnderecosDeDiferentesDominios(): void
+    {
+        foreach (['pessoa@example.com', 'contato@example.org', 'usuario@outro.edu.br'] as $indice => $email) {
+            $resultado = $this->conviteModel->insert([
+                'emissor_id' => $this->operadorId,
+                'email' => $email,
+                'email_pendente' => $email,
+                'token_hash' => hash('sha256', 'token-dominio-' . $indice),
+                'status' => 'pendente',
+                'expira_em' => date('Y-m-d H:i:s', time() + 1800),
+                'grupos' => json_encode(['user'], JSON_THROW_ON_ERROR),
+            ]);
+
+            $this->assertNotFalse($resultado);
+        }
+    }
+
+    public function testConclusaoComSessaoAtivaOrientaSairOuUsarJanelaAnonima(): void
+    {
+        $resultado = (new ConviteService())->concluirCadastro([
+            'token' => 'token-teste-123456',
+            'nome_completo' => 'Pessoa de Teste',
+            'password' => 'SenhaSegura#987654',
+            'password_confirm' => 'SenhaSegura#987654',
+        ]);
+
+        $this->assertSame('SESSAO_ATIVA', $resultado['codigo']);
+        $this->assertStringContainsString('Saia dessa conta', $resultado['mensagem']);
+        $this->assertStringContainsString('janela anônima', $resultado['mensagem']);
     }
 
     public function testConviteModelRejeitaDadosEstruturalmenteInvalidos(): void
@@ -286,6 +326,19 @@ final class ConviteServiceTest extends CIUnitTestCase
         $this->assertArrayNotHasKey('token', $eventos[0]);
     }
 
+    public function testPreservaConviteEAuditoriaQuandoTransporteRetornaFalse(): void
+    {
+        $mensagem = '';
+        $this->configurarEmail(false, $mensagem);
+
+        $resultado = (new ConviteService())->emitirConvite('falha@ifro.edu.br');
+        $convite   = $this->conviteModel->where('email', 'falha@ifro.edu.br')->first();
+
+        $this->assertSame('CONVITE_ENVIO_FALHOU', $resultado['codigo']);
+        $this->assertSame('pendente', $convite['status']);
+        $this->assertSame(1, model(EventoAuditoriaModel::class)->countAllResults());
+    }
+
     public function testRecusaConvitePendenteValidoParaMesmoEmail(): void
     {
         $mensagem = '';
@@ -327,19 +380,6 @@ final class ConviteServiceTest extends CIUnitTestCase
         $this->assertSame($expiraEm, $convites[0]['expira_em']);
         $this->assertSame('pendente', $convites[1]['status']);
         $this->assertGreaterThanOrEqual(strtotime($agora), strtotime($convites[1]['expira_em']) - 1800);
-    }
-
-    public function testPreservaConviteEAuditoriaQuandoTransporteRetornaFalse(): void
-    {
-        $mensagem = '';
-        $this->configurarEmail(false, $mensagem);
-
-        $resultado = (new ConviteService())->emitirConvite('falha@ifro.edu.br');
-        $convite   = $this->conviteModel->where('email', 'falha@ifro.edu.br')->first();
-
-        $this->assertSame('CONVITE_ENVIO_FALHOU', $resultado['codigo']);
-        $this->assertSame('pendente', $convite['status']);
-        $this->assertSame(1, model(EventoAuditoriaModel::class)->countAllResults());
     }
 
     public function testPreservaConviteQuandoTransporteLancaExcecao(): void
@@ -406,6 +446,143 @@ final class ConviteServiceTest extends CIUnitTestCase
         $this->expectException(DatabaseException::class);
 
         $this->conviteModel->insert($dados);
+    }
+
+    public function testConclusaoPersisteContaIdentidadeGruposConsumoEAuditoriaUmaVez(): void
+    {
+        $token = 'convite-valido-' . bin2hex(random_bytes(16));
+        $conviteId = $this->conviteModel->insert([
+            'emissor_id' => $this->operadorId,
+            'email' => 'novo.usuario@ifro.edu.br',
+            'email_pendente' => 'novo.usuario@ifro.edu.br',
+            'token_hash' => hash('sha256', $token),
+            'status' => 'pendente',
+            'expira_em' => date('Y-m-d H:i:s', time() + 3600),
+            'grupos' => json_encode(['user', 'beta'], JSON_THROW_ON_ERROR),
+        ]);
+        auth()->logout();
+
+        $servico = new ConviteService();
+        $this->assertTrue($servico->validarConvite($token)['sucesso']);
+        $dados = [
+            'token' => $token,
+            'nome_completo' => 'Pessoa de Teste',
+            'password' => 'SenhaSegura#987654',
+            'password_confirm' => 'SenhaSegura#987654',
+        ];
+        $resultado = $servico->concluirCadastro($dados);
+        $this->assertSame('CADASTRO_CONCLUIDO', $resultado['codigo']);
+
+        $usuario = auth()->getProvider()->findByCredentials(['email' => 'novo.usuario@ifro.edu.br']);
+        $this->assertNotNull($usuario);
+        $this->assertNull($usuario->username);
+        $this->assertSame('Pessoa de Teste', $usuario->nome_completo);
+        $this->assertTrue($usuario->inGroup('user'));
+        $this->assertTrue($usuario->inGroup('beta'));
+        $this->assertTrue(password_verify($dados['password'], (string) $usuario->getPasswordHash()));
+        $this->assertSame('consumido', $this->conviteModel->find($conviteId)['status']);
+        $eventos = $this->db->table('eventos_auditoria')->where('acao', 'concluir_cadastro');
+        $this->assertSame(1, $eventos->countAllResults());
+
+        $this->assertFalse($servico->validarConvite($token)['sucesso']);
+        $this->assertSame('CONVITE_INDISPONIVEL', $servico->concluirCadastro($dados)['codigo']);
+        $this->assertSame(1, $eventos->where('acao', 'concluir_cadastro')->countAllResults());
+    }
+
+    public function testConclusaoRecusaConviteExpiradoSemCriarConta(): void
+    {
+        $token = 'convite-expirado-' . bin2hex(random_bytes(16));
+        $this->conviteModel->insert([
+            'emissor_id' => $this->operadorId,
+            'email' => 'expirado@ifro.edu.br',
+            'email_pendente' => 'expirado@ifro.edu.br',
+            'token_hash' => hash('sha256', $token),
+            'status' => 'pendente',
+            'expira_em' => date('Y-m-d H:i:s', time() - 60),
+        ]);
+        auth()->logout();
+        $resultado = (new ConviteService())->concluirCadastro([
+            'token' => $token,
+            'nome_completo' => 'Pessoa de Teste',
+            'password' => 'SenhaSegura#987654',
+            'password_confirm' => 'SenhaSegura#987654',
+        ]);
+
+        $this->assertSame('CONVITE_INDISPONIVEL', $resultado['codigo']);
+        $this->assertNull(auth()->getProvider()->findByCredentials(['email' => 'expirado@ifro.edu.br']));
+        $eventos = $this->db->table('eventos_auditoria')->where('acao', 'concluir_cadastro');
+        $this->assertSame(0, $eventos->countAllResults());
+    }
+
+    public function testValidacaoRecusaEstadoConsumido(): void
+    {
+        auth()->logout();
+        $servico = new ConviteService();
+        $token = 'convite-consumido-' . bin2hex(random_bytes(12));
+        $this->assertNotFalse($this->conviteModel->insert([
+            'emissor_id' => $this->operadorId,
+            'email' => 'consumido@ifro.edu.br',
+            'token_hash' => hash('sha256', $token),
+            'status' => 'consumido',
+            'expira_em' => date('Y-m-d H:i:s', time() + 3600),
+        ]));
+
+        $this->assertFalse($servico->validarConvite($token)['sucesso']);
+    }
+
+    public function testFalhaNaAuditoriaReverteContaIdentidadeGruposEConsumo(): void
+    {
+        $token = 'convite-auditoria-' . bin2hex(random_bytes(16));
+        $conviteId = $this->conviteModel->insert([
+            'emissor_id' => $this->operadorId,
+            'email' => 'auditoria.falhou@ifro.edu.br',
+            'email_pendente' => 'auditoria.falhou@ifro.edu.br',
+            'token_hash' => hash('sha256', $token),
+            'status' => 'pendente',
+            'expira_em' => date('Y-m-d H:i:s', time() + 3600),
+            'grupos' => json_encode(['user'], JSON_THROW_ON_ERROR),
+        ]);
+        $auditoria = $this->createMock(AuditoriaService::class);
+        $auditoria->method('registrar')->willThrowException(new RuntimeException('Falha simulada'));
+        auth()->logout();
+
+        $resultado = (new ConviteService($auditoria))->concluirCadastro([
+            'token' => $token,
+            'nome_completo' => 'Pessoa de Teste',
+            'password' => 'SenhaSegura#987654',
+            'password_confirm' => 'SenhaSegura#987654',
+        ]);
+
+        $this->assertSame('CADASTRO_FALHOU', $resultado['codigo']);
+        $this->assertSame('pendente', $this->conviteModel->find($conviteId)['status']);
+        $this->assertNull(auth()->getProvider()->findByCredentials(['email' => 'auditoria.falhou@ifro.edu.br']));
+        $eventos = $this->db->table('eventos_auditoria')->where('acao', 'concluir_cadastro');
+        $this->assertSame(0, $eventos->countAllResults());
+    }
+
+    public function testGruposCorrompidosImpedemCadastroSemConsumirConvite(): void
+    {
+        auth()->logout();
+        foreach (['invalido', '[]', '[123]', '[["user"]]', '["inexistente"]'] as $indice => $grupos) {
+            $token = 'token-corrompido-' . $indice;
+            $id = $this->conviteModel->insert([
+                'emissor_id' => $this->operadorId,
+                'email' => 'corrompido' . $indice . '@ifro.edu.br',
+                'token_hash' => hash('sha256', $token),
+                'status' => 'pendente',
+                'expira_em' => date('Y-m-d H:i:s', time() + 3600),
+                'grupos' => $grupos,
+            ]);
+            $servico = new ConviteService();
+            $this->assertFalse($servico->validarConvite($token)['sucesso']);
+            $this->assertFalse($servico->concluirCadastro([
+                'token' => $token,
+                'nome_completo' => 'Pessoa de Teste',
+                'password' => 'SenhaSegura#987654',
+                'password_confirm' => 'SenhaSegura#987654',
+            ])['sucesso']);
+            $this->assertSame('pendente', $this->conviteModel->find($id)['status']);
+        }
     }
 
     private function configurarEmail(
