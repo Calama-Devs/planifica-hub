@@ -59,6 +59,8 @@
     <div class="col-12 grid-margin stretch-card">
         <div class="card">
             <div class="card-body">
+                <div id="alerta-sucesso-grupos" class="alert alert-success d-none" role="status" aria-live="polite"></div>
+
                 <div id="alerta-erro-grupos" class="alert alert-danger d-none d-flex flex-wrap align-items-center justify-content-between gap-2" role="alert" aria-live="polite">
                     <span id="mensagem-erro-grupos">Não foi possível carregar os grupos. Tente novamente.</span>
                     <button type="button" id="btn-tentar-novamente-grupos" class="btn btn-sm btn-outline-light">

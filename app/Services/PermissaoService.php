@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\EventoAuditoriaModel;
 use App\Models\GrupoUsuarioModel;
 use App\Models\PermissaoModel;
 use Config\AuthGroups;
 use Config\Database;
+use RuntimeException;
 use Throwable;
 
 class PermissaoService
@@ -194,7 +196,7 @@ class PermissaoService
         }
 
         $ator = $atorId > 0 ? auth()->getProvider()->findById($atorId) : null;
-        if ($ator === null || ! $ator->can('acessos.administrar')) {
+        if ($ator === null || ! $ator->active || $ator->isBanned() || ! $ator->can('acessos.administrar')) {
             return [
                 'sucesso'  => false,
                 'tipo'     => 'permissao',
@@ -230,36 +232,37 @@ class PermissaoService
             static fn (string $item): bool => $item !== $slug
         ));
 
+        $nomeGrupo = (string) ($definidos[$slug]['title'] ?? $slug);
         $banco     = Database::connect();
-        $auditoria = $this->auditoriaService ?? service('auditoriaService');
+        $auditoria = $this->auditoriaService ?? new AuditoriaService(new EventoAuditoriaModel($banco));
 
-        $banco->transStart();
+        if (! $banco->transBegin()) {
+            return [
+                'sucesso'  => false,
+                'tipo'     => 'inesperado',
+                'codigo'   => 'GRUPO_REATIVACAO_INDISPONIVEL',
+                'mensagem' => 'Não foi possível reativar o grupo. Tente novamente.',
+            ];
+        }
 
         try {
             service('settings')->set('AuthGroups.gruposInativos', $novosInativos);
 
             $auditoria->registrar([
-                'modulo'      => 'permissoes',
-                'acao'        => 'reativar_grupo',
-                'entidade'    => 'grupo',
-                'entidade_id' => $slug,
-                'resultado'   => 'sucesso',
-                'mensagem'    => 'Grupo reativado com sucesso.',
-                'detalhes'    => json_encode([
-                    'identificador' => $slug,
-                    'nome'          => (string) ($definidos[$slug]['title'] ?? $slug),
-                ], JSON_UNESCAPED_UNICODE),
+                'modulo'        => 'permissoes',
+                'acao'          => 'reativar_grupo',
+                'entidade_tipo' => 'grupo',
+                'entidade_id'   => $slug,
+                'descricao'     => sprintf(
+                    'Grupo %s (%s) reativado: situação alterada de inativo para ativo.',
+                    $nomeGrupo,
+                    $slug
+                ),
+                'resultado'     => 'concluida',
             ]);
 
-            $banco->transComplete();
-
-            if (! $banco->transStatus()) {
-                return [
-                    'sucesso'  => false,
-                    'tipo'     => 'inesperado',
-                    'codigo'   => 'GRUPO_REATIVACAO_INDISPONIVEL',
-                    'mensagem' => 'Não foi possível reativar o grupo. Tente novamente.',
-                ];
+            if ($banco->transStatus() === false || ! $banco->transCommit()) {
+                throw new RuntimeException('Falha ao confirmar a transação de reativação do grupo.');
             }
 
             return [
@@ -270,6 +273,9 @@ class PermissaoService
             ];
         } catch (Throwable $erro) {
             $banco->transRollback();
+            // Restaura o cache em memória do Settings caso o rollback tenha revertido a persistência no banco.
+            service('settings')->set('AuthGroups.gruposInativos', $inativos);
+
             log_message('error', 'Falha ao reativar grupo ({tipo}).', [
                 'tipo' => $erro::class,
             ]);

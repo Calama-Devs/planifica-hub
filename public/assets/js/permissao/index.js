@@ -219,8 +219,10 @@ $(document).ready(function () {
 
     var grupoParaReativar = { identificador: '' };
     var $modalReativar = $('#modal-reativar-grupo');
+    var $alertaSucesso = $('#alerta-sucesso-grupos');
     var $alertaErroReativar = $('#alerta-erro-reativar-grupo');
     var $btnConfirmarReativacao = $('#btn-confirmar-reativacao-grupo');
+    var csrfNomeAtual = 'csrf_test_name';
 
     $tabela.on('click', '.btn-reativar-grupo', function () {
         var $btn = $(this);
@@ -231,11 +233,18 @@ $(document).ready(function () {
     });
 
     function atualizarCsrf(resposta) {
-        if (!resposta || !resposta.csrf || !resposta.csrf.hash) return;
-        $('meta[name="X-CSRF-TOKEN"]').attr('content', resposta.csrf.hash);
-        $('input[name="' + resposta.csrf.nome + '"]')
-            .val(resposta.csrf.hash)
-            .prop('defaultValue', resposta.csrf.hash);
+        var csrf = resposta && resposta.csrf ? resposta.csrf : null;
+        var hash = csrf && csrf.hash ? csrf.hash : (resposta ? resposta.csrf_hash : null);
+        if (!hash) return;
+
+        if (csrf && csrf.nome) {
+            csrfNomeAtual = csrf.nome;
+        }
+
+        $('meta[name="X-CSRF-TOKEN"]').attr('content', hash);
+        $('input[name="' + csrfNomeAtual + '"]')
+            .val(hash)
+            .prop('defaultValue', hash);
     }
 
     $btnConfirmarReativacao.on('click', function () {
@@ -245,7 +254,7 @@ $(document).ready(function () {
         var csrfHash = $('meta[name="X-CSRF-TOKEN"]').attr('content') || '';
         var dados = {};
         if (csrfHash) {
-            dados['csrf_test_name'] = csrfHash;
+            dados[csrfNomeAtual] = csrfHash;
         }
 
         $btnConfirmarReativacao.prop('disabled', true);
@@ -264,6 +273,7 @@ $(document).ready(function () {
                 if (resp && resp.sucesso) {
                     var modalInstancia = bootstrap.Modal.getInstance($modalReativar[0]);
                     if (modalInstancia) modalInstancia.hide();
+                    $alertaSucesso.text(resp.mensagem || 'Grupo reativado com sucesso.').removeClass('d-none');
                     dt.ajax.reload(null, false);
                     return;
                 }

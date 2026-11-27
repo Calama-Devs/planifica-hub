@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Controllers\Traits\RespostaAdministrativaTrait;
 use App\Services\PermissaoService;
 use CodeIgniter\HTTP\ResponseInterface;
 use Throwable;
 
 class PermissaoController extends BaseController
 {
+    use RespostaAdministrativaTrait;
+
     private PermissaoService $permissaoService;
 
     public function __construct()
@@ -53,9 +56,10 @@ class PermissaoController extends BaseController
             'start'    => $this->request->getGet('start'),
             'length'   => $this->request->getGet('length'),
             'pesquisa' => $pesquisa,
+            'situacao' => $this->request->getGet('situacao'),
         ];
 
-        foreach (['draw', 'start', 'length'] as $campo) {
+        foreach (['draw', 'start', 'length', 'situacao'] as $campo) {
             if ($entrada[$campo] !== null && ! is_string($entrada[$campo])) {
                 return $this->erroValidacaoListagem();
             }
@@ -66,6 +70,7 @@ class PermissaoController extends BaseController
             'start'    => 'permit_empty|is_natural|less_than_equal_to[999999999]',
             'length'   => 'permit_empty|is_natural_no_zero|less_than_equal_to[100]',
             'pesquisa' => 'permit_empty|string|max_length[100]',
+            'situacao' => 'permit_empty|in_list[ativos,inativos]',
         ];
 
         if (! $this->validateData($entrada, $regras)) {
@@ -78,7 +83,7 @@ class PermissaoController extends BaseController
             $inicio    = (int) ($validados['start'] ?? 0);
             $limite    = (int) ($validados['length'] ?? 10);
             $termo     = trim((string) ($validados['pesquisa'] ?? ''));
-            $situacao  = $this->request->getGet('situacao') === 'inativos' ? 'inativos' : 'ativos';
+            $situacao  = (string) ($validados['situacao'] ?? 'ativos');
 
             $listagem = $this->permissaoService->listarGrupos($inicio, $limite, $termo, $situacao);
             $grupos   = array_map(
@@ -123,25 +128,28 @@ class PermissaoController extends BaseController
      */
     public function reativarGrupo(string $identificador): ResponseInterface
     {
-        $resultado = $this->permissaoService->reativarGrupo(
-            rawurldecode($identificador),
-            (int) auth()->id(),
-        );
+        $slug   = trim(rawurldecode($identificador));
+        $regras = ['identificador' => 'required|string|max_length[100]|regex_match[/\A[a-zA-Z0-9._-]+\z/]'];
 
-        $resultado['csrf'] = [
-            'nome' => csrf_token(),
-            'hash' => csrf_hash(),
-        ];
+        if (! $this->validateData(['identificador' => $slug], $regras)) {
+            return $this->responderOperacaoAdministrativa([
+                'sucesso'  => false,
+                'tipo'     => 'validacao',
+                'codigo'   => 'GRUPO_IDENTIFICADOR_INVALIDO',
+                'mensagem' => 'Identificador de grupo inválido.',
+            ], 422);
+        }
 
-        $status = match ($resultado['tipo']) {
-            'sucesso'        => 200,
+        $resultado = $this->permissaoService->reativarGrupo($slug, (int) auth()->id());
+
+        $statusFalha = match ($resultado['tipo']) {
             'permissao'      => 403,
             'nao_encontrado' => 404,
             'validacao', 'regra_negocio' => 422,
             default          => 500,
         };
 
-        return $this->response->setStatusCode($status)->setJSON($resultado);
+        return $this->responderOperacaoAdministrativa($resultado, $statusFalha);
     }
 
     private function extrairTermoBusca(): ?string
