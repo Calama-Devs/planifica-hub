@@ -128,6 +128,11 @@ class PermissaoController extends BaseController
             (int) auth()->id(),
         );
 
+        $resultado['csrf'] = [
+            'nome' => csrf_token(),
+            'hash' => csrf_hash(),
+        ];
+
         $status = match ($resultado['tipo']) {
             'sucesso'        => 200,
             'autorizacao'    => 403,

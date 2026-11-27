@@ -230,14 +230,23 @@ $(document).ready(function () {
         $alertaErroReativar.addClass('d-none').text('');
     });
 
+    function atualizarCsrf(resposta) {
+        if (!resposta || !resposta.csrf || !resposta.csrf.hash) return;
+        $('meta[name="X-CSRF-TOKEN"]').attr('content', resposta.csrf.hash);
+        $('input[name="' + resposta.csrf.nome + '"]')
+            .val(resposta.csrf.hash)
+            .prop('defaultValue', resposta.csrf.hash);
+    }
+
     $btnConfirmarReativacao.on('click', function () {
         if (!grupoParaReativar.identificador || !urlReativar) return;
 
         var url = urlReativar.replace(marcadorGrupo, encodeURIComponent(grupoParaReativar.identificador));
-        var csrfNome = $('meta[name="csrf-token-name"]').attr('content') || 'csrf_test_name';
-        var csrfValor = $('meta[name="csrf-token"]').attr('content') || '';
+        var csrfHash = $('meta[name="X-CSRF-TOKEN"]').attr('content') || '';
         var dados = {};
-        if (csrfValor) dados[csrfNome] = csrfValor;
+        if (csrfHash) {
+            dados['csrf_test_name'] = csrfHash;
+        }
 
         $btnConfirmarReativacao.prop('disabled', true);
         $alertaErroReativar.addClass('d-none').text('');
@@ -246,8 +255,12 @@ $(document).ready(function () {
             url: url,
             method: 'POST',
             data: dados,
+            headers: {
+                'X-CSRF-TOKEN': csrfHash
+            },
             dataType: 'json',
             success: function (resp) {
+                atualizarCsrf(resp);
                 if (resp && resp.sucesso) {
                     var modalInstancia = bootstrap.Modal.getInstance($modalReativar[0]);
                     if (modalInstancia) modalInstancia.hide();
@@ -257,6 +270,7 @@ $(document).ready(function () {
                 $alertaErroReativar.text(resp?.mensagem || 'Não foi possível reativar o grupo.').removeClass('d-none');
             },
             error: function (xhr) {
+                atualizarCsrf(xhr.responseJSON || {});
                 var msg = xhr?.responseJSON?.mensagem || 'Não foi possível reativar o grupo. Tente novamente.';
                 $alertaErroReativar.text(msg).removeClass('d-none');
             },
