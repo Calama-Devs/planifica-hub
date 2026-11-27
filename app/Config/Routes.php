@@ -10,7 +10,11 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
     $routes->get('sobre', 'Home::sobre', ['as' => 'sobre']);
 
     // Alteração de senha pelo perfil autenticado.
-    $routes->post('perfil/alterar-senha', 'RedefinirSenhaController::atualizarPeloPerfil', ['as' => 'atualizar-senha-perfil']);
+    $routes->post(
+        'perfil/alterar-senha',
+        'RedefinirSenhaController::atualizarPeloPerfil',
+        ['as' => 'atualizar-senha-perfil']
+    );
 
     $routes->post('sobre', 'Home::testarValidacao', ['as' => 'sobre.testar']);
     $routes->get('perfil', 'PerfilController::index', ['as' => 'perfil']);
@@ -25,16 +29,29 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
         'filter' => 'permission:contas.reativar',
     ]);
 
-    $routes->group('admin/permissoes', ['filter' => 'permission:acessos.administrar'], static function (RouteCollection $routes): void {
-        $routes->get('/', 'PermissaoController::index', ['as' => 'permissoes.index']);
-        $routes->get('listar', 'PermissaoController::listarGrupos', ['as' => 'permissoes.grupos.listar']);
-    });
+    $routes->group(
+        'admin/permissoes',
+        ['filter' => 'permission:acessos.administrar'],
+        static function (RouteCollection $routes): void {
+            $routes->get('/', 'PermissaoController::index', ['as' => 'permissoes.index']);
+            $routes->get('listar', 'PermissaoController::listarGrupos', ['as' => 'permissoes.grupos.listar']);
+            $routes->get(
+                'grupos/(:segment)',
+                'PermissaoController::consultarGrupo/$1',
+                ['as' => 'permissoes.grupos.consultar']
+            );
+        }
+    );
 
     // Gerenciamento de usuários: o filtro do grupo (session) soma com o permission da rota.
-    $routes->group('admin/acessos', ['filter' => 'permission:acessos.administrar'], static function (RouteCollection $routes): void {
-        $routes->get('/', 'AcessoController::index', ['as' => 'acessos.index']);
-        $routes->get('listar', 'AcessoController::listar', ['as' => 'acessos.listar']);
-    });
+    $routes->group(
+        'admin/acessos',
+        ['filter' => 'permission:acessos.administrar'],
+        static function (RouteCollection $routes): void {
+            $routes->get('/', 'AcessoController::index', ['as' => 'acessos.index']);
+            $routes->get('listar', 'AcessoController::listar', ['as' => 'acessos.listar']);
+        }
+    );
 
     // A área de acessos consome estes endpoints JSON; Controller e Service repetem a autorização.
     $routes->get('admin/contas/(:num)', 'ContaController::consultar/$1', [
@@ -56,11 +73,18 @@ $routes->post('confirmar-troca-email', 'ConfirmacaoEmailContaController::confirm
 ]);
 
 service('auth')->routes($routes, ['except' => ['logout']]);
-$routes->post('logout', '\CodeIgniter\Shield\Controllers\LoginController::logoutAction', ['as' => 'logout']);
+$routes->post(
+    'logout',
+    '\CodeIgniter\Shield\Controllers\LoginController::logoutAction',
+    ['as' => 'logout']
+);
 
 // Recuperação de senha por link temporário.
 $routes->get('recuperar-senha', 'RedefinirSenhaController::solicitar', ['as' => 'solicitar-redefinicao']);
-$routes->post('recuperar-senha', 'RedefinirSenhaController::enviar', ['as' => 'enviar-redefinicao', 'filter' => 'auth-rates']);
+$routes->post('recuperar-senha', 'RedefinirSenhaController::enviar', [
+    'as' => 'enviar-redefinicao',
+    'filter' => 'auth-rates',
+]);
 $routes->get('recuperar-senha/enviado', 'RedefinirSenhaController::confirmacao', ['as' => 'confirmacao-redefinicao']);
 $routes->get('recuperar-senha/verificar', 'RedefinirSenhaController::verificar', ['as' => 'verificar-redefinicao']);
 $routes->get('reset-password', 'RedefinirSenhaController::redefinir');
@@ -69,5 +93,8 @@ $routes->post('reset-password/cancelar', 'RedefinirSenhaController::cancelar');
 
 // Finalização de cadastro por convite.
 $routes->get('finalizar-cadastro', 'FinalizarCadastroController::index', ['as' => 'finalizar_cadastro']);
-$routes->post('finalizar-cadastro', 'FinalizarCadastroController::concluir', ['as' => 'finalizar_cadastro.concluir', 'filter' => 'auth-rates']);
+$routes->post('finalizar-cadastro', 'FinalizarCadastroController::concluir', [
+    'as' => 'finalizar_cadastro.concluir',
+    'filter' => 'auth-rates',
+]);
 $routes->get('convite/finalizar', 'FinalizarCadastroController::index', ['as' => 'convite.finalizar']);
