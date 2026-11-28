@@ -52,7 +52,9 @@ class MenuService
                 continue;
             }
 
-            $categoriaItem = isset($item['categoria']) && is_string($item['categoria']) ? trim($item['categoria']) : null;
+            $categoriaItem = isset($item['categoria']) && is_string($item['categoria'])
+                ? trim($item['categoria'])
+                : null;
             $exibirCategoria = null;
 
             if ($categoriaItem !== null && $categoriaItem !== '' && $categoriaItem !== $ultimaCategoria) {
@@ -80,7 +82,8 @@ class MenuService
             if (! isset($item[$campo]) || ! is_string($item[$campo]) || trim($item[$campo]) === '') {
                 log_message(
                     'warning',
-                    'MenuService: item de menu no indice {indice} ignorado por ausência ou invalidez do campo obrigatório "{campo}".',
+                    'MenuService: item de menu no indice {indice} ignorado por ausência ou invalidez'
+                        . ' do campo obrigatório "{campo}".',
                     [
                         'indice' => $indice,
                         'campo'  => $campo,

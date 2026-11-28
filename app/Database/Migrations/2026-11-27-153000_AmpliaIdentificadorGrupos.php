@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Database\Migrations;
 
+use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\Database\Migration;
 use RuntimeException;
 
@@ -23,11 +24,14 @@ class AmpliaIdentificadorGrupos extends Migration
 
     public function down(): void
     {
-        if (! $this->db->tableExists('grupos')) {
+        /** @var BaseConnection $banco Conexão recebida pelo Forge. */
+        $banco = $this->db;
+
+        if (! $banco->tableExists('grupos')) {
             return;
         }
 
-        if ($this->db->table('grupos')->countAllResults() > 0) {
+        if ($banco->table('grupos')->countAllResults() > 0) {
             throw new RuntimeException(
                 'Reversão bloqueada: ela removeria os metadados dos grupos.'
             );

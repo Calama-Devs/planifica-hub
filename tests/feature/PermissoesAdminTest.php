@@ -37,6 +37,14 @@ final class PermissoesAdminTest extends CIUnitTestCase
     protected function tearDown(): void
     {
         $_SESSION = [];
+
+        if ($this->db->tableExists('eventos_auditoria')) {
+            $this->db->table('eventos_auditoria')
+                ->where('modulo', 'permissoes')
+                ->whereIn('acao', ['listar_grupos', 'consultar_grupo'])
+                ->delete();
+        }
+
         parent::tearDown();
     }
 

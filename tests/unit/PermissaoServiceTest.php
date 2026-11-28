@@ -39,7 +39,7 @@ final class PermissaoServiceTest extends CIUnitTestCase
         $this->seed(\App\Database\Seeds\PermissoesSeeder::class);
 
         $usuarios = model(UserModel::class);
-        $usuarios->save(new User(['username' => 'admin.teste']));
+        $usuarios->save(new User(['username' => 'admin.teste', 'active' => true]));
         $this->usuarioId = (int) $usuarios->getInsertID();
 
         /** @var User $usuario */
@@ -51,6 +51,13 @@ final class PermissaoServiceTest extends CIUnitTestCase
     protected function tearDown(): void
     {
         auth()->logout();
+
+        if ($this->db->tableExists('eventos_auditoria')) {
+            $this->db->table('eventos_auditoria')
+                ->where('modulo', 'permissoes')
+                ->whereIn('acao', ['listar_grupos', 'consultar_grupo'])
+                ->delete();
+        }
 
         if ($this->db->tableExists('grupos')) {
             $this->db->table('grupos')->emptyTable();
@@ -281,7 +288,7 @@ final class PermissaoServiceTest extends CIUnitTestCase
         auth()->logout();
 
         $usuarios = model(UserModel::class);
-        $usuarios->save(new User(['username' => 'usuario.sem.permissao']));
+        $usuarios->save(new User(['username' => 'usuario.sem.permissao', 'active' => true]));
         /** @var User $usuario */
         $usuario = $usuarios->findById($usuarios->getInsertID());
         $usuario->addGroup('user');
