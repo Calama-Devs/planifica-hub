@@ -102,6 +102,8 @@ class EdicaoContaService
 
         $nome = preg_replace('/\s+/u', ' ', trim($nome)) ?? '';
         $nomeAtual = (string) ($conta->nome_completo ?? $conta->username);
+        $nomeAtualNormalizado = preg_replace('/\s+/u', ' ', trim($nomeAtual)) ?? '';
+        $alterarNome = $nome !== $nomeAtualNormalizado;
         $emailAtual = (string) $conta->email;
         $emailInformado ??= $email !== null;
         $justificativaInformada ??= $justificativa !== null;
@@ -121,7 +123,7 @@ class EdicaoContaService
         $emailNovo = $emailInformado ? mb_strtolower(trim((string) $email)) : $emailAtual;
         $alterarEmail = mb_strtolower($emailNovo) !== mb_strtolower(trim($emailAtual));
 
-        if (! $this->nomeValido($nome)) {
+        if ($alterarNome && ! $this->nomeValido($nome)) {
             return $this->falha(
                 'validacao',
                 'CONTA_NOME_INVALIDO',
@@ -145,16 +147,6 @@ class EdicaoContaService
 
             if (mb_strlen($emailNovo) > 254 || ! filter_var($emailNovo, FILTER_VALIDATE_EMAIL)) {
                 return $this->falha('validacao', 'EMAIL_INVALIDO', 'Informe um e-mail válido.');
-            }
-
-            if (! config('Contas')->emailInstitucionalPermitido($emailNovo)) {
-                $dominios = implode(', ', config('Contas')->dominiosPermitidos);
-
-                return $this->falha(
-                    'validacao',
-                    'EMAIL_DOMINIO_NAO_PERMITIDO',
-                    'O domínio do e-mail não é permitido. Domínios aceitos: ' . $dominios . '.',
-                );
             }
 
             if (
@@ -183,7 +175,7 @@ class EdicaoContaService
         }
 
         $campos = [];
-        if ($nome !== $nomeAtual) {
+        if ($alterarNome) {
             $campos[] = 'nome_completo';
         }
         if ($alterarEmail) {
@@ -211,11 +203,11 @@ class EdicaoContaService
                 );
             }
 
-            if ($nome !== $nomeAtual && ! $this->contas->update($contaId, ['nome_completo' => $nome])) {
+            if ($alterarNome && ! $this->contas->update($contaId, ['nome_completo' => $nome])) {
                 throw new \RuntimeException('Falha ao atualizar nome.');
             }
 
-            if ($nome !== $nomeAtual) {
+            if ($alterarNome) {
                 $auditado = $this->auditoria->insert([
                     'conta_id' => $contaId,
                     'operador_id' => (int) $operador->id,
@@ -244,11 +236,9 @@ class EdicaoContaService
                 );
             }
 
-            if (! $this->banco->transStatus()) {
+            if (! $this->banco->transStatus() || ! $this->banco->transCommit()) {
                 throw new \RuntimeException('Falha ao registrar auditoria.');
             }
-
-            $this->banco->transCommit();
         } catch (Throwable $erro) {
             $emailDuplicado = $alterarEmail
                 && (
@@ -290,7 +280,7 @@ class EdicaoContaService
             'sucesso' => true,
             'tipo' => 'sucesso',
             'codigo' => $alterarEmail ? 'CONFIRMACAO_EMAIL_ENVIADA' : 'CONTA_ATUALIZADA',
-            'mensagem' => $this->mensagemAtualizacao($nome !== $nomeAtual, $alterarEmail),
+            'mensagem' => $this->mensagemAtualizacao($alterarNome, $alterarEmail),
         ];
     }
 

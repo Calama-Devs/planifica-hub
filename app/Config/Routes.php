@@ -27,7 +27,6 @@ $routes->group('', ['filter' => ['conta-ativa', 'session']], static function (Ro
 
     $routes->group('admin/permissoes', ['filter' => 'permission:acessos.administrar'], static function (RouteCollection $routes): void {
         $routes->get('/', 'PermissaoController::index', ['as' => 'permissoes.index']);
-        $routes->get('listar', 'PermissaoController::listarGrupos', ['as' => 'permissoes.grupos.listar']);
     });
 
     // A tela aceita uma das permissões; a listagem continua restrita à administração de acessos.
@@ -53,6 +52,15 @@ $routes->group('', ['filter' => ['conta-ativa', 'session']], static function (Ro
         'filter' => 'permissao-json:contas.editar',
     ]);
 });
+
+$routes->get('admin/permissoes/listar', 'PermissaoController::listarGrupos', [
+    'as'     => 'permissoes.grupos.listar',
+    'filter' => 'permissao-grupos-json:listar_grupos',
+]);
+$routes->get('admin/permissoes/grupos/(:segment)', 'PermissaoController::consultarGrupo/$1', [
+    'as'     => 'permissoes.grupos.consultar',
+    'filter' => 'permissao-grupos-json:consultar_grupo',
+]);
 
 // Confirmação pública por link enviada ao novo endereço; o GET só mostra o formulário.
 $routes->get('confirmar-troca-email', 'ConfirmacaoEmailContaController::formulario', [

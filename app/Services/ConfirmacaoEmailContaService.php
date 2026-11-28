@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Exceptions\FalhaEnvioConfirmacaoEmailException;
 use App\Models\AuditoriaEdicaoContaModel;
+use App\Models\EventoAuditoriaModel;
 use App\Models\SolicitacaoTrocaEmailModel;
 use App\Models\UsuarioAutenticacaoModel;
 use CodeIgniter\Database\BaseConnection;
@@ -23,6 +24,7 @@ class ConfirmacaoEmailContaService
 
     private SolicitacaoTrocaEmailModel $solicitacoes;
     private AuditoriaEdicaoContaModel $auditoria;
+    private AuditoriaService $auditoriaCentral;
     private UserIdentityModel $identidades;
     private UsuarioAutenticacaoModel $contas;
     private BaseConnection $banco;
@@ -41,6 +43,7 @@ class ConfirmacaoEmailContaService
         $this->identidades = $identidades ?? model(UserIdentityModel::class);
         $this->contas = $contas ?? model(UsuarioAutenticacaoModel::class);
         $this->banco = $banco ?? db_connect();
+        $this->auditoriaCentral = new AuditoriaService(new EventoAuditoriaModel($this->banco));
         $this->email = $email ?? service('email');
     }
 
@@ -99,6 +102,8 @@ class ConfirmacaoEmailContaService
         if (! is_int($solicitacaoCriada) || $solicitacaoCriada < 1) {
             throw new \RuntimeException('Falha ao criar a solicitação de troca de e-mail.');
         }
+
+        $this->registrarEvento($contaId, 'solicitar_troca_email', 'Troca de e-mail solicitada.');
 
         $urlConfirmacao = url_to('contas.email.confirmar.form') . '?token=' . rawurlencode($token);
 
@@ -211,18 +216,6 @@ class ConfirmacaoEmailContaService
                 );
             }
 
-            if (! config('Contas')->emailInstitucionalPermitido($emailNovo)) {
-                $this->finalizarAuditoria((int) $solicitacao['auditoria_id'], 'dominio_bloqueado');
-                $this->solicitacoes->delete((int) $solicitacao['id']);
-                $this->confirmarTransacao();
-
-                return $this->falha(
-                    'regra_negocio',
-                    'EMAIL_DOMINIO_NAO_PERMITIDO',
-                    'Este link não pode ser confirmado. Solicite uma nova alteração ao administrador.',
-                );
-            }
-
             if ($this->emailEmUso($emailNovo, $contaId) || $this->emailPendenteEmUso($emailNovo, $contaId)) {
                 $this->finalizarAuditoria((int) $solicitacao['auditoria_id'], 'conflito');
                 $this->solicitacoes->delete((int) $solicitacao['id']);
@@ -240,6 +233,7 @@ class ConfirmacaoEmailContaService
 
             $this->finalizarAuditoria((int) $solicitacao['auditoria_id'], 'sucesso');
             $this->solicitacoes->delete((int) $solicitacao['id']);
+            $this->registrarEvento($contaId, 'confirmar_troca_email', 'E-mail de login alterado após confirmação.');
 
             $this->confirmarTransacao();
         } catch (Throwable $erro) {
@@ -332,6 +326,18 @@ class ConfirmacaoEmailContaService
         }
     }
 
+    private function registrarEvento(int $contaId, string $acao, string $descricao): void
+    {
+        $this->auditoriaCentral->registrar([
+            'modulo' => 'contas',
+            'acao' => $acao,
+            'entidade_tipo' => 'conta',
+            'entidade_id' => (string) $contaId,
+            'descricao' => $descricao,
+            'resultado' => 'concluida',
+        ]);
+    }
+
     private function finalizarAuditoria(int $auditoriaId, string $resultado): void
     {
         $dados = [
@@ -346,11 +352,9 @@ class ConfirmacaoEmailContaService
 
     private function confirmarTransacao(): void
     {
-        if (! $this->banco->transStatus()) {
+        if (! $this->banco->transStatus() || ! $this->banco->transCommit()) {
             throw new \RuntimeException('Falha ao persistir a troca de e-mail.');
         }
-
-        $this->banco->transCommit();
     }
 
     private function enviarConfirmacao(

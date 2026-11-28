@@ -39,7 +39,7 @@ class ConfirmacaoEmailContaController extends BaseController
                 'mensagem' => 'O link de confirmação é inválido ou expirou.',
             ];
         $codigosLinkInvalido = ['TOKEN_EMAIL_INVALIDO', 'TOKEN_EMAIL_EXPIRADO', 'SOLICITACAO_EMAIL_DESATUALIZADA'];
-        $codigosEmailNaoAceito = ['EMAIL_DUPLICADO', 'EMAIL_DOMINIO_NAO_PERMITIDO', 'EMAIL_INVALIDO'];
+        $codigosEmailNaoAceito = ['EMAIL_DUPLICADO', 'EMAIL_INVALIDO'];
         $status = match (true) {
             $resultado['sucesso'] => 200,
             in_array($resultado['codigo'], $codigosLinkInvalido, true) => 410,

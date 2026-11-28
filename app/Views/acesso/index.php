@@ -34,6 +34,10 @@
     Acessos das contas, identificação de grupos e administração geral de usuários do PlanIFica.
 </p>
 
+<div id="configuracao-contas" class="d-none"
+     data-consultar-url="<?= esc(base_url('admin/contas/__ID__'), 'attr') ?>"
+     data-atualizar-url="<?= esc(base_url('admin/contas/__ID__'), 'attr') ?>"></div>
+
 <div class="row">
     <div class="col-12 col-md-6 grid-margin stretch-card">
         <div class="card">

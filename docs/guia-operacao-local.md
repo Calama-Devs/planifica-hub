@@ -126,7 +126,7 @@ barreira de segurança.
 
 A área Acessos deve consultar o endpoint JSON pelo identificador real antes de iniciar a edição. `contas.editar` é conferida no servidor. Na primeira alteração, o operador informa a própria senha; a confirmação pode ser reutilizada por até 300 segundos para o mesmo operador, operação e conta. A consulta informa `confirmacao_recente` e `confirmacao_expira_em`. Todas as alterações geram auditoria em `auditoria_edicao_contas` com IP minimizado.
 
-A troca excepcional exige justificativa, domínio institucional permitido e endereço único. O sistema envia um link de uso único ao endereço novo; o login atual permanece válido até a confirmação. O link expira em 24 horas. Após a confirmação, o login passa ao endereço novo, links pendentes de recuperação e login mágico são invalidados e o endereço anterior recebe um aviso. A PLAN-44 ainda precisa integrar a ação de edição a esses endpoints.
+A troca excepcional exige justificativa, endereço válido e único, de qualquer domínio. O sistema envia um link de uso único ao endereço novo; o login atual permanece válido até a confirmação. O link expira em 24 horas. Após a confirmação, o login passa ao endereço novo, links pendentes de recuperação e login mágico são invalidados e o endereço anterior recebe um aviso.
 
 ## Executar verificações e testes
 
