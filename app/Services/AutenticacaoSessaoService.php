@@ -45,12 +45,7 @@ class AutenticacaoSessaoService extends Session
         $versao = (int) ($conta->versao_sessao ?? 0);
 
         if ($conta === null || ! $conta->active || $conta->isBanned() || $versao < 1) {
-            if ($this->getSessionUserKey('id') === null) {
-                $this->removeSessionUserInfo();
-                $this->user = null;
-            }
-
-            throw new AuthenticationException(lang('Auth.badAttempt'));
+            throw AuthenticationException::forInvalidUser();
         }
 
         parent::startLogin($conta);
@@ -59,7 +54,54 @@ class AutenticacaoSessaoService extends Session
 
     public function loggedIn(): bool
     {
-        return $this->validarSessaoExistente() && parent::loggedIn() && $this->user !== null;
+        try {
+            return $this->validarSessaoExistente() && parent::loggedIn() && $this->user !== null;
+        } catch (AuthenticationException $exception) {
+            $this->responderFalhaDeRememberMe($exception);
+        }
+    }
+
+    public function getUser(): ?User
+    {
+        try {
+            return parent::getUser();
+        } catch (AuthenticationException $exception) {
+            $this->responderFalhaDeRememberMe($exception);
+        }
+    }
+
+    private function responderFalhaDeRememberMe(AuthenticationException $exception): never
+    {
+        $requisicao = service('request');
+
+        if (! $requisicao instanceof IncomingRequest) {
+            throw $exception;
+        }
+
+        $nomeCookie = setting('Cookie.prefix') . setting('Auth.sessionConfig')['rememberCookieName'];
+        $cookie     = $requisicao->getCookie($nomeCookie);
+
+        if (! is_string($cookie) || ! str_contains($cookie, ':')) {
+            throw $exception;
+        }
+
+        [$seletor] = explode(':', $cookie, 2);
+        $token     = $this->rememberModel->getRememberToken($seletor);
+
+        if ($token === null) {
+            throw $exception;
+        }
+
+        $conta = $this->provider->findById($token->user_id);
+
+        if ($conta instanceof User) {
+            $this->forget($conta);
+        }
+
+        $this->encerrarSessaoRevogada();
+        $inativa = ! $conta instanceof User || ! $conta->active;
+
+        $this->responderSessaoEncerrada($requisicao->isAJAX(), $inativa);
     }
 
     private function validarSessaoExistente(): bool

@@ -214,7 +214,7 @@ Depois de iniciar a aplicação local, confira:
 - Catálogo e matriz de permissões: `app/Config/AuthGroups.php`.
 - Controller administrativo: `app/Controllers/ContaController.php`.
 - Regras e persistência: `app/Services/EdicaoContaService.php`.
-- Confirmação recente de senha: `app/Services/ConfirmacaoOperacaoService.php`.
+- Confirmação recente de senha: `app/Services/ConfirmacaoOperacaoService.php`. A conferência da senha e o limite de tentativas ficam em `app/Services/ConfirmacaoAdministrativaService.php`.
 - Confirmação do novo endereço: `ConfirmacaoEmailContaController`, `ConfirmacaoEmailContaService` e Views em `app/Views/conta/`.
 - Campo separado de nome completo e auditoria: migrations em `app/Database/Migrations/`.
 - Testes da gestão de contas: `tests/feature/ContaTest.php`.

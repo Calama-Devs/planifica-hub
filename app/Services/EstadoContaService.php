@@ -6,7 +6,6 @@ namespace App\Services;
 
 use App\Models\EstadoContaModel;
 use App\Models\IdentidadeRecuperacaoModel;
-use CodeIgniter\Shield\Authentication\Passwords;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\RememberModel;
 use CodeIgniter\Shield\Models\UserIdentityModel;
@@ -24,36 +23,51 @@ class EstadoContaService
     private AcessoEssencialService $acessoEssencial;
     private RememberModel $lembrancas;
     private UserIdentityModel $identidades;
+    private ConfirmacaoAdministrativaService $confirmacao;
 
     public function __construct(
         ?EstadoContaModel $contas = null,
         ?RememberModel $lembrancas = null,
         ?UserIdentityModel $identidades = null,
+        ?ConfirmacaoAdministrativaService $confirmacao = null,
     ) {
         $this->contas = $contas ?? new EstadoContaModel();
         $this->acessoEssencial = new AcessoEssencialService($this->contas);
         $this->lembrancas = $lembrancas ?? new RememberModel();
         $this->identidades = $identidades ?? new UserIdentityModel();
+        $this->confirmacao = $confirmacao ?? service('confirmacaoAdministrativaService');
     }
 
     /** @return Resultado */
-    public function desativar(int $contaId, int $operadorId, string $senhaAtual): array
+    public function desativar(int $contaId, #[\SensitiveParameter] string $senhaAdmin): array
     {
-        return $this->alterarEstado($contaId, $operadorId, $senhaAtual, false);
+        return $this->alterarEstado($contaId, $senhaAdmin, false);
     }
 
     /** @return Resultado */
-    public function reativar(int $contaId, int $operadorId, string $senhaAtual): array
+    public function reativar(int $contaId, #[\SensitiveParameter] string $senhaAdmin): array
     {
-        return $this->alterarEstado($contaId, $operadorId, $senhaAtual, true);
+        return $this->alterarEstado($contaId, $senhaAdmin, true);
     }
 
     /** @return Resultado */
-    private function alterarEstado(int $contaId, int $operadorId, string $senhaAtual, bool $ativar): array
+    private function alterarEstado(int $contaId, #[\SensitiveParameter] string $senhaAdmin, bool $ativar): array
     {
+        $operador = $this->confirmacao->confirmar(
+            $ativar ? 'reativar_conta' : 'desativar_conta',
+            $contaId,
+            $senhaAdmin,
+        );
+
+        if (! $operador instanceof User) {
+            return $operador;
+        }
+
+        $operadorId = (int) $operador->id;
+
         try {
             return $this->acessoEssencial->executarComBloqueio(
-                fn (): array => $this->processarAlteracao($contaId, $operadorId, $senhaAtual, $ativar)
+                fn (): array => $this->processarAlteracao($contaId, $operadorId, $ativar)
             );
         } catch (Throwable $erro) {
             log_message('error', 'Falha ao alterar estado: conta {conta}, operador {operador}, exceção {classe}.', [
@@ -67,9 +81,9 @@ class EstadoContaService
     }
 
     /** @return Resultado */
-    private function processarAlteracao(int $contaId, int $operadorId, string $senhaAtual, bool $ativar): array
+    private function processarAlteracao(int $contaId, int $operadorId, bool $ativar): array
     {
-        $recusa = $this->validarOperador($operadorId, $senhaAtual, $ativar);
+        $recusa = $this->validarOperador($operadorId, $ativar);
 
         if ($recusa !== null) {
             return $recusa;
@@ -108,8 +122,13 @@ class EstadoContaService
         return $this->gravarAlteracao($conta, $ativar);
     }
 
-    /** @return Resultado|null */
-    private function validarOperador(int $operadorId, string $senhaAtual, bool $ativar): ?array
+    /**
+     * A senha já foi confirmada antes do bloqueio. Aqui o operador é conferido de novo sob o bloqueio, com o estado
+     * e as permissões lidos depois de qualquer alteração concorrente.
+     *
+     * @return Resultado|null
+     */
+    private function validarOperador(int $operadorId, bool $ativar): ?array
     {
         $operador = $this->contas->findById($operadorId);
         $permissao = $ativar ? 'contas.reativar' : 'contas.desativar';
@@ -123,17 +142,6 @@ class EstadoContaService
                 'CONTA_SEM_PERMISSAO',
                 'Sem permissão para alterar o estado desta conta.',
             );
-        }
-
-        $identidade = $operador->getEmailIdentity();
-        /** @var Passwords $senhas */
-        $senhas = service('passwords');
-
-        if (
-            $senhaAtual === '' || $identidade === null || ! is_string($identidade->secret2)
-            || ! $senhas->verify($senhaAtual, $identidade->secret2)
-        ) {
-            return $this->falha('permissao', 'CONTA_SENHA_INVALIDA', 'A senha atual informada está incorreta.');
         }
 
         return null;

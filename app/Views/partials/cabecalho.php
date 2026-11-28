@@ -45,18 +45,6 @@
 
                         <?php endif; ?>
                         <div class="dropdown-divider"></div>
-                        <button type="button" id="botao-alterar-senha" class="dropdown-item preview-item"
-                            data-bs-toggle="modal" data-bs-target="#modal-alterar-senha">
-                            <div class="preview-thumbnail">
-                                <div class="preview-icon bg-dark rounded-circle">
-                                    <i class="mdi mdi-lock-reset text-primary" aria-hidden="true"></i>
-                                </div>
-                            </div>
-                            <div class="preview-item-content">
-                                <p class="preview-subject mb-1">Alterar Senha</p>
-                            </div>
-                        </button>
-                        <div class="dropdown-divider"></div>
 
                         <form action="<?= url_to('logout') ?>" method="post">
                             <?= csrf_field() ?>

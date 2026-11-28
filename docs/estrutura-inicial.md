@@ -69,6 +69,11 @@ seguem a convenção de sufixos descrita acima.
   Controller e no Service. O logout permanece exclusivamente por POST.
   `app/Config/Filters.php` e `Security.php` mantêm a proteção CSRF global
   baseada em sessão.
+- As operações administrativas que alteram a conta de outra pessoa exigem a
+  senha do próprio operador, conferida pelo `ConfirmacaoAdministrativaService`
+  na mesma requisição da operação, com limite de tentativas por operador. O
+  contrato e a integração de novas operações estão no
+  [guia de confirmação administrativa](autorizacao/confirmacao-administrativa.md).
 
 ### Rotas atuais
 
@@ -83,6 +88,8 @@ seguem a convenção de sufixos descrita acima.
 | GET | `/admin/acessos/listar` | Listagem de contas protegida por `acessos.administrar` |
 | GET | `/admin/contas/{id}` | `ContaController::consultar`, exige `contas.editar` no Controller e carrega nome completo e e-mail pelo identificador da rota |
 | POST | `/admin/contas/{id}` | `ContaController::atualizar`, exige `contas.editar` e CSRF; atualiza o nome e, para e-mail, cria solicitação pendente de confirmação no novo endereço |
+| POST | `/admin/contas/{id}/desativar` | `EstadoContaController::desativar`, exige `contas.desativar`, CSRF e a confirmação da senha do operador (`senha_admin`) |
+| POST | `/admin/contas/{id}/reativar` | `EstadoContaController::reativar`, exige `contas.reativar`, CSRF e a confirmação da senha do operador (`senha_admin`) |
 | GET | `/confirmar-troca-email?token={token}` | `ConfirmacaoEmailContaController::formulario`, apresenta a confirmação sem consumir o token |
 | POST | `/confirmar-troca-email` | `ConfirmacaoEmailContaController::confirmar`, exige CSRF e confirma a posse do novo endereço antes de atualizar a identidade do Shield |
 | GET / POST | `/register` | Formulário e cadastro pelo Shield |
@@ -109,12 +116,12 @@ Os fluxos por e-mail dependem da configuração local descrita no
 
 ### Edição administrativa de contas e política de auditoria
 
-Os endpoints JSON `GET` e `POST /admin/contas/{id}` são destinados à integração pela área Acessos. A atualização exige `contas.editar`; os grupos `superadmin` e `admin` recebem essa permissão pela matriz do Shield. A confirmação da senha do operador autenticado (`senha_admin`) pode ser reutilizada por até 300 segundos, restrita ao operador, operação e conta afetada, somente para edições sem o campo `email`. A consulta inclui `confirmacao_recente` e `confirmacao_expira_em`.
+Os endpoints JSON `GET` e `POST /admin/contas/{id}` são destinados à integração pela área Acessos. A atualização exige `contas.editar`; os grupos `superadmin` e `admin` recebem essa permissão pela matriz do Shield. A confirmação da senha do operador autenticado (`senha_admin`) pode ser reutilizada por até 300 segundos, restrita ao operador, operação e conta afetada, somente para edições sem o campo `email`. A consulta inclui `confirmacao_recente` e `confirmacao_expira_em`. A senha é conferida pelo serviço compartilhado de [confirmação administrativa](autorizacao/confirmacao-administrativa.md), que também limita as tentativas por operador.
 - **Campos aceitos:** `nome` (2 a 255 caracteres), `senha_admin` (obrigatória para toda solicitação que inclua `email`, mesmo que a confirmação recente esteja ativa; para edição sem `email`, é obrigatória apenas sem confirmação recente) e, exclusivamente no fluxo excepcional de alteração de e-mail, `email` e `justificativa` (15 a 500 caracteres). Propriedades adicionais como `groups`, `permissions`, `active` e `password` são rejeitadas com HTTP 400 (`DADOS_CONTA_INVALIDOS`).
 - **Autorização:** filtro JSON, Controller e Service conferem `contas.editar`; a senha correta não substitui a permissão. A autorização exige que o grupo mais alto do operador seja estritamente superior ao do alvo na ordem configurada em `Config\Contas`. A confirmação do novo e-mail revalida a permissão e a hierarquia do operador original. Uma permissão exclusiva para troca excepcional de e-mail pode ser avaliada futuramente.
 - **Troca de e-mail:** o novo endereço deve ser válido e único, de qualquer domínio. Formato e disponibilidade são revalidados na confirmação. A solicitação expira em 24 horas e só altera a identidade Shield depois da confirmação no novo endereço. Então links pendentes `magic-link-reset` e `magic-link` são invalidados e o endereço anterior recebe uma notificação. Solicitações pendentes da mesma conta são substituídas; tokens são armazenados somente como hash.
 - **Auditoria transacional e minimização de dados:** todas as edições são persistidas na tabela `auditoria_edicao_contas` atomicamente com os dados da conta; falhas no registro de auditoria causam rollback imediato da operação. `created_at` registra a criação do evento e permanece imutável; `updated_at` registra a data e hora em que o resultado da solicitação de troca de e-mail muda. Em observância ao princípio da minimização de dados (LGPD), o IP do operador é armazenado em formato minimizado (IPv4 com último octeto zerado e IPv6 truncado após os 3 primeiros grupos; endereços inválidos ou vazios são gravados como nulos). A finalidade é a rastreabilidade administrativa sem coleta excessiva de dados de rede. Registros de auditoria antigos anteriores a esta política permanecem inalterados como estão.
-- **Confirmação recente de senha:** uma senha válida autoriza novas edições por até 300 segundos, somente para o mesmo operador, a operação de edição de conta e a conta afetada. A confirmação pode ser reutilizada durante esse período, somente na edição sem troca de e-mail; não é armazenada senha ou hash e o logout encerra a janela com a sessão. `consultar` acrescenta `confirmacao_recente` (booleano) e `confirmacao_expira_em` (segundos restantes ou `null`). Sem confirmação válida e com senha ausente/incorreta, a atualização retorna HTTP 422 e `CONFIRMACAO_INVALIDA`.
+- **Confirmação recente de senha:** uma senha válida autoriza novas edições por até 300 segundos, somente para o mesmo operador, a operação de edição de conta e a conta afetada. A confirmação pode ser reutilizada durante esse período, somente na edição sem troca de e-mail; não é armazenada senha ou hash e o logout encerra a janela com a sessão. `consultar` acrescenta `confirmacao_recente` (booleano) e `confirmacao_expira_em` (segundos restantes ou `null`). Sem confirmação válida e com senha ausente/incorreta, a atualização retorna HTTP 422 e `CONFIRMACAO_INVALIDA`; o excesso de tentativas incorretas retorna HTTP 429 e `CONFIRMACAO_LIMITE_EXCEDIDO`.
 
 ## Convenções para perfil e administração
 

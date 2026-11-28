@@ -2,6 +2,7 @@
 
 namespace Config;
 
+use App\Filters\ContaAtivaFilter;
 use App\Filters\PermissaoJsonFilter;
 use App\Filters\PermissaoGruposJsonFilter;
 use CodeIgniter\Config\Filters as BaseFilters;
@@ -27,6 +28,7 @@ class Filters extends BaseFilters
      * or [filter_name => [classname1, classname2, ...]]
      */
     public array $aliases = [
+        'conta-ativa'   => ContaAtivaFilter::class,
         'csrf'          => CSRF::class,
         'toolbar'       => DebugToolbar::class,
         'honeypot'      => Honeypot::class,

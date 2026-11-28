@@ -84,6 +84,8 @@ if (! auth()->user()?->can('acessos.administrar')) {
 
 Permissão para a ação não garante acesso a todos os registros. Quando houver escopo por usuário, vínculo ou módulo, confira-o no servidor antes de consultar, alterar, excluir ou devolver o registro. Em ações que administram acessos, confira também se o ator pode alterar o alvo e conceder ou revogar os grupos e permissões solicitados; não permita autoelevação nem concessões além do escopo autorizado.
 
+Operações que alteram a conta de outra pessoa exigem ainda a confirmação da senha do próprio operador. O `ConfirmacaoAdministrativaService` confere a sessão, a permissão da ação, a senha e o limite de tentativas na mesma requisição, antes de qualquer escrita; a senha correta nunca substitui a permissão. Veja o [guia de confirmação administrativa](../autorizacao/confirmacao-administrativa.md).
+
 ### 3. Na View, só para exibir ou esconder
 
 O Controller entrega o resultado pronto para apresentação. A View só usa `if` (manual 9.4). Ocultar menu, botão ou formulário não protege a operação contra requisições diretas.

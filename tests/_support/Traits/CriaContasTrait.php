@@ -20,7 +20,7 @@ trait CriaContasTrait
         $contas = model(UserModel::class);
         $contas->save(new User([
             'username' => $username,
-            'active'   => 1,
+            'active'   => true,
         ]));
 
         /** @var User $conta */
