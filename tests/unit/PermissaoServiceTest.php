@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Exceptions\IdentificadorGrupoInvalidoException;
 use App\Models\PermissaoModel;
 use App\Models\EventoAuditoriaModel;
 use App\Models\GrupoModel;
@@ -16,6 +17,7 @@ use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use Config\AuthGroups;
+use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 
 final class PermissaoServiceTest extends CIUnitTestCase
@@ -359,18 +361,28 @@ final class PermissaoServiceTest extends CIUnitTestCase
         ]);
     }
 
-    public function testIdentificadorInvalidoEhRecusadoEAuditado(): void
+    #[DataProvider('provedorIdentificadoresInvalidos')]
+    public function testIdentificadorInvalidoEhRecusadoEAuditado(string $identificador): void
     {
         try {
-            $this->service->buscarGrupoPorIdentificador(str_repeat('a', 256));
-            $this->fail('O identificador acima do limite deveria ser recusado.');
-        } catch (\InvalidArgumentException) {
+            $this->service->buscarGrupoPorIdentificador($identificador);
+            $this->fail('O identificador inválido deveria ser recusado.');
+        } catch (IdentificadorGrupoInvalidoException) {
             $this->seeInDatabase('eventos_auditoria', [
                 'acao'       => 'consultar_grupo',
                 'usuario_id' => $this->usuarioId,
                 'resultado'  => 'recusada',
             ]);
         }
+    }
+
+    public static function provedorIdentificadoresInvalidos(): array
+    {
+        return [
+            'somente espaços'       => ['   '],
+            'acima do limite'       => [str_repeat('a', 256)],
+            'caractere de controle' => ["grupo\x7F"],
+        ];
     }
 
     public function testIdentificadorPersonalizadoCompativelComShieldNaoEhAlterado(): void

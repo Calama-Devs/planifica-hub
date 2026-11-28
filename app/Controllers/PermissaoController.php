@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Exceptions\IdentificadorGrupoInvalidoException;
 use App\Services\PermissaoService;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\HTTP\ResponseInterface;
@@ -199,25 +200,6 @@ class PermissaoController extends BaseController
             return $operador;
         }
 
-        if (
-            trim($identificador) === ''
-            || mb_strlen($identificador) > 255
-            || preg_match('/[\x00-\x1F\x7F]/', $identificador) === 1
-        ) {
-            $this->permissaoService->registrarRecusaConsultaDeGrupos(
-                'consultar_grupo',
-                null,
-                'Consulta recusada: identificador de grupo inválido.'
-            );
-
-            return $this->response->setStatusCode(422)->setJSON([
-                'sucesso'  => false,
-                'tipo'     => 'validacao',
-                'codigo'   => 'CONSULTA_GRUPO_INVALIDA',
-                'mensagem' => 'Identificador de grupo inválido.',
-            ]);
-        }
-
         try {
             $grupo = $this->permissaoService->buscarGrupoPorIdentificador($identificador);
 
@@ -236,6 +218,13 @@ class PermissaoController extends BaseController
                 'codigo'   => 'CONSULTA_GRUPO_OK',
                 'mensagem' => 'Grupo consultado com sucesso.',
                 'data'     => $grupo,
+            ]);
+        } catch (IdentificadorGrupoInvalidoException) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'sucesso'  => false,
+                'tipo'     => 'validacao',
+                'codigo'   => 'CONSULTA_GRUPO_INVALIDA',
+                'mensagem' => 'Identificador de grupo inválido.',
             ]);
         } catch (Throwable $erro) {
             log_message(

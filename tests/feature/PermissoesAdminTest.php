@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\GrupoUsuarioModel;
+use App\Services\PermissaoService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Models\UserModel;
@@ -11,6 +13,8 @@ use CodeIgniter\Shield\Test\AuthenticationTesting;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\FeatureTestTrait;
+use Config\Services;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 final class PermissoesAdminTest extends CIUnitTestCase
@@ -189,10 +193,16 @@ final class PermissoesAdminTest extends CIUnitTestCase
     {
         $superadmin = $this->criarUsuario('superadmin');
 
-        $this->actingAs($superadmin)
-            ->get('admin/permissoes/grupos/nao-existe')
-            ->assertStatus(404);
+        $resposta = $this->actingAs($superadmin)->get('admin/permissoes/grupos/nao-existe');
+        $resposta->assertStatus(404);
+        $resposta->assertJSONExact([
+            'sucesso'  => false,
+            'tipo'     => 'regra_negocio',
+            'codigo'   => 'GRUPO_NAO_ENCONTRADO',
+            'mensagem' => 'Grupo não encontrado.',
+        ]);
 
+        $this->seeNumRecords(1, 'eventos_auditoria', ['acao' => 'consultar_grupo']);
         $this->seeInDatabase('eventos_auditoria', [
             'modulo'        => 'permissoes',
             'acao'          => 'consultar_grupo',
@@ -200,6 +210,57 @@ final class PermissoesAdminTest extends CIUnitTestCase
             'entidade_id'   => 'nao-existe',
             'usuario_id'    => $superadmin->id,
             'resultado'     => 'recusada',
+        ]);
+    }
+
+    public function testIdentificadorInvalidoRetorna422EAuditaUmaRecusa(): void
+    {
+        $superadmin = $this->criarUsuario('superadmin');
+        $resposta = $this->actingAs($superadmin)->get('admin/permissoes/grupos/' . str_repeat('a', 256));
+        $resposta->assertStatus(422);
+        $resposta->assertJSONExact([
+            'sucesso'  => false,
+            'tipo'     => 'validacao',
+            'codigo'   => 'CONSULTA_GRUPO_INVALIDA',
+            'mensagem' => 'Identificador de grupo inválido.',
+        ]);
+
+        $this->seeNumRecords(1, 'eventos_auditoria', ['acao' => 'consultar_grupo']);
+        $this->seeInDatabase('eventos_auditoria', [
+            'modulo'      => 'permissoes',
+            'acao'        => 'consultar_grupo',
+            'entidade_id' => null,
+            'usuario_id'  => $superadmin->id,
+            'resultado'   => 'recusada',
+            'descricao'   => 'Consulta recusada: identificador de grupo inválido.',
+        ]);
+    }
+
+    public function testArgumentoInvalidoInternoRetorna500EAuditaErro(): void
+    {
+        $superadmin = $this->criarUsuario('superadmin');
+        $grupoUsuarioModel = $this->createMock(GrupoUsuarioModel::class);
+        $grupoUsuarioModel->expects($this->once())
+            ->method('contarUsuariosPorGrupo')
+            ->willThrowException(new InvalidArgumentException('Falha interna simulada.'));
+        Services::injectMock('permissaoService', new PermissaoService(grupoUsuarioModel: $grupoUsuarioModel));
+
+        $resposta = $this->actingAs($superadmin)->get('admin/permissoes/grupos/admin');
+        $resposta->assertStatus(500);
+        $resposta->assertJSONExact([
+            'sucesso'  => false,
+            'tipo'     => 'inesperado',
+            'codigo'   => 'CONSULTA_GRUPO_INDISPONIVEL',
+            'mensagem' => 'Não foi possível consultar o grupo.',
+        ]);
+
+        $this->seeNumRecords(1, 'eventos_auditoria', ['acao' => 'consultar_grupo']);
+        $this->seeInDatabase('eventos_auditoria', [
+            'modulo'      => 'permissoes',
+            'acao'        => 'consultar_grupo',
+            'entidade_id' => 'admin',
+            'usuario_id'  => $superadmin->id,
+            'resultado'   => 'erro',
         ]);
     }
 

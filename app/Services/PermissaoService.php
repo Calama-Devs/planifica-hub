@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Exceptions\IdentificadorGrupoInvalidoException;
 use App\Models\EventoAuditoriaModel;
 use App\Models\GrupoModel;
 use App\Models\GrupoUsuarioModel;
@@ -252,7 +253,7 @@ class PermissaoService
                 'Consulta recusada: identificador de grupo inválido.'
             );
 
-            throw new \InvalidArgumentException('Identificador de grupo inválido.');
+            throw new IdentificadorGrupoInvalidoException('Identificador de grupo inválido.');
         }
 
         try {
