@@ -53,6 +53,19 @@ final class ContaTest extends CIUnitTestCase
         }
     }
 
+    protected function tearDown(): void
+    {
+        // A migration protege o histórico. Descarte os eventos do fluxo somente no banco de teste.
+        if ($this->db->tableExists('eventos_auditoria')) {
+            $this->db->table('eventos_auditoria')
+                ->where('modulo', 'contas')
+                ->whereIn('acao', ['solicitar_troca_email', 'confirmar_troca_email'])
+                ->delete();
+        }
+
+        parent::tearDown();
+    }
+
     public function testGruposAdministrativosRecebemPermissaoDeEditarContas(): void
     {
         $superadmin = $this->criarUsuario('operador.superadmin');
@@ -701,69 +714,6 @@ final class ContaTest extends CIUnitTestCase
         ]);
     }
 
-    public function testDominioRevogadoAntesDaConfirmacaoCancelaSolicitacao(): void
-    {
-        $operador = $this->criarUsuario('operador', true);
-        $alvo = $this->criarUsuario('conta.alvo');
-        $emailNovo = 'novo.email@ifro.edu.br';
-
-        $solicitacao = $this->enviarAtualizacao($operador, (int) $alvo->id, [
-            'nome' => 'Conta Alvo',
-            'senha_admin' => $this->senha,
-            'email' => $emailNovo,
-            'justificativa' => 'Correção solicitada pelo titular.',
-        ]);
-        $solicitacao->assertOK();
-
-        $auditoria = $this->db->table('auditoria_edicao_contas')
-            ->where('conta_id', $alvo->id)
-            ->where('email_novo', $emailNovo)
-            ->get()
-            ->getRowArray();
-        self::assertIsArray($auditoria);
-        $createdAtOriginal = $auditoria['created_at'];
-        $dominiosOriginais = config('Contas')->dominiosPermitidos;
-
-        try {
-            config('Contas')->dominiosPermitidos = ['outro.edu.br'];
-            $confirmacao = $this->confirmarEmailDaMensagem(0);
-        } finally {
-            config('Contas')->dominiosPermitidos = $dominiosOriginais;
-        }
-
-        $confirmacao->assertStatus(422);
-        self::assertStringContainsString(
-            'Este link não pode ser confirmado.',
-            html_entity_decode(strip_tags($confirmacao->getBody()), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-        );
-        self::assertStringNotContainsString('ifro.edu.br', $confirmacao->getBody());
-        $this->seeInDatabase('auth_identities', [
-            'user_id' => $alvo->id,
-            'type' => 'email_password',
-            'secret' => 'conta2@example.com',
-        ]);
-        $this->dontSeeInDatabase('solicitacoes_troca_email', ['conta_id' => $alvo->id]);
-        $auditoriaFinalizada = $this->db->table('auditoria_edicao_contas')
-            ->where('id', $auditoria['id'])
-            ->get()
-            ->getRowArray();
-        self::assertIsArray($auditoriaFinalizada);
-        self::assertSame('dominio_bloqueado', $auditoriaFinalizada['resultado']);
-        self::assertSame($createdAtOriginal, $auditoriaFinalizada['created_at']);
-        self::assertNotEmpty($auditoriaFinalizada['updated_at']);
-        self::assertCount(
-            1,
-            $this->emailFake->corpos,
-            'O endereço anterior não recebe aviso quando a confirmação é bloqueada.',
-        );
-
-        $repeticao = $this->post('confirmar-troca-email', [
-            csrf_token() => csrf_hash(),
-            'token' => $this->tokenDaMensagem(0),
-        ]);
-        $repeticao->assertStatus(410);
-    }
-
     public function testReivindicacaoAtomicaExigeTokenPendenteEValido(): void
     {
         $operador = $this->criarUsuario('operador', true);
@@ -1181,56 +1131,73 @@ final class ContaTest extends CIUnitTestCase
         ]);
     }
 
-    public function testRecusaDominiosNaoPermitidosComCodigoEspecifico(): void
+    public function testConfirmaEmailExternoSemAlterarNomeDeContaLegada(): void
     {
         $operador = $this->criarUsuario('operador', true);
         $alvo = $this->criarUsuario('conta.alvo');
-        $emailOriginal = (string) $alvo->email;
 
-        $dominiosInvalidos = [
-            'x@gmail.com',
-            'x@falsoifro.edu.br',
-            'x@ifro.edu.br.exemplo.com',
-            'x@outro.estudante.ifro.edu.br',
-        ];
-
-        foreach ($dominiosInvalidos as $emailInvalido) {
-            $resposta = $this->enviarAtualizacao($operador, (int) $alvo->id, [
-                'nome' => 'Nome Atualizado',
-                'senha_admin' => $this->senha,
-                'email' => $emailInvalido,
-                'justificativa' => 'Tentativa de troca de e-mail.',
-            ]);
-
-            $resposta->assertStatus(422);
-            $dados = json_decode($resposta->getJSON(), true);
-            self::assertSame('EMAIL_DOMINIO_NAO_PERMITIDO', $dados['codigo'] ?? null);
-            self::assertSame('validacao', $dados['tipo'] ?? null);
-        }
-
-        $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => $emailOriginal]);
-        $this->dontSeeInDatabase('auditoria_edicao_contas', ['conta_id' => $alvo->id]);
-    }
-
-    public function testNormalizaMaiusculasEEspacosNoDominio(): void
-    {
-        $operador = $this->criarUsuario('operador', true);
-        $alvo = $this->criarUsuario('conta.alvo');
+        $consulta = $this->actingAs($operador)->get('admin/contas/' . $alvo->id);
+        $consulta->assertOK();
+        $nomeExibido = json_decode($consulta->getJSON(), true)['conta']['nome'];
+        self::assertSame('conta.alvo', $nomeExibido);
 
         $resposta = $this->enviarAtualizacao($operador, (int) $alvo->id, [
-            'nome' => 'Nome Novo',
+            'nome' => $nomeExibido,
             'senha_admin' => $this->senha,
-            'email' => 'X@IFRO.EDU.BR ',
+            'email' => 'X@EXAMPLE.ORG ',
             'justificativa' => 'Normalização de domínio de e-mail.',
         ]);
 
         $resposta->assertOK();
         $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
-        $this->confirmarEmailDaMensagem(0);
-        $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'x@ifro.edu.br']);
+        $this->seeInDatabase('eventos_auditoria', [
+            'usuario_id' => $operador->id,
+            'modulo' => 'contas',
+            'acao' => 'solicitar_troca_email',
+            'entidade_id' => (string) $alvo->id,
+            'resultado' => 'concluida',
+            'descricao' => 'Troca de e-mail solicitada.',
+        ]);
+        $this->confirmarEmailDaMensagem(0)->assertOK();
+        $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'x@example.org']);
+        $this->seeInDatabase('users', ['id' => $alvo->id, 'nome_completo' => null]);
+        $this->seeInDatabase('eventos_auditoria', [
+            'modulo' => 'contas',
+            'acao' => 'confirmar_troca_email',
+            'entidade_id' => (string) $alvo->id,
+            'resultado' => 'concluida',
+            'descricao' => 'E-mail de login alterado após confirmação.',
+        ]);
         $this->seeInDatabase('auditoria_edicao_contas', [
             'conta_id' => $alvo->id,
-            'email_novo' => 'x@ifro.edu.br',
+            'email_novo' => 'x@example.org',
+            'resultado' => 'sucesso',
+        ]);
+    }
+
+    public function testFalhaNaAuditoriaCentralReverteConfirmacaoDeEmailExterno(): void
+    {
+        $operador = $this->criarUsuario('operador', true);
+        $alvo = $this->criarUsuario('conta.alvo');
+        $this->enviarAtualizacao($operador, (int) $alvo->id, [
+            'nome' => 'Conta Alvo',
+            'senha_admin' => $this->senha,
+            'email' => 'novo@example.org',
+            'justificativa' => 'Correção solicitada pelo titular.',
+        ])->assertOK();
+
+        $tabela = $this->db->escapeIdentifiers($this->db->prefixTable('eventos_auditoria'));
+        $this->db->query(
+            'CREATE TRIGGER falha_auditoria_central BEFORE INSERT ON ' . $tabela
+            . ' BEGIN SELECT RAISE(ABORT, "falha de auditoria"); END',
+        );
+
+        $this->confirmarEmailDaMensagem(0)->assertStatus(500);
+        $this->seeInDatabase('auth_identities', ['user_id' => $alvo->id, 'secret' => 'conta2@example.com']);
+        $this->seeInDatabase('solicitacoes_troca_email', ['conta_id' => $alvo->id]);
+        $this->dontSeeInDatabase('eventos_auditoria', [
+            'acao' => 'confirmar_troca_email',
+            'entidade_id' => (string) $alvo->id,
         ]);
     }
 
